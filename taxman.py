@@ -91,9 +91,9 @@ def process_sys(drive, system, test_mode):
     sort_positions_cn = build_sort_position_dict(sorted_stripped_names)
     sort_positions_pinyin = build_sort_position_dict(sorted_stripped_names)
 
-    write_file(filenames, name_map_files, index_path_files, sort_positions_files, test_mode)
-    write_file(filenames, name_map_cn, index_path_cn, sort_positions_cn, test_mode)
-    write_file(filenames, name_map_pinyin, index_path_pinyin, sort_positions_pinyin, test_mode)
+    write_index_file(filenames, name_map_files, sort_positions_files, index_path_files, test_mode)
+    write_index_file(filenames, name_map_cn, sort_positions_cn, index_path_cn, test_mode)
+    write_index_file(filenames, name_map_pinyin, sort_positions_pinyin, index_path_pinyin, test_mode)
 
     print("Done\n")
 
@@ -120,7 +120,7 @@ def check_and_back_up_file(file_path):
             raise StopExecution
 
 
-def write_file(filenames, name_map, index_path, sort_positions, test_mode):
+def write_index_file(filenames, name_map, sort_positions, index_path, test_mode):
     positions_by_sort_pos = {}
     all_files_str = ""
     for file in filenames:
