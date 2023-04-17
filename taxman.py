@@ -38,6 +38,11 @@ def check_file(file_entry):
     return file_entry.is_file() and re.search(file_regex, file_entry.name.lower())
 
 
+def build_sort_position_dict(sorted_list):
+    # this MIGHT NOT WORK it relies on what i think is inherent behaviour of dicts being internally sorted
+    # this is an array flip equiv
+    return {value: key for key, value in dict(enumerate(sorted_list)).items()}
+
 def process_sys(drive, system, test_mode):
     print(f"Processing {system}")
 
@@ -81,9 +86,14 @@ def process_sys(drive, system, test_mode):
     name_map_cn = dict(zip(sorted_filenames, sorted_stripped_names))
     name_map_pinyin = dict(zip(sorted_filenames, sorted_stripped_names))
 
-    write_file(filenames, name_map_files, index_path_files, test_mode)
-    write_file(filenames, name_map_cn, index_path_cn, test_mode)
-    write_file(filenames, name_map_pinyin, index_path_pinyin, test_mode)
+    # build sort positions separately since dicts aren't explicitly sorted
+    sort_positions_files = build_sort_position_dict(sorted_filenames)
+    sort_positions_cn = build_sort_position_dict(sorted_stripped_names)
+    sort_positions_pinyin = build_sort_position_dict(sorted_stripped_names)
+
+    write_file(filenames, name_map_files, index_path_files, sort_positions_files, test_mode)
+    write_file(filenames, name_map_cn, index_path_cn, sort_positions_cn, test_mode)
+    write_file(filenames, name_map_pinyin, index_path_pinyin, sort_positions_pinyin, test_mode)
 
     print("Done\n")
 
@@ -110,11 +120,7 @@ def check_and_back_up_file(file_path):
             raise StopExecution
 
 
-def write_file(filenames, name_map, index_path, test_mode):
-    # this MIGHT NOT WORK it relies on what i think is inherent behaviour of dicts being internally sorted
-    sort_positions = dict(enumerate(name_map.values()))
-    # this is an array flip equiv
-    sort_positions = {value: key for key, value in sort_positions.items()}
+def write_file(filenames, name_map, index_path, sort_positions, test_mode):
     positions_by_sort_pos = {}
     all_files_str = ""
     for file in filenames:
@@ -124,9 +130,8 @@ def write_file(filenames, name_map, index_path, test_mode):
         positions_by_sort_pos[sort_pos] = pos
         all_files_str = all_files_str + name + chr(0)
 
-    # this should give me values sorted by key lmao
+    # this should give values sorted by key
     positions_by_sort_pos = [val for key, val in sorted(positions_by_sort_pos.items())]
-    # todo definitely make sure this is doing what it should be doing
     pos_str = int_to_4_bytes_reverse(len(filenames))
     for pos in positions_by_sort_pos:
         hex_str = int_to_4_bytes_reverse(pos)
