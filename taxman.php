@@ -15,11 +15,13 @@ $drive = $argv[1] ?? null;
 $sys = $argv[2] ? strtoupper($argv[2]) : null;
 $syskeys = array_keys($systems);
 $isValidSys = $sys && (in_array($sys,$syskeys) || $sys === "ALL");
+$skipConf = ($argv[3] ?? null) === "-sc";
 
 if (!$drive || !$isValidSys) {
-    echo "Usage: php taxman.php drive system" . PHP_EOL;
+    echo "Usage: php taxman.php drive system [-sc]" . PHP_EOL;
     echo "  drive:  the location of your SF2000 SD card" . PHP_EOL;
     echo "  system:  the system to rebuild, one of ARCADE, FC, GB, GBA, GBC, MD, SFC or ALL" . PHP_EOL;
+    echo "  -sc:  skip confirmation" . PHP_EOL;
     echo "Example: php taxman.php H: GB" . PHP_EOL;
     die;
 }
@@ -43,15 +45,17 @@ echo "   Game names will be taken from the filename regardless of language setti
 echo "2. Any custom sorting of games in the menu (e.g. popular games placed at the top)." . PHP_EOL;
 echo "   All games will be sorted alphabetically instead." . PHP_EOL;
 echo PHP_EOL;
-echo "Type Y to continue";
-echo PHP_EOL;
-echo PHP_EOL;
-
-$conf = trim(fgets(STDIN));
-echo PHP_EOL;
-if (strtoupper($conf)!=="Y") {
-    die("Cancelling, no files modified");
+if (!$skipConf) {
+    echo "Type Y to continue";
+    echo PHP_EOL;
+    echo PHP_EOL;
+    $conf = trim(fgets(STDIN));
+    echo PHP_EOL;
+    if (strtoupper($conf)!=="Y") {
+        die("Cancelling, no files modified");
+    }
 }
+
 
 $drive = $argv[1];
 $sys = strtoupper($argv[2]);
