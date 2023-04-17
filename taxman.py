@@ -74,26 +74,26 @@ def process_sys(drive, system, test_mode):
 
     filenames = list(map(file_entry_to_name, files))
     stripped_names = list(map(strip_file_extension, filenames))
-    stripped_by_filename = dict(zip(filenames, stripped_names))
-    sorted_stripped_names = sorted(stripped_by_filename.values())
-    sorted_filenames = sorted(stripped_by_filename, key=stripped_by_filename.get)
-    # always sort the files without file extensions since that is how they appear in the menu
-    # then prepare the maps for the 3 index files
+
+    # prepare maps of filenames to index name for the 3 index files
     # for "files" we just want the actual filenames as both key and value, the menu will strip the extensions
-    name_map_files = dict(zip(sorted_filenames, sorted_filenames))
+    name_map_files = dict(zip(filenames, filenames))
     # for the Chinese names and pinyin initials, i'm not supporting that at the moment, so use the English titles
     # but use the stripped versions because the menu will not strip them here
-    name_map_cn = dict(zip(sorted_filenames, sorted_stripped_names))
-    name_map_pinyin = dict(zip(sorted_filenames, sorted_stripped_names))
+    name_map_cn = dict(zip(filenames, stripped_names))
+    name_map_pinyin = dict(zip(filenames, stripped_names))
 
-    # build sort positions separately since dicts aren't explicitly sorted
-    sort_positions_files = build_sort_position_dict(sorted_filenames)
-    sort_positions_cn = build_sort_position_dict(sorted_stripped_names)
-    sort_positions_pinyin = build_sort_position_dict(sorted_stripped_names)
+    # then separately build a map for sorting which will always be filenames to stripped names
+    # (even for "files" we always want to sort based on the stripped version since that is how they appear in the menu)
+    sort_map = dict(zip(filenames, stripped_names))
+    # then sort the filenames according to this map
+    sorted_filenames = sorted(sort_map, key=sort_map.get)
+    # and finally build a map of filenames to sort positions (which are what actually gets stored in the index file)
+    sort_positions = build_sort_position_dict(sorted_filenames)
 
-    write_index_file(filenames, name_map_files, sort_positions_files, index_path_files, test_mode)
-    write_index_file(filenames, name_map_cn, sort_positions_cn, index_path_cn, test_mode)
-    write_index_file(filenames, name_map_pinyin, sort_positions_pinyin, index_path_pinyin, test_mode)
+    write_index_file(name_map_files, sort_positions, index_path_files, test_mode)
+    write_index_file(name_map_cn, sort_positions, index_path_cn, test_mode)
+    write_index_file(name_map_pinyin, sort_positions, index_path_pinyin, test_mode)
 
     print("Done\n")
 
@@ -120,13 +120,16 @@ def check_and_back_up_file(file_path):
             raise StopExecution
 
 
-def write_index_file(filenames, name_map, sort_positions, index_path, test_mode):
+def write_index_file(name_map, sort_positions, index_path, test_mode):
     positions_by_sort_pos = {}
     all_files_str = ""
-    for file in filenames:
-        name = name_map[file]
+    # names must maintain a consistent order between all indexes, but the actual order doesn't matter
+    # so just go by filename alphabetically
+    filenames = sorted(name_map.keys())
+    for filename in filenames:
+        name = name_map[filename]
         pos = len(all_files_str.encode('utf-8'))
-        sort_pos = sort_positions[name]
+        sort_pos = sort_positions[filename]
         positions_by_sort_pos[sort_pos] = pos
         all_files_str = all_files_str + name + chr(0)
 
