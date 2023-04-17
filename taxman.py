@@ -43,6 +43,23 @@ def build_sort_position_dict(sorted_list):
     # this is an array flip equiv
     return {value: key for key, value in dict(enumerate(sorted_list)).items()}
 
+
+def strip_file_extension(name):
+    parts = name.split(".")
+    parts.pop()
+    return ".".join(parts)
+
+
+def sort_normal(unsorted_list):
+    return sorted(unsorted_list)
+
+
+def sort_without_file_ext(unsorted_list):
+    stripped_names = list(map(strip_file_extension, unsorted_list))
+    sort_map = dict(zip(unsorted_list, stripped_names))
+    return sorted(sort_map, key=sort_map.get)
+
+
 def process_sys(drive, system, test_mode):
     print(f"Processing {system}")
 
@@ -83,25 +100,11 @@ def process_sys(drive, system, test_mode):
     name_map_cn = dict(zip(filenames, stripped_names))
     name_map_pinyin = dict(zip(filenames, stripped_names))
 
-    # then separately build a map for sorting which will always be filenames to stripped names
-    # (even for "files" we always want to sort based on the stripped version since that is how they appear in the menu)
-    sort_map = dict(zip(filenames, stripped_names))
-    # then sort the filenames according to this map
-    sorted_filenames = sorted(sort_map, key=sort_map.get)
-    # and finally build a map of filenames to sort positions (which are what actually gets stored in the index file)
-    sort_positions = build_sort_position_dict(sorted_filenames)
-
-    write_index_file(name_map_files, sort_positions, index_path_files, test_mode)
-    write_index_file(name_map_cn, sort_positions, index_path_cn, test_mode)
-    write_index_file(name_map_pinyin, sort_positions, index_path_pinyin, test_mode)
+    write_index_file(name_map_files, sort_without_file_ext, index_path_files, test_mode)
+    write_index_file(name_map_cn, sort_normal, index_path_cn, test_mode)
+    write_index_file(name_map_pinyin, sort_normal, index_path_pinyin, test_mode)
 
     print("Done\n")
-
-
-def strip_file_extension(name):
-    parts = name.split(".")
-    parts.pop()
-    return ".".join(parts)
 
 
 def check_and_back_up_file(file_path):
@@ -120,41 +123,46 @@ def check_and_back_up_file(file_path):
             raise StopExecution
 
 
-def write_index_file(name_map, sort_positions, index_path, test_mode):
-    positions_by_sort_pos = {}
-    all_files_str = ""
-    # names must maintain a consistent order between all indexes, but the actual order doesn't matter
-    # so just go by filename alphabetically
+def write_index_file(name_map, sort_func, index_path, test_mode):
+    # entries must maintain a consistent order between all indexes, but what that order actually is doesn't matter
+    # so use alphabetised filenames for this
     filenames = sorted(name_map.keys())
+    # then sort the display names according to their desired display order, and build a map of names to sort positions
+    sort_positions = build_sort_position_dict(sort_func(name_map.values()))
+
+    pointers_by_sort_pos = {}
+    names_bytes = b""
     for filename in filenames:
-        name = name_map[filename]
-        pos = len(all_files_str.encode('utf-8'))
-        sort_pos = sort_positions[filename]
-        positions_by_sort_pos[sort_pos] = pos
-        all_files_str = all_files_str + name + chr(0)
+        display_name = name_map[filename]
+        sort_pos = sort_positions[display_name]
+        current_pointer = len(names_bytes)
+        pointers_by_sort_pos[sort_pos] = current_pointer
+        names_bytes = names_bytes + display_name.encode('utf-8') + chr(0).encode('utf-8')
 
-    # this should give values sorted by key
-    positions_by_sort_pos = [val for key, val in sorted(positions_by_sort_pos.items())]
-    pos_str = int_to_4_bytes_reverse(len(filenames))
-    for pos in positions_by_sort_pos:
-        hex_str = int_to_4_bytes_reverse(pos)
-        pos_str = pos_str + hex_str
+    # convert the dict of pointers by sort position to a list of pointers ordered by those positions
+    pointers_by_sort_pos = [val for key, val in sorted(pointers_by_sort_pos.items())]
 
-    new_index = pos_str + all_files_str.encode('utf-8')
+    # first metadata item is the total count of games in this list
+    metadata_bytes = int_to_4_bytes_reverse(len(name_map))
+    # and the rest are pointers to the display names in the desired display order
+    for current_pointer in pointers_by_sort_pos:
+        metadata_bytes = metadata_bytes + int_to_4_bytes_reverse(current_pointer)
+
+    new_index_content = metadata_bytes + names_bytes
 
     if test_mode:
         print(f"Checking {index_path}")
         file_handle = open(index_path, 'rb')
-        existing_file = file_handle.read(os.path.getsize(index_path))
+        existing_index_content = file_handle.read(os.path.getsize(index_path))
         file_handle.close()
-        if existing_file != new_index:
+        if existing_index_content != new_index_content:
             print("! Doesn't match")
         return
 
     print(f"Overwriting {index_path}")
     try:
         file_handle = open(index_path, 'wb')
-        file_handle.write(new_index)
+        file_handle.write(new_index_content)
         file_handle.close()
     except (IOError, OSError):
         print("! Failed overwriting file.")
