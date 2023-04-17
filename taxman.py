@@ -126,24 +126,22 @@ def check_and_back_up_file(file_path):
 def write_index_file(name_map, sort_func, index_path, test_mode):
     # entries must maintain a consistent order between all indexes, but what that order actually is doesn't matter
     # so use alphabetised filenames for this
-    filenames = sorted(name_map.keys())
-
-    pointers_by_name = {}
+    sorted_filenames = sorted(name_map.keys())
+    # build up the list of names in that order as a byte string, and also build a dict of pointers to each name
     names_bytes = b""
-    for filename in filenames:
+    pointers_by_name = {}
+    for filename in sorted_filenames:
         display_name = name_map[filename]
         current_pointer = len(names_bytes)
         pointers_by_name[display_name] = current_pointer
         names_bytes += display_name.encode('utf-8') + chr(0).encode('utf-8')
 
-    # sort the display names according to their desired display order, and build a list of pointers in that order
-    sorted_pointers = []
-    for sorted_name in sort_func(name_map.values()):
-        sorted_pointers.append(pointers_by_name[sorted_name])
-
-    # first metadata item is the total count of games in this list
+    # build the metadata - first value is the total count of games in this list
     metadata_bytes = int_to_4_bytes_reverse(len(name_map))
-    # and the rest are pointers to the display names in the desired display order
+    # the rest are pointers to the display names in the desired display order
+    # so sort display names according to the display order, and build a list of pointers in that order
+    sorted_display_names = sort_func(name_map.values())
+    sorted_pointers = map(lambda name: pointers_by_name[name], sorted_display_names)
     for current_pointer in sorted_pointers:
         metadata_bytes += int_to_4_bytes_reverse(current_pointer)
 
