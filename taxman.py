@@ -38,12 +38,6 @@ def check_file(file_entry):
     return file_entry.is_file() and re.search(file_regex, file_entry.name.lower())
 
 
-def build_sort_position_dict(sorted_list):
-    # this MIGHT NOT WORK it relies on what i think is inherent behaviour of dicts being internally sorted
-    # this is an array flip equiv
-    return {value: key for key, value in dict(enumerate(sorted_list)).items()}
-
-
 def strip_file_extension(name):
     parts = name.split(".")
     parts.pop()
