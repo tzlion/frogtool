@@ -167,10 +167,13 @@ def check_sys_valid(system):
 
 def run():
 
-    drive = sys.argv[1] if len(sys.argv) >= 2 else ""
-    system = sys.argv[2].upper() if len(sys.argv) >= 3 else ""
-    skip_conf = len(sys.argv) >= 4 and sys.argv[3] == "-sc"
-    test_mode = len(sys.argv) >= 4 and sys.argv[3] == "-t"
+    flags = ["-sc", "-tm"]
+    drive = sys.argv[1] if len(sys.argv) >= 2 and sys.argv[1] not in flags else ""
+    system = sys.argv[2].upper() if len(sys.argv) >= 3 and sys.argv[2] not in flags else ""
+    skip_conf = "-sc" in sys.argv
+    # -tm does a "dry run" and checks that the generated files would be the same as the ones on the card
+    # this is mostly for development purposes to make sure code changes haven't unintentionally affected output
+    test_mode = "-tm" in sys.argv
 
     while not drive or not os.path.isdir(drive):
         if drive and not os.path.isdir(drive):
@@ -212,14 +215,21 @@ def run():
             return
         print()
 
-    keys_to_process = systems.keys() if system == "ALL" else [system]
-    for syskey in keys_to_process:
-        process_sys(drive, syskey, test_mode)
+    try:
+        keys_to_process = systems.keys() if system == "ALL" else [system]
+        for syskey in keys_to_process:
+            process_sys(drive, syskey, test_mode)
+    except StopExecution:
+        pass
+
+    if not skip_conf:
+        # require user input before terminating to give a chance to read messages in case this was started from the GUI
+        print()
+        print("Press enter to exit")
+        input()
 
 
 try:
     run()
 except KeyboardInterrupt:
-    pass
-except StopExecution:
     pass
