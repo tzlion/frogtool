@@ -4,6 +4,10 @@ import re
 import binascii
 import shutil
 
+import ctypes
+if ctypes.windll:
+    ctypes.windll.kernel32.SetConsoleTitleW("frogtool")
+
 systems = {
     "ARCADE": ["mswb7.tax", "msdtc.nec", "mfpmp.bvs"],
     "FC":     ["rdbui.tax", "fhcfg.nec", "nethn.bvs"],
