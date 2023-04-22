@@ -35,14 +35,6 @@ Additionally, this program does not currently support changing the shortcuts in 
 the ROMs those shortcuts point to, they will remain in the menu but become non-functional.
 
 
-Basic usage steps
------------------
-
-1. Insert the SF2000 SD card in a card reader connected to your computer
-2. Drag and drop your desired ROMs into the respective system folders (ARCADE, FC, GB, GBA, GBC, MD, SFC) 
-3. Run this program as per the following section
-
-
 Download/installation
 ---------------------
 
@@ -53,12 +45,21 @@ Get the version named -win.zip for the Windows executable or -py.zip for the Pyt
 (Sorry the Windows executable is like 5MB, apparently that's just how compiled Python goes)
 
 
+Basic usage steps
+-----------------
+
+1. Insert the SF2000 SD card in a card reader connected to your computer
+2. Drag and drop your desired ROMs into the respective system folders (ARCADE, FC, GB, GBA, GBC, MD, SFC) 
+3. Run this program as per the following section
+
+
 Running the program
 -------------------
 
 This program can be run in multiple ways, depending on the version you have and your preferences.
 
-### Windows executable (.exe)  
+### Windows executable (.exe)
+
 Either
 * Double click from Windows Explorer, it will ask you to enter the drive and system and then proceed
 * Or run it on the command line as follows:  
@@ -66,7 +67,8 @@ Either
   Example: `frogtool H: FC`  
 On other platforms you may run it through WINE although this has not been tested.
 
-### Python script (.py)  
+### Python script (.py)
+
 You will need to have a Python interpreter installed, this was developed against version 3.10 & should at least work
 with this and later versions.
 Then either
@@ -76,10 +78,11 @@ Then either
   Example: `python frogtool.py H: FC`  
   (the "python" command depends on your setup, you may need to use "py" or "python3")
 
-Command line arguments:
+### Command line arguments
+
 * `drive`:  the location of your SF2000 SD card (e.g. a drive letter on Windows or a mount point on Linux/Mac)
 * `system`: the system to rebuild, one of `ARCADE`, `FC`, `GB`, `GBA`, `GBC`, `MD`, `SFC` or `ALL`
-* `-sc`:    skip confirmations (otherwise, it will ask you to confirm before doing anything, and press enter once finished)
+* `-sc`:    skip confirmations (otherwise, it will ask you to confirm before processing, and press enter once finished)
 If you omit either drive or system, it will ask you to enter them when run.
 
 
@@ -100,21 +103,26 @@ Supported files
 
 The SF2000 OS will load the following file extensions:
 
-| Type       | Extensions                                                                                              |
-|------------|---------------------------------------------------------------------------------------------------------|
-| Zipped     | bkp, zip (both seem to work as normal zip files, I think .bkp was used for WQW files on another system) |
-| Custom     | zfc, zsf, zmd, zgb, zfb (see "About .zxx files" section)                                                |
-| SFC/SNES   | smc, fig, sfc, gd3, gd7, dx2, bsx, swc                                                                  |
-| FC/NES     | nes, nfc, fds, unf                                                                                      |
-| GB/GBC     | gbc, gb, sgb                                                                                            |
-| GBA        | gba, agb, gbz                                                                                           |
-| MD/GEN/SMS | bin, md, smd, gen, sms (yes Master System games are secretly supported by the MD emulator)              |
+| Type       | Extensions                                               |
+|------------|----------------------------------------------------------|
+| Zipped     | bkp, zip                                                 |
+| Custom     | zfc, zsf, zmd, zgb, zfb (see "About .zxx files" section) |
+| SFC/SNES   | smc, fig, sfc, gd3, gd7, dx2, bsx, swc                   |
+| FC/NES     | nes, nfc, fds, unf                                       |
+| GB/GBC     | gbc, gb, sgb                                             |
+| GBA        | gba, agb, gbz                                            |
+| MD/GEN/SMS | bin, md, smd, gen, sms                                   |
 
 It doesn't generally care if you put the wrong system's roms in the wrong folder, it will load them in the correct
 emulator according to their file extension.
 
-If you put a supported ROM inside a ZIP file, it will be treated the same as an uncompressed ROM, and loaded in the
-appropriate emulator. Arcade game ZIP files are weird, see the "Arcade games" section below.
+Master System games are "secretly" supported by the Mega Drive emulator, it recognises the .sms extension but will
+actually run these games with any of the Mega Drive file extensions too. Game Gear games don't seem to work properly.
+
+Both .bkp and .zip extensions seem to function as normal ZIP files, I think .bkp was used for obfuscated zip files on 
+another system. Any supported ROM inside a ZIP file will be treated the same as an uncompressed ROM, and loaded in the
+appropriate emulator.  
+(Arcade game ZIP files are weird, see the "Arcade games" section below.)
 
 Filenames may contain Chinese and Japanese characters and these will be correctly displayed in the list.
 Other scripts have not been tested, this probably depends on if the default font supports them.
