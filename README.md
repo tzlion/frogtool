@@ -85,7 +85,8 @@ Then either
 
 * `drive`:  the location of your SF2000 SD card (e.g. a drive letter on Windows or a mount point on Linux/Mac)
 * `system`: the system to rebuild, one of `ARCADE`, `FC`, `GB`, `GBA`, `GBC`, `MD`, `SFC` or `ALL`
-* `-sc`:    skip confirmations (otherwise, it will ask you to confirm before processing, and press enter once finished)  
+* `-sc`:    skip confirmations (otherwise, it will ask you to confirm before processing, and press enter once finished)
+
 If you omit either drive or system, it will ask you to enter them when run.
 
 
