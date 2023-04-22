@@ -17,7 +17,7 @@ VSVersionInfo(
         StringStruct(u'FileDescription', u'frogtool'),
         StringStruct(u'FileVersion', u'0.1.0'),
         StringStruct(u'InternalName', u'frogtool'),
-        StringStruct(u'LegalCopyright', u'by taizou'),
+        StringStruct(u'LegalCopyright', u'by taizou 2023'),
         StringStruct(u'OriginalFilename', u'frogtool.exe'),
         StringStruct(u'ProductName', u'frogtool'),
         StringStruct(u'ProductVersion', u'0.1.0')])
