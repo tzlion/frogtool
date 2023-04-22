@@ -1,5 +1,6 @@
 FROGTOOL v0.1.0
 ===============
+
 by taizou  
 https://github.com/tzlion/frogtool
 
@@ -11,8 +12,10 @@ DISCLAIMER
 ----------
 
 This program is experimental and you should use with caution!
+
 It is not developed or authorised by any company or individual connected with the SF2000 handheld and is based on my own
 reverse engineering of its file formats.
+
 Although it will back up the files it modifies, you should make your own backup of the Resources folder and ideally your
 whole SD card so you can restore the original state of your device if anything goes wrong.
 
@@ -117,7 +120,7 @@ It doesn't generally care if you put the wrong system's roms in the wrong folder
 emulator according to their file extension.
 
 Master System games are "secretly" supported by the Mega Drive emulator, it recognises the .sms extension but will
-actually run these games with any of the Mega Drive file extensions too. Game Gear games don't seem to work properly.
+actually run these games with any of the Mega Drive file extensions too. Game Gear games don't work properly.
 
 Both .bkp and .zip extensions seem to function as normal ZIP files, I think .bkp was used for obfuscated zip files on 
 another system. Any supported ROM inside a ZIP file will be treated the same as an uncompressed ROM, and loaded in the
@@ -140,10 +143,10 @@ files named with the full name, these files contain a thumbnail image plus the a
 the actual rom zip file which is found in the ARCADE/bin subfolder.  
 (See the "About .zxx files" section for more info on this format)
 
-It seems like the OS will still recognise arcade ROM ZIP files placed directly in the ROM folders with their
-emulator-standard filenames, but I don't know which ROM set it expects; even the manufacturers don't seem to know, they
-preloaded three Sonic Wings ROMs in the user "ROMS" folder and only one of them loads! Internal strings seem to suggest
-the emulator is some version of Final Burn Alpha if that helps.
+The OS will still recognise arcade ROM ZIP files placed directly in the ROM folders with their emulator-standard
+filenames, but I don't know which ROM set it expects; even the manufacturers don't seem to know, they preloaded three
+Sonic Wings ROMs in the user "ROMS" folder and only one of them loads! Internal strings suggest the emulator is some
+version of Final Burn Alpha if that helps.
 
 Many preloaded arcade games also have ".skp" files in the ARCADE/skp folder, these appear to be savestates which are
 automatically loaded when booting a game, to skip its boot sequence and bring you straight to the title screen with a
