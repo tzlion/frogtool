@@ -4,8 +4,8 @@ FROGTOOL v0.1.0
 by taizou  
 https://github.com/tzlion/frogtool
 
-This tool allows you to rebuild the preset game lists on the SF2000 handheld so you can add (or remove) ROMs in the
-proper system categories instead of only being able to add them in the user folder.
+This tool allows you to rebuild the preset game lists on the SF2000 emulator handheld, so you can add (or remove) ROMs
+in the proper system categories instead of only being able to add them in the user folder.
 
 
 DISCLAIMER
@@ -73,7 +73,7 @@ On other platforms you may run it through WINE although this has not been tested
 ### Python script (.py)
 
 You will need to have a Python interpreter installed, this was developed against version 3.10 & should at least work
-with this and later versions.
+with this and later versions.  
 Then either
 * If you have .py files associated with your interpreter, you can double click and run it
 * Otherwise, run it on the command line as follows:  
@@ -193,15 +193,15 @@ The game list files are found in the Resources folder alongside graphical and au
 the OS. However, the files in this folder are all given meaningless or misleading names.
 For the game lists this is as follows:
 
-| System | Filenames |  Chinese   | Pinyin    |
-|--------|-----------|------------|-----------|
-| ARCADE | mswb7.tax |  msdtc.nec | mfpmp.bvs |
-| FC     | rdbui.tax |  fhcfg.nec | nethn.bvs |
-| GB     | vdsdc.tax |  umboa.nec | qdvd6.bvs |
-| GBA    | vfnet.tax |  htuiw.nec | sppnp.bvs |
-| GBC    | pnpui.tax |  wjere.nec | mgdel.bvs |
-| MD     | scksp.tax |  setxa.nec | wmiui.bvs |
-| SFC    | urefs.tax |  adsnt.nec | xvb6c.bvs |
+| System | Filenames | Chinese   | Pinyin    |
+|--------|-----------|-----------|-----------|
+| ARCADE | mswb7.tax | msdtc.nec | mfpmp.bvs |
+| FC     | rdbui.tax | fhcfg.nec | nethn.bvs |
+| GB     | vdsdc.tax | umboa.nec | qdvd6.bvs |
+| GBA    | vfnet.tax | htuiw.nec | sppnp.bvs |
+| GBC    | pnpui.tax | wjere.nec | mgdel.bvs |
+| MD     | scksp.tax | setxa.nec | wmiui.bvs |
+| SFC    | urefs.tax | adsnt.nec | xvb6c.bvs |
 
 Explanation of the list types:
 * Filenames = The names of each ROM file. These are also used for the English menus, with file extensions stripped off.
