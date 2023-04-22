@@ -1,4 +1,7 @@
 FROGTOOL v0.1.0
+===============
+by taizou  
+https://github.com/tzlion/frogtool
 
 This tool allows you to rebuild the preset game lists on the SF2000 handheld so you can add (or remove) ROMs in the
 proper system categories instead of only being able to add them in the user folder.
@@ -36,10 +39,18 @@ Basic usage steps
 -----------------
 
 1. Insert the SF2000 SD card in a card reader connected to your computer
-2. Drag and drop your desired ROMs into the respective system folders (ARCADE*, FC, GB, GBA, GBC, MD, SFC)
+2. Drag and drop your desired ROMs into the respective system folders (ARCADE, FC, GB, GBA, GBC, MD, SFC) 
 3. Run this program as per the following section
 
-* Arcade games have some complications, see the "Arcade games" section of this readme
+
+Download/installation
+---------------------
+
+Download the latest release from https://github.com/tzlion/gbxtool/releases.
+
+Get the version named -win.zip for the Windows executable or -py.zip for the Python script.
+
+(Sorry the Windows executable is like 5MB, apparently that's just how compiled Python goes)
 
 
 Running the program
@@ -47,28 +58,28 @@ Running the program
 
 This program can be run in multiple ways, depending on the version you have and your preferences.
 
-Windows executable (.exe)
+### Windows executable (.exe)  
 Either
 * Double click from Windows Explorer, it will ask you to enter the drive and system and then proceed
-* Or run it on the command line as follows:
-  frogtool [drive] [system] [-sc]
-  Example: frogtool H: FC
+* Or run it on the command line as follows:  
+  `frogtool [drive] [system] [-sc]`  
+  Example: `frogtool H: FC`  
 On other platforms you may run it through WINE although this has not been tested.
 
-Python script (.py)
+### Python script (.py)  
 You will need to have a Python interpreter installed, this was developed against version 3.10 & should at least work
 with this and later versions.
 Then either
 * If you have .py files associated with your interpreter, you can double click and run it
-* Otherwise, run it on the command line as follows:
-  python frogtool.py [drive] [system] [-sc]
-  Example: python frogtool.py H: FC
+* Otherwise, run it on the command line as follows:  
+  `python frogtool.py [drive] [system] [-sc]`  
+  Example: `python frogtool.py H: FC`  
   (the "python" command depends on your setup, you may need to use "py" or "python3")
 
 Command line arguments:
-drive:  the location of your SF2000 SD card (e.g. a drive letter on Windows or a mount point on Linux/Mac)
-system: the system to rebuild, one of ARCADE, FC, GB, GBA, GBC, MD, SFC or ALL
--sc:    skip confirmations (otherwise, it will ask you to confirm before doing anything, and press enter once finished)
+* `drive`:  the location of your SF2000 SD card (e.g. a drive letter on Windows or a mount point on Linux/Mac)
+* `system`: the system to rebuild, one of `ARCADE`, `FC`, `GB`, `GBA`, `GBC`, `MD`, `SFC` or `ALL`
+* `-sc`:    skip confirmations (otherwise, it will ask you to confirm before doing anything, and press enter once finished)
 If you omit either drive or system, it will ask you to enter them when run.
 
 
@@ -88,13 +99,16 @@ Supported files
 ---------------
 
 The SF2000 OS will load the following file extensions:
-Zipped:      bkp, zip (both seem to work as normal zip files, I think .bkp was used for WQW files on another system)
-Custom:      zfc, zsf, zmd, zgb, zfb (see "About .zxx files" section)
-SFC/SNES:    smc, fig, sfc, gd3, gd7, dx2, bsx, swc
-FC/NES:      nes, nfc, fds, unf
-GB/GBC:      gbc, gb, sgb
-GBA:         gba, agb, gbz
-MD/GEN/SMS:  bin, md, smd, gen, sms (yes Master System games are secretly supported by the MD emulator)
+
+| Type       | Extensions                                                                                              |
+|------------|---------------------------------------------------------------------------------------------------------|
+| Zipped     | bkp, zip (both seem to work as normal zip files, I think .bkp was used for WQW files on another system) |
+| Custom     | zfc, zsf, zmd, zgb, zfb (see "About .zxx files" section)                                                |
+| SFC/SNES   | smc, fig, sfc, gd3, gd7, dx2, bsx, swc                                                                  |
+| FC/NES     | nes, nfc, fds, unf                                                                                      |
+| GB/GBC     | gbc, gb, sgb                                                                                            |
+| GBA        | gba, agb, gbz                                                                                           |
+| MD/GEN/SMS | bin, md, smd, gen, sms (yes Master System games are secretly supported by the MD emulator)              |
 
 It doesn't generally care if you put the wrong system's roms in the wrong folder, it will load them in the correct
 emulator according to their file extension.
@@ -115,7 +129,7 @@ typically recognise them by their filename and the contained files' checksums. T
 For the SF2000 OS's purposes, in order to display the full names of the games in the menu instead of the shortened
 emulator-standard filenames (eg. "Metal Slug X -Super Vehicle-001" instead of mslugx) their approach is to use .zfb
 files named with the full name, these files contain a thumbnail image plus the actual filename, which refers in turn to
-the actual rom zip file which is found in the ARCADE/bin subfolder.
+the actual rom zip file which is found in the ARCADE/bin subfolder.  
 (See the "About .zxx files" section for more info on this format)
 
 It seems like the OS will still recognise arcade ROM ZIP files placed directly in the ROM folders with their
@@ -139,15 +153,15 @@ both a thumbnail image used in the menu and a either a zipped ROM or a pointer t
 as .zxx files for now.
 
 They correspond to the following systems:
-.zfc = FC
-.zsf = SFC
-.zmd = MD
-.zgb = GB, GBC, GBA
-.zfb = ARCADE
+* .zfc = FC
+* .zsf = SFC
+* .zmd = MD
+* .zgb = GB, GBC, GBA
+* .zfb = ARCADE
 
 All files except .zfb are laid out as follows:
-First 0xEA00 bytes: Thumbnail image, RGB565 RAW format, 144x208px
-Rest of the file: A zipped rom in "WQW" format
+* First 0xEA00 bytes: Thumbnail image, RGB565 RAW format, 144x208px
+* Rest of the file: A zipped rom in "WQW" format
 
 "WQW" is an obfuscated zip file format found on several emulation devices, with filenames scrambled and headers modified
 to inhibit use by ordinary zip software. However, you can actually use a normal unmodified zip inside a .zxx file and
@@ -168,14 +182,15 @@ The game list files are found in the Resources folder alongside graphical and au
 the OS. However, the files in this folder are all given meaningless or misleading names.
 For the game lists this is as follows:
 
-System   Filenames   Chinese     Pinyin
-ARCADE   mswb7.tax   msdtc.nec   mfpmp.bvs
-FC       rdbui.tax   fhcfg.nec   nethn.bvs
-GB       vdsdc.tax   umboa.nec   qdvd6.bvs
-GBA      vfnet.tax   htuiw.nec   sppnp.bvs
-GBC      pnpui.tax   wjere.nec   mgdel.bvs
-MD       scksp.tax   setxa.nec   wmiui.bvs
-SFC      urefs.tax   adsnt.nec   xvb6c.bvs
+| System | Filenames |  Chinese   | Pinyin    |
+|--------|-----------|------------|-----------|
+| ARCADE | mswb7.tax |  msdtc.nec | mfpmp.bvs |
+| FC     | rdbui.tax |  fhcfg.nec | nethn.bvs |
+| GB     | vdsdc.tax |  umboa.nec | qdvd6.bvs |
+| GBA    | vfnet.tax |  htuiw.nec | sppnp.bvs |
+| GBC    | pnpui.tax |  wjere.nec | mgdel.bvs |
+| MD     | scksp.tax |  setxa.nec | wmiui.bvs |
+| SFC    | urefs.tax |  adsnt.nec | xvb6c.bvs |
 
 Explanation of the list types:
 * Filenames = The names of each ROM file. These are also used for the English menus, with file extensions stripped off.
