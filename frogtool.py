@@ -3,6 +3,16 @@ import sys
 import re
 import binascii
 import shutil
+import struct
+
+try:
+    from PIL import Image
+    from PIL import ImageDraw
+    image_lib_avail = True
+except ImportError:
+    Image = None
+    ImageDraw = None
+    image_lib_avail = False
 
 import ctypes
 if ctypes.windll:
@@ -22,6 +32,12 @@ supported_ext = [
     "bkp", "zip", "zfc", "zsf", "zmd", "zgb", "zfb", "smc", "fig", "sfc", "gd3", "gd7", "dx2", "bsx", "swc", "nes",
     "nfc", "fds", "unf", "gba", "agb", "gbz", "gbc", "gb", "sgb", "bin", "md", "smd", "gen", "sms"
 ]
+zxx_ext = {
+    "ARCADE": "zfb", "FC": "zfc", "GB": "zgb", "GBA": "zgb", "GBC": "zgb", "MD": "zmd", "SFC": "zsf"
+}
+supported_img_ext = [
+    "png", "jpg", "jpeg", "gif"
+]
 
 
 class StopExecution(Exception):
@@ -39,6 +55,11 @@ def file_entry_to_name(file_entry):
 
 def check_file(file_entry):
     file_regex = ".+\\.(" + "|".join(supported_ext) + ")$"
+    return file_entry.is_file() and re.search(file_regex, file_entry.name.lower())
+
+
+def check_img(file_entry):
+    file_regex = ".+\\.(" + "|".join(supported_img_ext) + ")$"
     return file_entry.is_file() and re.search(file_regex, file_entry.name.lower())
 
 
@@ -75,6 +96,38 @@ def process_sys(drive, system, test_mode):
     check_and_back_up_file(index_path_pinyin)
 
     print(f"Looking for ROMs in {roms_path}")
+
+    img_files = os.scandir(roms_path)
+    img_files = list(filter(check_img, img_files))
+    failed_img = False
+    imgs_processed = 0
+    sys_zxx_ext = zxx_ext[system]
+    for img_file in img_files:
+        file_no_ext = strip_file_extension(img_file.name)
+        for zip_ext in ["ZIP", "zip", "BKP", "bkp"]:
+            zip_file = f"{file_no_ext}.{zip_ext}"
+            if os.path.exists(f"{roms_path}/{zip_file}"):
+                if sys_zxx_ext == "zfb":
+                    break  # don't support this for now
+                res = rgb565_convert(f"{roms_path}/{img_file.name}", f"{roms_path}/{file_no_ext}.{sys_zxx_ext}", (144, 208))
+                if not res:
+                    failed_img = True
+                    break
+                zxx_file_handle = open(f"{roms_path}/{file_no_ext}.{sys_zxx_ext}", "ab")
+                zip_file_handle = open(f"{roms_path}/{zip_file}", "rb")
+                zxx_file_handle.write(zip_file_handle.read())
+                zxx_file_handle.close()
+                zip_file_handle.close()
+                imgs_processed += 1
+                os.remove(f"{roms_path}/{img_file.name}")
+                os.remove(f"{roms_path}/{zip_file}")
+                break
+        if failed_img:
+            break
+
+    if imgs_processed:
+        print(f"Combined {imgs_processed} zip + image pairs into .{sys_zxx_ext} files")
+
     files = os.scandir(roms_path)
     files = list(filter(check_file, files))
     no_files = len(files)
@@ -171,7 +224,7 @@ def check_sys_valid(system):
 
 def run():
 
-    print("frogtool v0.1.0")
+    print("frogtool v0.1.0+++dev")
 
     flags = ["-sc", "-tm"]
     drive = sys.argv[1] if len(sys.argv) >= 2 and sys.argv[1] not in flags else ""
@@ -233,6 +286,42 @@ def run():
         print()
         print("Press enter to exit")
         input()
+
+
+def rgb565_convert(src_filename, dest_filename, dest_size=None):
+
+    if not image_lib_avail:
+        print("Pillow module not found, can't do image conversion")
+        return False
+    try:
+        image = Image.open(src_filename)
+    except (OSError, IOError):
+        print(f"Failed opening image file {src_filename} for conversion")
+        return False
+    try:
+        dest_file = open(dest_filename, "wb")
+    except (OSError, IOError):
+        print(f"Failed opening destination file {dest_filename} for conversion")
+        return False
+
+    if dest_size and image.size != dest_size:
+        image = image.resize(dest_size)
+
+    image_height = image.size[1]
+    image_width = image.size[0]
+    pixels = image.load()
+
+    for h in range(image_height):
+        for w in range(image_width):
+            r = pixels[w, h][0] >> 3
+            g = pixels[w, h][1] >> 2
+            b = pixels[w, h][2] >> 3
+            rgb = (r << 11) | (g << 5) | b
+            dest_file.write(struct.pack('H', rgb))
+
+    dest_file.close()
+
+    return True
 
 
 try:

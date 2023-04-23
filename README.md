@@ -1,4 +1,4 @@
-FROGTOOL v0.1.0
+FROGTOOL v0.1.0+++dev
 ===============
 
 by taizou  
@@ -6,6 +6,8 @@ https://github.com/tzlion/frogtool
 
 This tool allows you to rebuild the preset game lists on the SF2000 emulator handheld, so you can add (or remove) ROMs
 in the proper system categories instead of only being able to add them in the user folder.
+
+Also now supports thumbnails!
 
 
 DISCLAIMER
@@ -84,6 +86,7 @@ On other platforms you may run it through WINE although this has not been tested
 
 You will need to have a Python interpreter installed, this was developed against version 3.10 & should at least work
 with this and later versions.  
+In order to use the thumbnail generation functionality you will additionally need to have Pillow installed.  
 Then either
 * If you have .py files associated with your interpreter, you can double click and run it
 * Otherwise, run it on the command line as follows:  
@@ -193,6 +196,10 @@ the OS will load it just fine.
 So, if you wanted to have custom thumbnails for your own added ROMs, you could create your own .zxx files by creating a
 thumbnail in the specified RAW format, and then appending a zipped ROM to it.
 
+This tool will now do that automatically! Just drop a zipped rom and an image (png, jpg, gif) with the same filename
+in the same folder, run frogtool and it will automatically combine the two into an appropriate .zxx file.
+(The source files will then be deleted) (Not currently supported for arcade games)
+
 .zfb files for arcade games are different: they contain the same kind of image, but don't contain the actual game ROM.
 Instead the image is followed by four 00 bytes, then the actual filename of the ROM in the "bin" folder, then two
 further 00 bytes.
@@ -226,3 +233,14 @@ functionality will be in English.
 
 If you are manually restoring these files from a backup, you should ensure that each set of three files is kept in sync:
 for example, if you want to restore a backup for GB, you should restore vdsdc.tax, umboa.nec and qdvd6.bvs.
+
+Credits
+-------
+
+Developed by taizou
+
+RGB565 conversion code based on PNG-to-RGB565 (c) 2019 jpfwong
+https://github.com/jimmywong2003/PNG-to-RGB565
+
+Frog icon from public domain photo by LiquidGhoul
+https://commons.wikimedia.org/wiki/File:Australia_green_tree_frog_(Litoria_caerulea)_crop.jpg

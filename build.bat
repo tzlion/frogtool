@@ -7,6 +7,9 @@ if not exist "venv\" (
 if not exist "venv\Lib\site-packages\PyInstaller" (
     venv\Scripts\python -m pip install pyinstaller
 )
+if not exist "venv\Lib\site-packages\PIL" (
+    venv\Scripts\python -m pip install Pillow
+)
 venv\Scripts\python -m PyInstaller frogtool.py  -F --version-file versioninfo --icon frog.ico
 copy README.md "dist\readme.md"
 rem extremely dirty markdown to txt conversion by stripping out a few non-obvious characters
