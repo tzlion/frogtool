@@ -198,7 +198,9 @@ thumbnail in the specified RAW format, and then appending a zipped ROM to it.
 
 This tool will now do that automatically! Just drop a zipped rom and an image (png, jpg, gif) with the same filename
 in the same folder, run frogtool and it will automatically combine the two into an appropriate .zxx file.
-(The source files will then be deleted) (Not currently supported for arcade games)
+(The source files will then be deleted) (Not currently supported for arcade games)  
+Example: "Bubsy.zip" and "Bubsy.jpg" would be combined to "Bubsy.zsf" if placed in the "SFC" folder.  
+Your image doesn't need to be any specific dimensions, it will be resized to fit.
 
 .zfb files for arcade games are different: they contain the same kind of image, but don't contain the actual game ROM.
 Instead the image is followed by four 00 bytes, then the actual filename of the ROM in the "bin" folder, then two

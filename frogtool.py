@@ -38,6 +38,9 @@ zxx_ext = {
 supported_img_ext = [
     "png", "jpg", "jpeg", "gif"
 ]
+supported_zip_ext = [
+    "bkp", "zip"
+]
 
 
 class StopExecution(Exception):
@@ -60,6 +63,11 @@ def check_file(file_entry):
 
 def check_img(file_entry):
     file_regex = ".+\\.(" + "|".join(supported_img_ext) + ")$"
+    return file_entry.is_file() and re.search(file_regex, file_entry.name.lower())
+
+
+def check_zip(file_entry):
+    file_regex = ".+\\.(" + "|".join(supported_zip_ext) + ")$"
     return file_entry.is_file() and re.search(file_regex, file_entry.name.lower())
 
 
@@ -95,39 +103,9 @@ def process_sys(drive, system, test_mode):
     check_and_back_up_file(index_path_cn)
     check_and_back_up_file(index_path_pinyin)
 
+    convert_zip_image_pairs_to_zxx(roms_path, system)
+
     print(f"Looking for ROMs in {roms_path}")
-
-    img_files = os.scandir(roms_path)
-    img_files = list(filter(check_img, img_files))
-    failed_img = False
-    imgs_processed = 0
-    sys_zxx_ext = zxx_ext[system]
-    for img_file in img_files:
-        file_no_ext = strip_file_extension(img_file.name)
-        for zip_ext in ["ZIP", "zip", "BKP", "bkp"]:
-            zip_file = f"{file_no_ext}.{zip_ext}"
-            if os.path.exists(f"{roms_path}/{zip_file}"):
-                if sys_zxx_ext == "zfb":
-                    break  # don't support this for now
-                res = rgb565_convert(f"{roms_path}/{img_file.name}", f"{roms_path}/{file_no_ext}.{sys_zxx_ext}", (144, 208))
-                if not res:
-                    failed_img = True
-                    break
-                zxx_file_handle = open(f"{roms_path}/{file_no_ext}.{sys_zxx_ext}", "ab")
-                zip_file_handle = open(f"{roms_path}/{zip_file}", "rb")
-                zxx_file_handle.write(zip_file_handle.read())
-                zxx_file_handle.close()
-                zip_file_handle.close()
-                imgs_processed += 1
-                os.remove(f"{roms_path}/{img_file.name}")
-                os.remove(f"{roms_path}/{zip_file}")
-                break
-        if failed_img:
-            break
-
-    if imgs_processed:
-        print(f"Combined {imgs_processed} zip + image pairs into .{sys_zxx_ext} files")
-
     files = os.scandir(roms_path)
     files = list(filter(check_file, files))
     no_files = len(files)
@@ -156,6 +134,47 @@ def process_sys(drive, system, test_mode):
     write_index_file(name_map_pinyin, sort_normal, index_path_pinyin, test_mode)
 
     print("Done\n")
+
+
+def convert_zip_image_pairs_to_zxx(roms_path, system):
+    img_files = os.scandir(roms_path)
+    img_files = list(filter(check_img, img_files))
+    zip_files = os.scandir(roms_path)
+    zip_files = list(filter(check_zip, zip_files))
+    sys_zxx_ext = zxx_ext[system]
+    if not img_files:
+        return
+    print(f"Found image files, looking for matching zip files to convert to {sys_zxx_ext}")
+    imgs_processed = 0
+    for img_file in img_files:
+        file_no_ext = strip_file_extension(img_file.name)
+        found_zip = None
+        for zip_file in zip_files:
+            zip_no_ext = strip_file_extension(zip_file.name)
+            if zip_no_ext == file_no_ext:
+                found_zip = zip_file
+                break
+        if found_zip:
+            zip_file = found_zip.name
+            if sys_zxx_ext == "zfb":
+                break  # don't support this for now
+            res = rgb565_convert(f"{roms_path}/{img_file.name}", f"{roms_path}/{file_no_ext}.{sys_zxx_ext}",
+                                 (144, 208))
+            if not res:
+                print("Aborting image processing due to errors")
+                return
+            zxx_file_handle = open(f"{roms_path}/{file_no_ext}.{sys_zxx_ext}", "ab")
+            zip_file_handle = open(f"{roms_path}/{zip_file}", "rb")
+            zxx_file_handle.write(zip_file_handle.read())
+            zxx_file_handle.close()
+            zip_file_handle.close()
+            imgs_processed += 1
+            os.remove(f"{roms_path}/{img_file.name}")
+            os.remove(f"{roms_path}/{zip_file}")
+            break
+
+    if imgs_processed:
+        print(f"Combined {imgs_processed} zip + image pairs into .{sys_zxx_ext} files")
 
 
 def check_and_back_up_file(file_path):
