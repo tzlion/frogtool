@@ -38,6 +38,16 @@ Additionally, this program does not currently support changing the shortcuts in 
 the ROMs those shortcuts point to, they will remain in the menu but become non-functional.
 
 
+Compatible versions
+-------------------
+
+This tool has been tested & confirmed to work on the following SF2000 firmware/SD card image versions:
+* Launch version (with English & Chinese languages only)
+* 2023-04-20 update (with 17 languages)
+
+Use on any later versions is at your own risk!
+
+
 Download/installation
 ---------------------
 
@@ -128,8 +138,9 @@ another system. Any supported ROM inside a ZIP file will be treated the same as 
 appropriate emulator.  
 (Arcade game ZIP files are weird, see the "Arcade games" section below.)
 
-Filenames may contain Chinese and Japanese characters and these will be correctly displayed in the list.
-Other scripts have not been tested, this probably depends on if the default font supports them.
+In the launch firmware version, filenames may contain Chinese and Japanese characters and these will be correctly
+displayed in the list even when English is selected. In the 2023-04-20 update, supported characters depend on the
+selected language, as it uses different fonts per language.
 
 
 Arcade games
