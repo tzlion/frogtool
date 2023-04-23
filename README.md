@@ -41,7 +41,7 @@ the ROMs those shortcuts point to, they will remain in the menu but become non-f
 Download/installation
 ---------------------
 
-Download the latest release from https://github.com/tzlion/gbxtool/releases.
+Download the latest release from https://github.com/tzlion/frogtool/releases.
 
 Get the version named -win.zip for the Windows executable or -py.zip for the Python script.
 
