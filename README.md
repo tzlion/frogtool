@@ -185,10 +185,14 @@ They correspond to the following systems:
 * .zgb = GB, GBC, GBA
 * .zfb = ARCADE
 
-This tool now supports generating these files, so you can use your own custom thumbnails! (Except arcade games for now)
+This tool now supports generating these files, so you can use your own custom thumbnails! (Except arcade games for now.)
+
 Just drop a zipped rom and an image (png, jpg, gif) with the same filename in the same folder, run frogtool and it will
-automatically combine the two into an appropriate .zxx file. (The source image and zip file will then be deleted.)  
+automatically combine the two into an appropriate .zxx file. (The source image and zip file will be deleted.)  
+
 Example: "Bubsy.zip" and "Bubsy.jpg" would be combined to "Bubsy.zsf" if placed in the "SFC" folder.
+
+Thumbnails in this system are 144 x 208 pixels, your image will be resized to those dimensions if necessary.
 
 ### Technical details
 
