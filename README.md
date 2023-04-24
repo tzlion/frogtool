@@ -1,4 +1,4 @@
-FROGTOOL v0.1.0+++dev
+FROGTOOL v0.2.0
 ===============
 
 by taizou  
@@ -120,15 +120,15 @@ Supported files
 
 The SF2000 OS will load the following file extensions:
 
-| Type       | Extensions                                               |
-|------------|----------------------------------------------------------|
-| Zipped     | bkp, zip                                                 |
-| Custom     | zfc, zsf, zmd, zgb, zfb (see "About .zxx files" section) |
-| SFC/SNES   | smc, fig, sfc, gd3, gd7, dx2, bsx, swc                   |
-| FC/NES     | nes, nfc, fds, unf                                       |
-| GB/GBC     | gbc, gb, sgb                                             |
-| GBA        | gba, agb, gbz                                            |
-| MD/GEN/SMS | bin, md, smd, gen, sms                                   |
+| Type        | Extensions                                                      |
+|-------------|-----------------------------------------------------------------|
+| Zipped      | bkp, zip                                                        |
+| Thumbnailed | zfc, zsf, zmd, zgb, zfb (see "Thumbnails & .zxx files" section) |
+| SFC/SNES    | smc, fig, sfc, gd3, gd7, dx2, bsx, swc                          |
+| FC/NES      | nes, nfc, fds, unf                                              |
+| GB/GBC      | gbc, gb, sgb                                                    |
+| GBA         | gba, agb, gbz                                                   |
+| MD/GEN/SMS  | bin, md, smd, gen, sms                                          |
 
 It doesn't generally care if you put the wrong system's roms in the wrong folder, it will load them in the correct
 emulator according to their file extension.
@@ -156,7 +156,7 @@ For the SF2000 OS's purposes, in order to display the full names of the games in
 emulator-standard filenames (eg. "Metal Slug X -Super Vehicle-001" instead of mslugx) their approach is to use .zfb
 files named with the full name, these files contain a thumbnail image plus the actual filename, which refers in turn to
 the actual rom zip file which is found in the ARCADE/bin subfolder.  
-(See the "About .zxx files" section for more info on this format)
+(See the "Thumbnails & .zxx files" section for more info on this format)
 
 The OS will still recognise arcade ROM ZIP files placed directly in the ROM folders with their emulator-standard
 filenames, but I don't know which ROM set it expects; even the manufacturers don't seem to know, they preloaded three
@@ -171,8 +171,8 @@ file in the skp folder, the game will crash after loading the ROM. Personally I 
 I'd rather see the original attract mode instead of jumping straight to the title screen.
 
 
-About .zxx files
-----------------
+Thumbnails & .zxx files
+-----------------------
 
 The following file formats: zfc, zsf, zmd, zgb, zfb are a custom format created for this and similar devices, containing
 both a thumbnail image used in the menu and a either a zipped ROM or a pointer to one. Collectively I will refer to them
@@ -185,22 +185,23 @@ They correspond to the following systems:
 * .zgb = GB, GBC, GBA
 * .zfb = ARCADE
 
-All files except .zfb are laid out as follows:
+This tool now supports generating these files, so you can use your own custom thumbnails! (Except arcade games for now)
+Just drop a zipped rom and an image (png, jpg, gif) with the same filename in the same folder, run frogtool and it will
+automatically combine the two into an appropriate .zxx file. (The source image and zip file will then be deleted.)  
+Example: "Bubsy.zip" and "Bubsy.jpg" would be combined to "Bubsy.zsf" if placed in the "SFC" folder.
+
+### Technical details
+
+All .zxx files except .zfb are laid out as follows:
 * First 0xEA00 bytes: Thumbnail image, RGB565 RAW format, 144x208px
 * Rest of the file: A zipped rom in "WQW" format
 
 "WQW" is an obfuscated zip file format found on several emulation devices, with filenames scrambled and headers modified
 to inhibit use by ordinary zip software. However, you can actually use a normal unmodified zip inside a .zxx file and
-the OS will load it just fine.
+the OS will load it just fine. (That's what this tool does when generating these files.)
 
-So, if you wanted to have custom thumbnails for your own added ROMs, you could create your own .zxx files by creating a
-thumbnail in the specified RAW format, and then appending a zipped ROM to it.
-
-This tool will now do that automatically! Just drop a zipped rom and an image (png, jpg, gif) with the same filename
-in the same folder, run frogtool and it will automatically combine the two into an appropriate .zxx file.
-(The source files will then be deleted) (Not currently supported for arcade games)  
-Example: "Bubsy.zip" and "Bubsy.jpg" would be combined to "Bubsy.zsf" if placed in the "SFC" folder.  
-Your image doesn't need to be any specific dimensions, it will be resized to fit.
+So, if you want to manually create a .zxx file you can do so by creating a thumbnail in the specified RAW format, and
+then appending a zipped ROM to it.
 
 .zfb files for arcade games are different: they contain the same kind of image, but don't contain the actual game ROM.
 Instead the image is followed by four 00 bytes, then the actual filename of the ROM in the "bin" folder, then two
