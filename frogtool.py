@@ -3,6 +3,16 @@ import sys
 import re
 import binascii
 import shutil
+import struct
+
+try:
+    from PIL import Image
+    from PIL import ImageDraw
+    image_lib_avail = True
+except ImportError:
+    Image = None
+    ImageDraw = None
+    image_lib_avail = False
 
 import ctypes
 if ctypes.windll:
@@ -18,9 +28,18 @@ systems = {
     "SFC":    ["urefs.tax", "adsnt.nec", "xvb6c.bvs"]
 }
 
-supported_ext = [
+supported_rom_ext = [
     "bkp", "zip", "zfc", "zsf", "zmd", "zgb", "zfb", "smc", "fig", "sfc", "gd3", "gd7", "dx2", "bsx", "swc", "nes",
     "nfc", "fds", "unf", "gba", "agb", "gbz", "gbc", "gb", "sgb", "bin", "md", "smd", "gen", "sms"
+]
+zxx_ext = {
+    "ARCADE": "zfb", "FC": "zfc", "GB": "zgb", "GBA": "zgb", "GBC": "zgb", "MD": "zmd", "SFC": "zsf"
+}
+supported_img_ext = [
+    "png", "jpg", "jpeg", "gif"
+]
+supported_zip_ext = [
+    "bkp", "zip"
 ]
 
 
@@ -37,9 +56,21 @@ def file_entry_to_name(file_entry):
     return file_entry.name
 
 
-def check_file(file_entry):
-    file_regex = ".+\\.(" + "|".join(supported_ext) + ")$"
+def check_file(file_entry, supported_exts):
+    file_regex = ".+\\.(" + "|".join(supported_exts) + ")$"
     return file_entry.is_file() and re.search(file_regex, file_entry.name.lower())
+
+
+def check_rom(file_entry):
+    return check_file(file_entry, supported_rom_ext)
+
+
+def check_img(file_entry):
+    return check_file(file_entry, supported_img_ext)
+
+
+def check_zip(file_entry):
+    return check_file(file_entry, supported_zip_ext)
 
 
 def strip_file_extension(name):
@@ -74,9 +105,13 @@ def process_sys(drive, system, test_mode):
     check_and_back_up_file(index_path_cn)
     check_and_back_up_file(index_path_pinyin)
 
-    print(f"Looking for ROMs in {roms_path}")
+    print(f"Looking for files in {roms_path}")
+
+    if system != "ARCADE":
+        convert_zip_image_pairs_to_zxx(roms_path, system)
+
     files = os.scandir(roms_path)
-    files = list(filter(check_file, files))
+    files = list(filter(check_rom, files))
     no_files = len(files)
     if no_files == 0:
         print("No ROMs found! Type Y to confirm you want to save an empty game list, or anything else to cancel")
@@ -103,6 +138,107 @@ def process_sys(drive, system, test_mode):
     write_index_file(name_map_pinyin, sort_normal, index_path_pinyin, test_mode)
 
     print("Done\n")
+
+
+def find_matching_file_diff_ext(target, files):
+    target_no_ext = strip_file_extension(target.name)
+    for file in files:
+        file_no_ext = strip_file_extension(file.name)
+        if file_no_ext == target_no_ext:
+            return file
+
+
+def convert_zip_image_pairs_to_zxx(roms_path, system):
+
+    img_files = os.scandir(roms_path)
+    img_files = list(filter(check_img, img_files))
+    zip_files = os.scandir(roms_path)
+    zip_files = list(filter(check_zip, zip_files))
+    sys_zxx_ext = zxx_ext[system]
+    if not img_files or not zip_files:
+        return
+    print(f"Found image and zip files, looking for matches to combine to {sys_zxx_ext}")
+
+    imgs_processed = 0
+    for img_file in img_files:
+        zip_file = find_matching_file_diff_ext(img_file, zip_files)
+        if not zip_file:
+            continue
+        converted = convert_zip_image_to_zxx(roms_path, img_file, zip_file, sys_zxx_ext)
+        if not converted:
+            print("! Aborting image processing due to errors")
+            break
+        imgs_processed += 1
+
+    if imgs_processed:
+        print(f"Combined {imgs_processed} zip + image pairs into .{sys_zxx_ext} files")
+
+
+def convert_zip_image_to_zxx(path, img_file, zip_file, zxx_ext):
+
+    img_file_path = f"{path}/{img_file.name}"
+    zip_file_path = f"{path}/{zip_file.name}"
+    zxx_file_name = f"{strip_file_extension(img_file.name)}.{zxx_ext}"
+    zxx_file_path = f"{path}/{zxx_file_name}"
+
+    converted = rgb565_convert(img_file_path, zxx_file_path, (144, 208))
+    if not converted:
+        return False
+
+    try:
+        zxx_file_handle = open(zxx_file_path, "ab")
+        zip_file_handle = open(zip_file_path, "rb")
+        zxx_file_handle.write(zip_file_handle.read())
+        zxx_file_handle.close()
+        zip_file_handle.close()
+    except (OSError, IOError):
+        print(f"! Failed appending zip file to {zxx_file_name}")
+        return False
+
+    try:
+        os.remove(img_file_path)
+        os.remove(zip_file_path)
+    except (OSError, IOError):
+        print(f"! Failed deleting source file(s) after creating {zxx_file_name}")
+        return False
+
+    return True
+
+
+def rgb565_convert(src_filename, dest_filename, dest_size=None):
+
+    if not image_lib_avail:
+        print("! Pillow module not found, can't do image conversion")
+        return False
+    try:
+        image = Image.open(src_filename)
+    except (OSError, IOError):
+        print(f"! Failed opening image file {src_filename} for conversion")
+        return False
+    try:
+        dest_file = open(dest_filename, "wb")
+    except (OSError, IOError):
+        print(f"! Failed opening destination file {dest_filename} for conversion")
+        return False
+
+    if dest_size and image.size != dest_size:
+        image = image.resize(dest_size)
+
+    image_height = image.size[1]
+    image_width = image.size[0]
+    pixels = image.load()
+
+    for h in range(image_height):
+        for w in range(image_width):
+            r = pixels[w, h][0] >> 3
+            g = pixels[w, h][1] >> 2
+            b = pixels[w, h][2] >> 3
+            rgb = (r << 11) | (g << 5) | b
+            dest_file.write(struct.pack('H', rgb))
+
+    dest_file.close()
+
+    return True
 
 
 def check_and_back_up_file(file_path):
@@ -171,7 +307,7 @@ def check_sys_valid(system):
 
 def run():
 
-    print("frogtool v0.1.0")
+    print("frogtool v0.2.0")
 
     flags = ["-sc", "-tm"]
     drive = sys.argv[1] if len(sys.argv) >= 2 and sys.argv[1] not in flags else ""
