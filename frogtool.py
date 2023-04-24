@@ -205,6 +205,42 @@ def convert_zip_image_to_zxx(path, img_file, zip_file, zxx_ext):
     return True
 
 
+def rgb565_convert(src_filename, dest_filename, dest_size=None):
+
+    if not image_lib_avail:
+        print("! Pillow module not found, can't do image conversion")
+        return False
+    try:
+        image = Image.open(src_filename)
+    except (OSError, IOError):
+        print(f"! Failed opening image file {src_filename} for conversion")
+        return False
+    try:
+        dest_file = open(dest_filename, "wb")
+    except (OSError, IOError):
+        print(f"! Failed opening destination file {dest_filename} for conversion")
+        return False
+
+    if dest_size and image.size != dest_size:
+        image = image.resize(dest_size)
+
+    image_height = image.size[1]
+    image_width = image.size[0]
+    pixels = image.load()
+
+    for h in range(image_height):
+        for w in range(image_width):
+            r = pixels[w, h][0] >> 3
+            g = pixels[w, h][1] >> 2
+            b = pixels[w, h][2] >> 3
+            rgb = (r << 11) | (g << 5) | b
+            dest_file.write(struct.pack('H', rgb))
+
+    dest_file.close()
+
+    return True
+
+
 def check_and_back_up_file(file_path):
     if not os.path.exists(file_path):
         print(f"! Couldn't find game list file {file_path}")
@@ -333,42 +369,6 @@ def run():
         print()
         print("Press enter to exit")
         input()
-
-
-def rgb565_convert(src_filename, dest_filename, dest_size=None):
-
-    if not image_lib_avail:
-        print("! Pillow module not found, can't do image conversion")
-        return False
-    try:
-        image = Image.open(src_filename)
-    except (OSError, IOError):
-        print(f"! Failed opening image file {src_filename} for conversion")
-        return False
-    try:
-        dest_file = open(dest_filename, "wb")
-    except (OSError, IOError):
-        print(f"! Failed opening destination file {dest_filename} for conversion")
-        return False
-
-    if dest_size and image.size != dest_size:
-        image = image.resize(dest_size)
-
-    image_height = image.size[1]
-    image_width = image.size[0]
-    pixels = image.load()
-
-    for h in range(image_height):
-        for w in range(image_width):
-            r = pixels[w, h][0] >> 3
-            g = pixels[w, h][1] >> 2
-            b = pixels[w, h][2] >> 3
-            rgb = (r << 11) | (g << 5) | b
-            dest_file.write(struct.pack('H', rgb))
-
-    dest_file.close()
-
-    return True
 
 
 try:
