@@ -14,9 +14,11 @@ except ImportError:
     ImageDraw = None
     image_lib_avail = False
 
-import ctypes
-if ctypes.windll:
-    ctypes.windll.kernel32.SetConsoleTitleW("frogtool")
+from sys import platform
+if platform == "win32":
+    import ctypes
+    if ctypes.windll:
+        ctypes.windll.kernel32.SetConsoleTitleW("frogtool")
 
 systems = {
     "ARCADE": ["mswb7.tax", "msdtc.nec", "mfpmp.bvs"],
