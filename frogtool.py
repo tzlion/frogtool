@@ -223,6 +223,10 @@ def rgb565_convert(src_filename, dest_filename, dest_size=None):
         print(f"! Failed opening destination file {dest_filename} for conversion")
         return False
 
+    if image.size[0] == 0 or image.size[1] == 0:
+        print(f"! Image {src_filename} has zero dimension")
+        return False
+
     if dest_size and image.size != dest_size:
         image = image.resize(dest_size)
 
@@ -230,11 +234,19 @@ def rgb565_convert(src_filename, dest_filename, dest_size=None):
     image_width = image.size[0]
     pixels = image.load()
 
+    if not pixels:
+        print(f"! Failed to load image from {src_filename}")
+        return False
+
     for h in range(image_height):
         for w in range(image_width):
-            r = pixels[w, h][0] >> 3
-            g = pixels[w, h][1] >> 2
-            b = pixels[w, h][2] >> 3
+            pixel = pixels[w, h]
+            if not pixel:
+                print(f"! Error reading pixel at {w}x{h} from {src_filename}")
+                return False
+            r = pixel[0] >> 3
+            g = pixel[1] >> 2
+            b = pixel[2] >> 3
             rgb = (r << 11) | (g << 5) | b
             dest_file.write(struct.pack('H', rgb))
 
