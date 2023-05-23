@@ -321,7 +321,7 @@ def check_sys_valid(system):
 
 def run():
 
-    print("frogtool v0.2.0")
+    print("frogtool v0.2.1")
 
     flags = ["-sc", "-tm"]
     drive = sys.argv[1] if len(sys.argv) >= 2 and sys.argv[1] not in flags else ""

@@ -1,5 +1,5 @@
 @echo off
-set ver=0.2.0
+set ver=0.2.1
 rem build script for the distributable versions of frogtool
 if not exist "venv\" (
     py -m venv venv

@@ -1,4 +1,4 @@
-FROGTOOL v0.2.0
+FROGTOOL v0.2.1
 ===============
 
 by taizou  
@@ -245,6 +245,8 @@ Credits
 -------
 
 Developed by taizou
+
+Contributors: Evan Clements
 
 RGB565 conversion code based on PNG-to-RGB565 (c) 2019 jpfwong
 https://github.com/jimmywong2003/PNG-to-RGB565
