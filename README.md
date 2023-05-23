@@ -46,6 +46,11 @@ Compatible versions
 This tool has been tested & confirmed to work on the following SF2000 firmware/SD card image versions:
 * Launch version (with English & Chinese languages only)
 * 2023-04-20 update (with 17 languages)
+* 2023-05-12 update (adds keymapping, favourites, history) - This works but can mess up the favourites and history
+  sections as they're based on position in the list rather than filename. For the time being, if you have problems,
+  delete resources/Favorites.bin and resources/History.bin. This won't stop the features from working but will remove
+  any existing favourites or history you have.
+
 
 Use on any later versions is at your own risk!
 
@@ -253,3 +258,5 @@ https://github.com/jimmywong2003/PNG-to-RGB565
 
 Frog icon from public domain photo by LiquidGhoul
 https://commons.wikimedia.org/wiki/File:Australia_green_tree_frog_(Litoria_caerulea)_crop.jpg
+
+Special thanks to the firmware devs
