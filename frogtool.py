@@ -213,7 +213,7 @@ def rgb565_convert(src_filename, dest_filename, dest_size=None):
         print("! Pillow module not found, can't do image conversion")
         return False
     try:
-        image = Image.open(src_filename)
+        srcimage = Image.open(src_filename)
     except (OSError, IOError):
         print(f"! Failed opening image file {src_filename} for conversion")
         return False
@@ -223,9 +223,9 @@ def rgb565_convert(src_filename, dest_filename, dest_size=None):
         print(f"! Failed opening destination file {dest_filename} for conversion")
         return False
 
-    if image.size[0] == 0 or image.size[1] == 0:
-        print(f"! Image {src_filename} has zero dimension")
-        return False
+    # convert the image to RGB if it was not already
+    image = Image.new('RGB', srcimage.size, (0, 0, 0))
+    image.paste(srcimage, None)
 
     if dest_size and image.size != dest_size:
         image = image.resize(dest_size)
@@ -241,8 +241,8 @@ def rgb565_convert(src_filename, dest_filename, dest_size=None):
     for h in range(image_height):
         for w in range(image_width):
             pixel = pixels[w, h]
-            if not pixel:
-                print(f"! Error reading pixel at {w}x{h} from {src_filename}")
+            if not type(pixel) is tuple:
+                print(f"! Unexpected pixel type at {w}x{h} from {src_filename}")
                 return False
             r = pixel[0] >> 3
             g = pixel[1] >> 2
