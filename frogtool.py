@@ -213,7 +213,7 @@ def rgb565_convert(src_filename, dest_filename, dest_size=None):
         print("! Pillow module not found, can't do image conversion")
         return False
     try:
-        image = Image.open(src_filename)
+        srcimage = Image.open(src_filename)
     except (OSError, IOError):
         print(f"! Failed opening image file {src_filename} for conversion")
         return False
@@ -223,6 +223,10 @@ def rgb565_convert(src_filename, dest_filename, dest_size=None):
         print(f"! Failed opening destination file {dest_filename} for conversion")
         return False
 
+    # convert the image to RGB if it was not already
+    image = Image.new('RGB', srcimage.size, (0, 0, 0))
+    image.paste(srcimage, None)
+
     if dest_size and image.size != dest_size:
         image = image.resize(dest_size)
 
@@ -230,11 +234,19 @@ def rgb565_convert(src_filename, dest_filename, dest_size=None):
     image_width = image.size[0]
     pixels = image.load()
 
+    if not pixels:
+        print(f"! Failed to load image from {src_filename}")
+        return False
+
     for h in range(image_height):
         for w in range(image_width):
-            r = pixels[w, h][0] >> 3
-            g = pixels[w, h][1] >> 2
-            b = pixels[w, h][2] >> 3
+            pixel = pixels[w, h]
+            if not type(pixel) is tuple:
+                print(f"! Unexpected pixel type at {w}x{h} from {src_filename}")
+                return False
+            r = pixel[0] >> 3
+            g = pixel[1] >> 2
+            b = pixel[2] >> 3
             rgb = (r << 11) | (g << 5) | b
             dest_file.write(struct.pack('H', rgb))
 
@@ -309,7 +321,7 @@ def check_sys_valid(system):
 
 def run():
 
-    print("frogtool v0.2.0")
+    print("frogtool v0.2.1")
 
     flags = ["-sc", "-tm"]
     drive = sys.argv[1] if len(sys.argv) >= 2 and sys.argv[1] not in flags else ""
