@@ -232,9 +232,9 @@ def rgb565_convert(src_filename, dest_filename, dest_size=None):
 
     for h in range(image_height):
         for w in range(image_width):
-            r = pixels[w, h][0] >> 3
-            g = pixels[w, h][1] >> 2
-            b = pixels[w, h][2] >> 3
+            r = pixels[w, h].__getitem__(0) >> 3
+            g = pixels[w, h].__getitem__(1) >> 2
+            b = pixels[w, h].__getitem__(2) >> 3
             rgb = (r << 11) | (g << 5) | b
             dest_file.write(struct.pack('H', rgb))
 
