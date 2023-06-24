@@ -120,7 +120,7 @@ def process_sys(drive, system, test_mode):
         conf = input()
         if conf.upper() != "Y":
             print("Cancelling, game list not modified")
-            return
+            return "Cancelling, game list not modified"
     else:
         print(f"Found {no_files} ROMs")
 
@@ -140,6 +140,7 @@ def process_sys(drive, system, test_mode):
     write_index_file(name_map_pinyin, sort_normal, index_path_pinyin, test_mode)
 
     print("Done\n")
+    return f"Finished updating {system} with {no_files} ROMs"
 
 
 def find_matching_file_diff_ext(target, files):
@@ -384,8 +385,3 @@ def run():
         print("Press enter to exit")
         input()
 
-
-try:
-    run()
-except KeyboardInterrupt:
-    pass
