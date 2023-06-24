@@ -14,12 +14,6 @@ except ImportError:
     ImageDraw = None
     image_lib_avail = False
 
-from sys import platform
-if platform == "win32":
-    import ctypes
-    if ctypes.windll:
-        ctypes.windll.kernel32.SetConsoleTitleW("frogtool")
-
 systems = {
     "ARCADE": ["mswb7.tax", "msdtc.nec", "mfpmp.bvs"],
     "FC":     ["rdbui.tax", "fhcfg.nec", "nethn.bvs"],
@@ -320,68 +314,4 @@ def check_sys_valid(system):
     return system and (system in systems.keys() or system == "ALL")
 
 
-def run():
-
-    print("frogtool v0.2.1")
-
-    flags = ["-sc", "-tm"]
-    drive = sys.argv[1] if len(sys.argv) >= 2 and sys.argv[1] not in flags else ""
-    system = sys.argv[2].upper() if len(sys.argv) >= 3 and sys.argv[2] not in flags else ""
-    skip_conf = "-sc" in sys.argv
-    # -tm does a "dry run" and checks that the generated files would be the same as the ones on the card
-    # this is mostly for development purposes to make sure code changes haven't unintentionally affected output
-    test_mode = "-tm" in sys.argv
-
-    while not drive or not os.path.isdir(drive):
-        if drive and not os.path.isdir(drive):
-            if len(drive) == 1 and os.path.isdir(f"{drive}:"):
-                drive = f"{drive}:"
-                continue
-            else:
-                print("! Specified drive or path is not accessible")
-        print()
-        print("Please enter the drive or path where your SF2000 SD card is located e.g. F:")
-        drive = input()
-
-    while not system or not check_sys_valid(system):
-        if system and not check_sys_valid(system):
-            print("! Specified system is not one of the accepted options")
-        print()
-        print("Please enter the system to rebuild game list for: ARCADE, FC, GB, GBA, GBC, MD, SFC or ALL")
-        system = input().upper()
-
-    print()
-    print("=== DISCLAIMER ===")
-    print()
-    print("This program is experimental and you should proceed with caution!")
-    print("Although it will back up the files it modifies, you should make your own backup of the ")
-    print("Resources folder and ideally your whole SD card so you can restore the original state of")
-    print("your device if anything goes wrong.")
-    print()
-    print("The following functionality from the stock system will be lost by using this program:")
-    print("1. Chinese translations of game names (including searching by pinyin initials).")
-    print("   Game names will be taken from the filename regardless of language setting.")
-    print("2. Any custom sorting of games in the menu (e.g. popular games placed at the top).")
-    print("   All games will be sorted alphabetically instead.")
-    print()
-    if not skip_conf:
-        print("Type Y to continue, or anything else to cancel")
-        conf = input()
-        if conf.upper() != "Y":
-            print("Cancelling, no files modified")
-            return
-        print()
-
-    try:
-        keys_to_process = systems.keys() if system == "ALL" else [system]
-        for syskey in keys_to_process:
-            process_sys(drive, syskey, test_mode)
-    except StopExecution:
-        pass
-
-    if not skip_conf:
-        # require user input before terminating to give a chance to read messages in case this was started from the GUI
-        print()
-        print("Press enter to exit")
-        input()
 
