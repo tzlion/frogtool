@@ -1,13 +1,14 @@
-FROGTOOL v0.2.1
+Tadpole
 ===============
 
-by taizou  
-https://github.com/tzlion/frogtool
+by EricGoldstein  
 
-This tool allows you to rebuild the preset game lists on the SF2000 emulator handheld, so you can add (or remove) ROMs
+Tadpole started as a project to provide an easy to use GUI for tzlion's frogtool. However it has since added additional features. 
+
+This tool will attempt to keep all features from the frogtool where possible.
+
+Tadpole allows you to rebuild the preset game lists on the SF2000 / Datafrog emulator handheld, so you can add (or remove) ROMs
 in the proper system categories instead of only being able to add them in the user folder.
-
-Also now supports thumbnails!
 
 
 DISCLAIMER
@@ -15,8 +16,8 @@ DISCLAIMER
 
 This program is experimental and you should use with caution!
 
-It is not developed or authorised by any company or individual connected with the SF2000 handheld and is based on my own
-reverse engineering of its file formats.
+It is not developed or authorised by any company or individual connected with the SF2000 handheld and is based on public
+reverse engineering of SF2000 file formats.
 
 Although it will back up the files it modifies, you should make your own backup of the Resources folder and ideally your
 whole SD card so you can restore the original state of your device if anything goes wrong.
@@ -58,11 +59,13 @@ Use on any later versions is at your own risk!
 Download/installation
 ---------------------
 
-Download the latest release from https://github.com/tzlion/frogtool/releases.
+Download the latest release from https://github.com/EricGoldsteinNz/tadpole/releases
 
-Get the version named -win.zip for the Windows executable or -py.zip for the Python script.
-
-(Sorry the Windows executable is like 5MB, apparently that's just how compiled Python goes)
+Download the latest .exe file if you are on windows, or the python source folder if you are on Linux/Mac.
+You should be able to run the source using:
+python tadpole.py
+Note that you may need to install PyQt5 if you do not have this already using:
+python -m pip install PyQt5
 
 
 Basic usage steps
@@ -70,42 +73,10 @@ Basic usage steps
 
 1. Insert the SF2000 SD card in a card reader connected to your computer
 2. Drag and drop your desired ROMs into the respective system folders (ARCADE, FC, GB, GBA, GBC, MD, SFC) 
-3. Run this program as per the following section
+3. Run tadpole (double-click tadpole.exe or run the python from source)
+3. Select the drive letter and the system you want to rebuild the game list for. Selecting ALL will rebuild all game lists.
+4. Click "Update!"
 
-
-Running the program
--------------------
-
-This program can be run in multiple ways, depending on the version you have and your preferences.
-
-### Windows executable (.exe)
-
-Either
-* Double click from Windows Explorer, it will ask you to enter the drive and system and then proceed
-* Or run it on the command line as follows:  
-  `frogtool [drive] [system] [-sc]`  
-  Example: `frogtool H: FC`  
-On other platforms you may run it through WINE although this has not been tested.
-
-### Python script (.py)
-
-You will need to have a Python interpreter installed, this was developed against version 3.10 & should at least work
-with this and later versions.  
-In order to use the thumbnail generation functionality you will additionally need to have Pillow installed.  
-Then either
-* If you have .py files associated with your interpreter, you can double click and run it
-* Otherwise, run it on the command line as follows:  
-  `python frogtool.py [drive] [system] [-sc]`  
-  Example: `python frogtool.py H: FC`  
-  (the "python" command depends on your setup, you may need to use "py" or "python3")
-
-### Command line arguments
-
-* `drive`:  the location of your SF2000 SD card (e.g. a drive letter on Windows or a mount point on Linux/Mac)
-* `system`: the system to rebuild, one of `ARCADE`, `FC`, `GB`, `GBA`, `GBC`, `MD`, `SFC` or `ALL`
-* `-sc`:    skip confirmations (otherwise, it will ask you to confirm before processing, and press enter once finished)
-
-If you omit either drive or system, it will ask you to enter them when run.
 
 
 Backups
@@ -248,10 +219,7 @@ for example, if you want to restore a backup for GB, you should restore vdsdc.ta
 
 Credits
 -------
-
-Developed by taizou
-
-Contributors: Evan Clements
+Frogtool was developed by taizou and Evan Clements
 
 RGB565 conversion code based on PNG-to-RGB565 (c) 2019 jpfwong
 https://github.com/jimmywong2003/PNG-to-RGB565
