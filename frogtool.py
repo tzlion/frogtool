@@ -85,14 +85,23 @@ def sort_without_file_ext(unsorted_list):
     return sorted(sort_map, key=sort_map.get)
 
 
-def process_sys(drive, system, test_mode):
-    print(f"Processing {system}")
-
-    roms_path = f"{drive}/{system}"
+def getROMList(roms_path):
     if not os.path.isdir(roms_path):
         print(f"! Couldn't find folder {roms_path}")
         print("  Check the provided path points to an SF2000 SD card!")
         raise StopExecution
+    files = os.scandir(roms_path)
+    files = list(filter(check_rom, files))
+    filenames = list(map(file_entry_to_name, files))
+    return filenames
+#TODO
+
+def process_sys(drive, system, test_mode):
+    print(f"Processing {system}")
+
+    roms_path = f"{drive}/{system}"
+    filenames = getROMList(roms_path)
+
 
     index_path_files = f"{drive}/Resources/{systems[system][0]}"
     index_path_cn = f"{drive}/Resources/{systems[system][1]}"
@@ -106,9 +115,8 @@ def process_sys(drive, system, test_mode):
     if system != "ARCADE":
         convert_zip_image_pairs_to_zxx(roms_path, system)
 
-    files = os.scandir(roms_path)
-    files = list(filter(check_rom, files))
-    no_files = len(files)
+    
+    no_files = len(filenames)
     if no_files == 0:
         print("No ROMs found! Type Y to confirm you want to save an empty game list, or anything else to cancel")
         conf = input()
@@ -118,7 +126,7 @@ def process_sys(drive, system, test_mode):
     else:
         print(f"Found {no_files} ROMs")
 
-    filenames = list(map(file_entry_to_name, files))
+
     stripped_names = list(map(strip_file_extension, filenames))
 
     # prepare maps of filenames to index name for the 3 index files
@@ -146,7 +154,6 @@ def find_matching_file_diff_ext(target, files):
 
 
 def convert_zip_image_pairs_to_zxx(roms_path, system):
-
     img_files = os.scandir(roms_path)
     img_files = list(filter(check_img, img_files))
     zip_files = os.scandir(roms_path)
