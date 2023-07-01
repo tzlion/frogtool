@@ -1,6 +1,6 @@
 #GUI imports
 from PyQt5.QtWidgets import *
-from PyQt5.QtGui import (QIcon)
+from PyQt5.QtGui import *
 #OS imports - these should probably be moved somewhere else
 import os
 import sys
@@ -33,7 +33,7 @@ def reloadDriveList():
     for drive in available_drives:
         window.combobox_drive.addItem(QIcon(),drive,drive)
 
-def loadROMsToTable():
+def loadROMsToTable():   
     drive = window.combobox_drive.currentText()
     system = window.combobox_console.currentText()
     if drive == "???" or system == "???":
@@ -42,8 +42,19 @@ def loadROMsToTable():
     try:
         files = frogtool.getROMList(roms_path)
         window.tbl_gamelist.setRowCount(len(files))
-        for i, (name) in enumerate(files):
-            window.tbl_gamelist.setItem(i,0,QTableWidgetItem(f"{name}"))
+        for i,f in enumerate(files):
+            filesize = os.path.getsize(f"{roms_path}/{f}")
+            humanReadableFileSize = "ERROR"
+            if filesize > 1024^2: #More than 1 Megabyte
+                humanReadableFileSize = f"{round(filesize/(1024^2),2)} MB"
+            elif filesize > 1024: #More than 1 Kilobyte
+                humanReadableFileSize = f"{round(filesize/1024,2)} KB"
+            else: #Less than 1 Kilobyte
+                humanReadableFileSize = f"filesize Bytes"
+            window.tbl_gamelist.setItem(i,0,QTableWidgetItem(f"{f}"))
+            window.tbl_gamelist.setItem(i,1,QTableWidgetItem(f"{humanReadableFileSize}"))
+        #Adjust column widths
+        window.tbl_gamelist
     except frogtool.StopExecution:
         #Empty the table
         window.tbl_gamelist.setRowCount(0)
@@ -107,22 +118,27 @@ class MainWindow (QMainWindow):
         self.tbl_gamelist = QTableWidget()
         self.tbl_gamelist.setColumnCount(4)
         self.tbl_gamelist.setHorizontalHeaderLabels(["Name","Size","Thumbnail","Actions"])
+        self.tbl_gamelist.horizontalHeader().setSectionResizeMode(0,QHeaderView.ResizeToContents)
+        self.tbl_gamelist.horizontalHeader().setSectionResizeMode(1,QHeaderView.ResizeToContents)
         layout.addWidget(self.tbl_gamelist,rowCounter, 0, 1, -1)
     
- 
+    def create_actions(self):
+        self.about_action = QAction("&About", self, triggered=self.about)
+        self.exit_action = QAction("E&xit", self, shortcut="Ctrl+Q",triggered=self.close)
+        self.action_changeBootLogo  = QAction("Change &Boot Logo", self, triggered=self.changeBootLogo)
+        self.GBABIOSFix_action = QAction("&GBA BIOS Fix", self, triggered=self.GBABIOSFix)
+        
     def loadMenus(self):
         self.menu_file = self.menuBar().addMenu("&File")
         self.menu_file.addAction(self.about_action)
         self.menu_file.addAction(self.exit_action)
         
         self.menu_os = self.menuBar().addMenu("&OS")
+        self.menu_os.addAction(self.action_changeBootLogo)
         self.menu_os.addAction(self.GBABIOSFix_action)
     
 
-    def create_actions(self):
-        self.about_action = QAction("&About", self, triggered=self.about)
-        self.exit_action = QAction("E&xit", self, shortcut="Ctrl+Q",triggered=self.close)
-        self.GBABIOSFix_action = QAction("&GBA BIOS Fix", self, triggered=self.GBABIOSFix)
+
 
 
     def about(self):
@@ -136,6 +152,22 @@ class MainWindow (QMainWindow):
             QMessageBox.about(self, "GBA BIOS Fix","An error occurred. Please ensure that you have the right drive selected and <i>gba_bios.bin</i> exists in the <i>bios</i> folder")
             return
         QMessageBox.about(self, "GBA BIOS Fix","BIOS successfully copied")
+        
+    def changeBootLogo(self):
+        drive = window.combobox_drive.currentText()
+        newLogoFileName = QFileDialog.getOpenFileName(self, 'Open file','c:\\',"Image files (*.jpg *.png *.webp);;All Files (*.*)")[0]
+        
+        print(f"user tried to load image: {newLogoFileName}")
+        if(newLogoFileName == None or newLogoFileName == ""):
+            print("user cancelled image select")
+            return
+        
+        try:
+            tadpole_functions.changeBootLogo(f"{drive}/bios/bisrv.asd", newLogoFileName)
+        except tadpole_functions.Exception_InvalidPath:
+            QMessageBox.about(self, "Change Boot Logo","An error occurred. Please ensure that you have the right drive selected and <i>bisrv.asd</i> exists in the <i>bios</i> folder")
+            return
+        QMessageBox.about(self, "Change Boot Logo","Boot logo successfully changed")
         
     
     def UnderDevelopmentPopup(self):

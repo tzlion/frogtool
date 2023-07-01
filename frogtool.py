@@ -102,7 +102,6 @@ def process_sys(drive, system, test_mode):
     roms_path = f"{drive}/{system}"
     filenames = getROMList(roms_path)
 
-
     index_path_files = f"{drive}/Resources/{systems[system][0]}"
     index_path_cn = f"{drive}/Resources/{systems[system][1]}"
     index_path_pinyin = f"{drive}/Resources/{systems[system][2]}"
