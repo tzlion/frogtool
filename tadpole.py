@@ -26,7 +26,8 @@ def RunFrogTool():
             QMessageBox.about(window,"Result",result)
     except frogtool.StopExecution:
         pass
-        
+    loadROMsToTable()
+    
 def reloadDriveList():
     available_drives = ['%s:' % d for d in string.ascii_uppercase if os.path.exists('%s:' % d)]
     window.combobox_drive.clear()
@@ -45,8 +46,8 @@ def loadROMsToTable():
         for i,f in enumerate(files):
             filesize = os.path.getsize(f"{roms_path}/{f}")
             humanReadableFileSize = "ERROR"
-            if filesize > 1024^2: #More than 1 Megabyte
-                humanReadableFileSize = f"{round(filesize/(1024^2),2)} MB"
+            if filesize > 1024*1024: #More than 1 Megabyte
+                humanReadableFileSize = f"{round(filesize/(1024*1024),2)} MB"
             elif filesize > 1024: #More than 1 Kilobyte
                 humanReadableFileSize = f"{round(filesize/1024,2)} KB"
             else: #Less than 1 Kilobyte
@@ -189,11 +190,12 @@ reloadDriveList()
 available_consoles_placeholder = "???"
 window.combobox_console.addItem(QIcon(),available_consoles_placeholder,available_consoles_placeholder)
 window.combobox_console.clear()
+#Add ALL to the list to add this fucntionality from frogtool
+window.combobox_console.addItem(QIcon(),"ALL","ALL")
 for console in frogtool.systems.keys():
     window.combobox_console.addItem(QIcon(),console,console)
     
-#Add ALL to the list to add this fucntionality from frogtool
-window.combobox_console.addItem(QIcon(),"ALL","ALL")
+
 
 
 
