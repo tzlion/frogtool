@@ -6,10 +6,25 @@ from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 import struct
 import zlib
+import frogtool
+
+
+systems = {  
+    "FC":     ["rdbui.tax", "fhcfg.nec", "nethn.bvs",1],
+    "SFC":    ["urefs.tax", "adsnt.nec", "xvb6c.bvs",2],
+    "MD":     ["scksp.tax", "setxa.nec", "wmiui.bvs",3],
+    "GB":     ["vdsdc.tax", "umboa.nec", "qdvd6.bvs",4],
+    "GBC":    ["pnpui.tax", "wjere.nec", "mgdel.bvs",5],
+    "GBA":    ["vfnet.tax", "htuiw.nec", "sppnp.bvs",6], 
+    "ARCADE": ["mswb7.tax", "msdtc.nec", "mfpmp.bvs",7]
+}
 
 class Exception_InvalidPath(Exception):
     pass    
 
+class Exception_StopExecution(Exception):
+    pass   
+    
 def GBABIOSFix(drive):
     if drive == "???":
         raise Exception_InvalidPath
@@ -68,8 +83,6 @@ def patchCRC32(bisrv_content):
     bisrv_content[0x18f] = x >> 24
     return bisrv_content
 
-def rshift(val, n): return (val % 0x100000000) >> n
-
 def crc32mpeg2(buf, crc=0xffffffff):
     for val in buf:
         crc ^= val << 24
@@ -95,6 +108,21 @@ versionDictionary = {
     "031edd7d41651593c5fe5c006fa5752b37fddff7bc4e843aa6af0c950f4b9406": "04.20"
 }
 
+def getThumbnailFromZXX(filepath):
+    return False
+"""
+    file_handle = open(filepath, 'rb') #rb for read, wb for write
+    zxx_content = bytearray(file_handle.read(os.path.getsize(filepath)))
+    file_handle.close()
+    thumbnailQImage = QImage()
+    for y in range (0, 288):
+        for x in range (0, 104):
+            #TODO
+            intColor = 
+            thumbnailQImage.setPixel(x,y,)
+            
+    return thumbnailQImage
+"""
 offset_logo_presequence = [0x62, 0x61, 0x64, 0x5F, 0x65, 0x78, 0x63, 0x65, 0x70, 0x74, 0x69, 0x6F, 0x6E, 0x00, 0x00, 0x00]
 offset_buttonMap_presequence = [0x00, 0x00, 0x00, 0x71, 0xDB, 0x8E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 offset_buttonMap_postsequence = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00]
@@ -154,7 +182,51 @@ def bisrv_getFirmwareVersion(index_path):
         print("! Failed reading bisrv.")
         print("  Check the SD card and file are readable, and the file is not open in another program.")
         raise Exception_InvalidPath
+
+class Exception_InvalidConsole(Exception):
+    pass
+
+class Exception_InvalidGamePosition(Exception):
+    pass
+
+"""
+index_path should be the Drive of the Frog card only. It must inlude the semicolon if relevant. ie "E:"
+console must be a supported console from the tadpole_functions systems array.
+position is a 0-based index of the short. values 0 to 3 are considered valid.
+game should be the file name including extension. ie Final Fantasy Tactics Advance (USA).zgb
+"""
+def changeGameShortcut(index_path, console, position, game):
+    #Check the passed variables for validity
+    if not(position >=0 and position <=3):
+        raise Exception_InvalidPath
+    if not (console in systems.keys()):
+        raise Exception_InvalidConsole
         
+    try:
+        trimmedGameName = frogtool.strip_file_extension(game)
+        print(f"Filename trimmed to: {trimmedGameName}")
+        #Read in all the existing shortcuts from file
+        xfgle_filepath = f"{index_path}/Resources/xfgle.hgp"
+        xfgle_file_handle = open(xfgle_filepath, "r")
+        lines = xfgle_file_handle.readlines()
+        xfgle_file_handle.close()
+        prefix = 9
+        if console == "ARCADE": #Arcade lines must be prefixed with "6", all others can be anything.
+            prefix = 6
+        #Overwrite the one line we want to change
+        lines[4*systems[console][3]+position] = f"{prefix} {game}*\n"
+        #Save the changes out to file
+        xfgle_file_handle = open(xfgle_filepath, "w")
+        for line in lines:
+            xfgle_file_handle.write(line)
+        xfgle_file_handle.close()       
+    except (OSError, IOError):
+        print(f"! Failed changing the shortcut file")
+        return False
+  
+    return -1
+    
+
         
 def findSequence(needle, haystack, offset = 0):
     # Loop through the data array starting from the offset
@@ -175,3 +247,22 @@ def findSequence(needle, haystack, offset = 0):
     # If we reach this point, no match was found
     return -1
     
+
+froggyFoldersAndFiles = [
+"\bios",
+"\Resources",
+"\bios\bisrv.asd"
+]
+    
+"""
+This function is used to check if the supplied drive has relevant folders and files for an SF2000 SD card. 
+This should be used to prevent people from accidentally overwriting their other drives.
+If the correct files are found it will return True.
+If the correct files are not found it will return False.
+The drive should be supplied as "E:"
+"""    
+def checkDriveLooksFroggy(drivePath):
+    for file in froggyFoldersAndFiles:
+        if not (os.path.exists(file_path)):
+            return False
+    return True
