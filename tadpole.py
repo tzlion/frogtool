@@ -9,6 +9,7 @@ import string
 import frogtool
 import tadpole_functions
 
+import time
 
 def RunFrogTool():
     drive = window.combobox_drive.currentText()
@@ -78,6 +79,25 @@ def viewThumbnail(rom_path):
     window.window_thumbnail = thumbnailWindow()  
     window.window_thumbnail.loadThumbnail(rom_path)
     window.window_thumbnail.show()
+    
+def BGM_change(source=""):
+    #Check the selected drive looks like a Frog card
+    drive = window.combobox_drive.currentText()
+    
+    if not tadpole_functions.checkDriveLooksFroggy(drive):
+        QMessageBox.about(window, "Something doesn't Look Right","The selected drive doesn't contain critical SF2000 files. The action you selected has been aborted for your safety.")
+        return
+    
+    msgBox = QMessageBox()
+    msgBox.setWindowTitle("Downloading Background Music")
+    msgBox.setText("Now downloading Background music. Depending on your internet connection speed this may take some time, please wait patiently.")
+    msgBox.show()
+    if tadpole_functions.changeBackgroundMusic(drive,source):
+        msgBox.close()
+        QMessageBox.about(window,"Success","Background music changed successfully")
+    else:
+        msgBox.close()
+        QMessageBox.about(window,"Failure","Something went wrong while trying to change the background music")
 
 
 #SubClass QMainWindow to create a Tadpole general interface
@@ -143,12 +163,23 @@ class MainWindow (QMainWindow):
         layout.addWidget(self.tbl_gamelist,rowCounter, 0, 1, -1)
     
     def create_actions(self):
+        #File Menu
         self.about_action = QAction("&About", self, triggered=self.about)
         self.exit_action = QAction("E&xit", self, shortcut="Ctrl+Q",triggered=self.close)
+        #OS Menu
         self.action_changeBootLogo  = QAction("Change &Boot Logo", self, triggered=self.changeBootLogo)
         self.GBABIOSFix_action = QAction("&GBA BIOS Fix", self, triggered=self.GBABIOSFix)
         self.action_changeShortcuts = QAction("Change Game Shortcuts", self, triggered=self.changeGameShortcuts)
         self.action_removeShortcutLabels = QAction("Remove Shortcut Labels", self, triggered=self.removeShortcutLabels)
+        #Background Music Menu
+        self.action_DisableBackgroundMusic = QAction("&Disable", self, triggered=self.BGM_DisableBackgroundMusic)
+        self.action_bgm_donkeyKong = QAction("Donkey Kong", self, triggered=self.BGM_DonkeyKong)
+        self.action_bgm_pokemon = QAction("Pokemon", self, triggered=self.BGM_Pokemon)
+        self.action_bgm_supermariooverworld = QAction("Super Mario Overworld", self, triggered=self.BGM_SuperMarioOverworld)
+        #Console Logos
+        self.action_consolelogos_Default = QAction("Restore Default", self, triggered=self.ConsoleLogos_RestoreDefault)
+        self.action_consolelogos_Western = QAction("Western Logos", self, triggered=self.ConsoleLogos_WesternLogos)
+        
         
     def loadMenus(self):
         self.menu_file = self.menuBar().addMenu("&File")
@@ -160,10 +191,16 @@ class MainWindow (QMainWindow):
         self.menu_os.addAction(self.GBABIOSFix_action)
         self.menu_os.addAction(self.action_changeShortcuts)
         self.menu_os.addAction(self.action_removeShortcutLabels)
-    
+        
+        self.menu_bgm = self.menuBar().addMenu("&Background Music")
+        self.menu_bgm.addAction(self.action_DisableBackgroundMusic)
+        self.menu_bgm.addAction(self.action_bgm_donkeyKong) 
+        self.menu_bgm.addAction(self.action_bgm_pokemon) 
+        self.menu_bgm.addAction(self.action_bgm_supermariooverworld) 
 
-
-
+        self.menu_consoleLogos = self.menuBar().addMenu("Console Logos")
+        self.menu_consoleLogos.addAction(self.action_consolelogos_Default)
+        self.menu_consoleLogos.addAction(self.action_consolelogos_Western)
 
     def about(self):
         QMessageBox.about(self, "About Tadpole","Tadpole was created by EricGoldstein based on the original work from tzlion on frogtool")
@@ -194,8 +231,9 @@ class MainWindow (QMainWindow):
         QMessageBox.about(self, "Change Boot Logo","Boot logo successfully changed")
       
     def changeGameShortcuts(self):
-        #Check the selected drive looks like a Frog card
         drive = window.combobox_drive.currentText()
+        #Check the selected drive looks like a Frog card
+        
         #Open a new modal to change the shortcuts for a specific gamename
         window.window_shortcuts = changeGameShortcutsWindow()
         window.window_shortcuts.setDrive(drive)
@@ -203,10 +241,47 @@ class MainWindow (QMainWindow):
     
     def removeShortcutLabels(self):
         self.UnderDevelopmentPopup()
+        
+    def ConsoleLogos_RestoreDefault(self):
+        self.ConsoleLogos_change("https://github.com/EricGoldsteinNz/SF2000_Resources/raw/main/ConsoleLogos/default/sfcdr.cpl")
+    
+    def ConsoleLogos_WesternLogos(self):
+        self.ConsoleLogos_change("https://github.com/EricGoldsteinNz/SF2000_Resources/raw/main/ConsoleLogos/western_console_logos/sfcdr.cpl")
+    
+    
+    def BGM_DisableBackgroundMusic(self):
+        BGM_change()
+    
+    def BGM_Pokemon(self):
+        BGM_change("https://github.com/EricGoldsteinNz/SF2000_Resources/raw/main/BackgroundMusic/Pokemon-Theme.bgm")
+        
+    def BGM_DonkeyKong(self):
+        BGM_change("https://github.com/EricGoldsteinNz/SF2000_Resources/raw/main/BackgroundMusic/Donkey_Kong_Country-Aquatic_Ambience.bgm")
+    
+    def BGM_SuperMarioOverworld(self):
+        BGM_change("https://github.com/EricGoldsteinNz/SF2000_Resources/raw/main/BackgroundMusic/Super_Mario-Overworld_Theme.bgm")
     
     def UnderDevelopmentPopup(self):
         QMessageBox.about(self, "Developement","This feature is still under development")
         
+    def ConsoleLogos_change(self, url):
+        drive = window.combobox_drive.currentText()
+        
+        if not tadpole_functions.checkDriveLooksFroggy(drive):
+            QMessageBox.about(window, "Something doesn't Look Right","The selected drive doesn't contain critical SF2000 files. The action you selected has been aborted for your safety.")
+            return
+    
+        msgBox = QMessageBox()
+        msgBox.setWindowTitle("Downloading Console Logos")
+        msgBox.setText("Now downloading Console Logos. Depending on your internet connection speed this may take some time, please wait patiently.")
+        msgBox.show()
+        if tadpole_functions.changeConsoleLogos(drive, url):
+            msgBox.close()
+            QMessageBox.about(self, "Success","Console logos successfully changed")
+        else:
+            msgBox.close()
+            QMessageBox.about(self, "Failure","ERROR: Something went wrong while trying to change the console logos")
+              
         
 # Subclass Qidget to create a thumbnail viewing window        
 class thumbnailWindow(QWidget):
@@ -312,6 +387,8 @@ class changeGameShortcutsWindow(QWidget):
             return
         tadpole_functions.changeGameShortcut(f"{self.drive}",console,position,game)
         print(f"changed {console} shortcut {position} to {game} successfully")
+        QMessageBox.about(window,"Success",f"changed {console} shortcut {position} to {game} successfully")
+        
 
 #Initialise the Application
 app = QApplication(sys.argv)

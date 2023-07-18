@@ -7,6 +7,7 @@ from PyQt5.QtCore import *
 import struct
 import zlib
 import frogtool
+import requests
 
 
 systems = {  
@@ -109,10 +110,9 @@ versionDictionary = {
 }
 
 def getThumbnailFromZXX(filepath):
-    return False
-"""
-    file_handle = open(filepath, 'rb') #rb for read, wb for write
-    zxx_content = bytearray(file_handle.read(os.path.getsize(filepath)))
+    """
+    file_handle = open(filepath, 'rb') #rb for read bytes
+    zxx_content = bytearray(file_handle.read(os.path.getsize(filepath)))#can probably reduce this to 288*104*2
     file_handle.close()
     thumbnailQImage = QImage()
     for y in range (0, 288):
@@ -121,8 +121,9 @@ def getThumbnailFromZXX(filepath):
             intColor = 
             thumbnailQImage.setPixel(x,y,)
             
-    return thumbnailQImage
-"""
+    return thumbnailQImage"""
+    return False
+
 offset_logo_presequence = [0x62, 0x61, 0x64, 0x5F, 0x65, 0x78, 0x63, 0x65, 0x70, 0x74, 0x69, 0x6F, 0x6E, 0x00, 0x00, 0x00]
 offset_buttonMap_presequence = [0x00, 0x00, 0x00, 0x71, 0xDB, 0x8E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 offset_buttonMap_postsequence = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00]
@@ -249,9 +250,9 @@ def findSequence(needle, haystack, offset = 0):
     
 
 froggyFoldersAndFiles = [
-"\bios",
-"\Resources",
-"\bios\bisrv.asd"
+"/bios",
+"/Resources",
+"/bios/bisrv.asd"
 ]
     
 """
@@ -263,6 +264,37 @@ The drive should be supplied as "E:"
 """    
 def checkDriveLooksFroggy(drivePath):
     for file in froggyFoldersAndFiles:
-        if not (os.path.exists(file_path)):
+        if not (os.path.exists(f"{drivePath}/{file}")):
+            print(f"missing file {drivePath}/{file}")
             return False
     return True
+
+"""
+This function downloads a file from the internet and renames it to pagefile.sys to replace the background music.
+
+
+"""
+def changeBackgroundMusic(drivePath, url=""):
+    return downloadAndReplace(drivePath, "/Resources/pagefile.sys", url)
+    
+def changeConsoleLogos(drivePath, url=""):
+    return downloadAndReplace(drivePath, "/Resources/sfcdr.cpl", url)    
+        
+def downloadAndReplace(drivePath, fileToReplace, url=""):
+    try:
+        #retrieve bgm from github resources
+        content = ""
+        if not url == "":
+            print(f"Downloading {fileToReplace} from {url}")
+            content = requests.get(url).content
+        #write the new bgm to file
+        bgmPath = f"{drivePath}{fileToReplace}"
+        file_handle = open(bgmPath, 'wb') #rb for read, wb for write
+        if not content == "":
+            file_handle.write(content)
+        file_handle.close()
+        print ("Finished download and replace successfully")
+        return True
+    except (OSError, IOError) as error:
+        print("An error occured while trying to download and replace a file.")
+        return False
