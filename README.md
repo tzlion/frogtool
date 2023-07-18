@@ -3,9 +3,17 @@ Tadpole
 
 by EricGoldstein  
 
-Tadpole started as a project to provide an easy to use GUI for tzlion's frogtool. However it has since added additional features. 
+Tadpole is a device management tool for rthe SF2000 / Datafrog. It currently provides the following main features:
+* Rebuilding of the console specific rom lists
+* Merging ROM zips and jpg files with the same name to the relevant Zxx fileformat for each console
+* Changing the four in menu game shortcuts for each console
+* Changing the boot logo
+* Changing the background music
+* Changing the Console logos
+* Automating the GBA bios fix
 
-This tool will attempt to keep all features from the frogtool where possible.
+
+Tadpole started as a project to provide an easy to use GUI for tzlion's frogtool. However it has since added additional features. 
 
 Tadpole allows you to rebuild the preset game lists on the SF2000 / Datafrog emulator handheld, so you can add (or remove) ROMs
 in the proper system categories instead of only being able to add them in the user folder.
@@ -21,24 +29,6 @@ reverse engineering of SF2000 file formats.
 
 Although it will back up the files it modifies, you should make your own backup of the Resources folder and ideally your
 whole SD card so you can restore the original state of your device if anything goes wrong.
-
-
-LIMITATIONS
------------
-
-The following functionality from the stock menu will be lost by using this program:
-
-1. Chinese translations of game names (including searching by pinyin initials).
-   Game names will be taken from the filename regardless of language setting.
-
-2. Any custom sorting of games in the menu (e.g. popular games placed at the top).
-   All games will be sorted alphabetically instead.
-
-I will look to support these features in the future, but for the time being, if you would like to retain these features,
-please do not use this program.
-
-Additionally, this program does not currently support changing the shortcuts in the main menu. If you remove or rename
-the ROMs those shortcuts point to, they will remain in the menu but become non-functional.
 
 
 Compatible versions
@@ -62,6 +52,7 @@ Download/installation
 Download the latest release from https://github.com/EricGoldsteinNz/tadpole/releases
 
 Download the latest .exe file if you are on windows, or the python source folder if you are on Linux/Mac.
+
 You should be able to run the source using:
 python tadpole.py
 Note that you may need to install PyQt5 if you do not have this already using:
