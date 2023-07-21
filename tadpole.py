@@ -194,10 +194,6 @@ class MainWindow (QMainWindow):
         #Console Logos
         self.action_consolelogos_Default = QAction("Restore Default", self, triggered=self.ConsoleLogos_RestoreDefault)
         self.action_consolelogos_Western = QAction("Western Logos", self, triggered=self.ConsoleLogos_WesternLogos)
-        
-
-    def change_background_music(self, evt):
-        print(evt)
 
     def loadMenus(self):
         self.menu_file = self.menuBar().addMenu("&File")
