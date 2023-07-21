@@ -10,7 +10,7 @@ if not exist "venv\Lib\site-packages\PyInstaller" (
 if not exist "venv\Lib\site-packages\PIL" (
     venv\Scripts\python -m pip install Pillow
 )
-pyinstaller.exe tadpole.py --onefile -F --icon frog.ico --clean --noconsole --version-file versioninfo
+pyinstaller.exe tadpole.py --onefile -F --icon frog.ico --clean --noconsole --version-file versioninfo --add-data="frog.ico;."
 copy README.md "dist\readme.md"
 copy LICENSE "dist\license.txt"
 copy tadpole.py "dist\tadpole.py"

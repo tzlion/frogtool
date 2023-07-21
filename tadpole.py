@@ -11,6 +11,8 @@ import tadpole_functions
 
 import time
 
+basedir = os.path.dirname(__file__)
+
 def RunFrogTool():
     drive = window.combobox_drive.currentText()
     console = window.combobox_console.currentText()
@@ -124,6 +126,8 @@ class MainWindow (QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Tadpole - SF2000 Tool")
+        self.setWindowIcon(QIcon(os.path.join(basedir, 'frog.ico')))
+
         widget = QWidget()
         self.setCentralWidget(widget)
         
