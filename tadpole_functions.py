@@ -10,6 +10,15 @@ import frogtool
 import requests
 
 
+try:
+    from PIL import Image
+    from PIL import ImageDraw
+    image_lib_avail = True
+except ImportError:
+    Image = None
+    ImageDraw = None
+    image_lib_avail = False
+
 systems = {  
     "FC":     ["rdbui.tax", "fhcfg.nec", "nethn.bvs",1],
     "SFC":    ["urefs.tax", "adsnt.nec", "xvb6c.bvs",2],
@@ -123,6 +132,88 @@ def getThumbnailFromZXX(filepath):
             
     return thumbnailQImage"""
     return False
+
+def changeZXXThumbnail(romPath, imagePath):
+    tempPath = f"{romPath}.tmp"
+    converted = frogtool.rgb565_convert(imagePath, tempPath, (144, 208))
+    if not converted:
+        return False
+    #copy the rom data to the temp
+    try:
+        temp_file_handle = open(tempPath, "ab")
+        zxx_file_handle = open(romPath, "rb")
+        romData = bytearray(zxx_file_handle.read())
+        temp_file_handle.write(romData[59904:])
+        temp_file_handle.close()
+        zxx_file_handle.close()
+    except (OSError, IOError):
+        print(f"! Failed appending zip file to ")
+        return False
+    try:
+        shutil.move(tempPath,romPath)
+    except (OSError, IOError) as error:
+        print(f"! Failed moving temp files. {error}")
+        return False
+    return True
+
+"""
+This is a rewrtite attempt at changing the cover art inplace rather thancopy and replace
+"""
+def changeZXXThumbnail2(romPath, imagePath):
+    coverData = getImageData565(imagePath, (144, 208))
+    if not coverData:
+        return False
+    #copy the rom data to the temp
+    try:
+        zxx_file_handle = open(romPath, "r+b")
+        zxx_file_handle.seek(0)
+        zxx_file_handle.write(coverData)
+        zxx_file_handle.close()
+    except (OSError, IOError):
+        print(f"! Failed appending zip file to ")
+        return False
+    return True
+
+
+def getImageData565(src_filename, dest_size=None):
+    if not image_lib_avail:
+        print("! Pillow module not found, can't do image conversion")
+        return False
+    try:
+        srcimage = Image.open(src_filename)
+    except (OSError, IOError):
+        print(f"! Failed opening image file {src_filename} for conversion")
+        return False
+
+    # convert the image to RGB if it was not already
+    image = Image.new('RGB', srcimage.size, (0, 0, 0))
+    image.paste(srcimage, None)
+
+    if dest_size and image.size != dest_size:
+        image = image.resize(dest_size)
+
+    image_height = image.size[1]
+    image_width = image.size[0]
+    pixels = image.load()
+
+    if not pixels:
+        print(f"! Failed to load image from {src_filename}")
+        return False
+    rgb565Data = []
+    for h in range(image_height):
+        for w in range(image_width):
+            pixel = pixels[w, h]
+            if not type(pixel) is tuple:
+                print(f"! Unexpected pixel type at {w}x{h} from {src_filename}")
+                return False
+            r = pixel[0] >> 3
+            g = pixel[1] >> 2
+            b = pixel[2] >> 3
+            rgb = (r << 11) | (g << 5) | b
+            rgb565Data.append(struct.pack('H', rgb))
+    return rgb565Data
+
+
 
 offset_logo_presequence = [0x62, 0x61, 0x64, 0x5F, 0x65, 0x78, 0x63, 0x65, 0x70, 0x74, 0x69, 0x6F, 0x6E, 0x00, 0x00, 0x00]
 offset_buttonMap_presequence = [0x00, 0x00, 0x00, 0x71, 0xDB, 0x8E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]

@@ -58,6 +58,7 @@ def loadROMsToTable():
             window.tbl_gamelist.setItem(i,0,QTableWidgetItem(f"{f}")) #Filename
             window.tbl_gamelist.setItem(i,1,QTableWidgetItem(f"{humanReadableFileSize}")) #Filesize
             window.tbl_gamelist.setItem(i,2,QTableWidgetItem(f"view")) #View Thumbnail Button
+            window.tbl_gamelist.setItem(i,3,QTableWidgetItem(f"change")) #Change Thumbnail Button
             
         #Adjust column widths
         window.tbl_gamelist
@@ -67,6 +68,7 @@ def loadROMsToTable():
         
     window.tbl_gamelist.show()
 
+
 def catchTableCellClicked(clickedRow, clickedColumn):
     print(f"clicked view thumbnail for {clickedRow},{clickedColumn}")
     if clickedColumn == 2:
@@ -74,6 +76,23 @@ def catchTableCellClicked(clickedRow, clickedColumn):
         system = window.combobox_console.currentText()
         gamename = window.tbl_gamelist.item(clickedRow, 0).text()
         viewThumbnail(f"{drive}/{system}/{gamename}")
+    elif clickedColumn == 3:
+        drive = window.combobox_drive.currentText()
+        system = window.combobox_console.currentText()
+        gamename = window.tbl_gamelist.item(clickedRow, 0).text()
+        newCoverFileName = QFileDialog.getOpenFileName(window, 'Open file','c:\\',"Image files (*.jpg *.png *.webp);;All Files (*.*)")[0]
+        print(f"user tried to load image: {newCoverFileName}")
+        if(newCoverFileName == None or newCoverFileName == ""):
+            print("user cancelled image select")
+            return
+        
+        try:
+            tadpole_functions.changeZXXThumbnail(f"{drive}/{system}/{gamename}", newCoverFileName)
+        except tadpole_functions.Exception_InvalidPath:
+            QMessageBox.about(window, "Change ROM Cover","An error occurred.")
+            return
+        QMessageBox.about(window, "Change ROM Cover","ROM cover successfully changed")
+        
 
 def viewThumbnail(rom_path):
     window.window_thumbnail = thumbnailWindow()  
