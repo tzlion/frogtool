@@ -8,6 +8,7 @@ import struct
 import zlib
 import frogtool
 import requests
+import json
 
 
 try:
@@ -359,6 +360,14 @@ def checkDriveLooksFroggy(drivePath):
             print(f"missing file {drivePath}/{file}")
             return False
     return True
+
+
+def get_background_music(url="https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/BackgroundMusic"):
+    """gets index of background music from provided GitHub API URL"""
+    music = {}
+    for item in json.loads(requests.get(url).content):
+        music[item['name'].replace(".bgm", "")] = item['download_url']
+    return music
 
 """
 This function downloads a file from the internet and renames it to pagefile.sys to replace the background music.

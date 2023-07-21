@@ -190,16 +190,15 @@ class MainWindow (QMainWindow):
         self.GBABIOSFix_action = QAction("&GBA BIOS Fix", self, triggered=self.GBABIOSFix)
         self.action_changeShortcuts = QAction("Change Game Shortcuts", self, triggered=self.changeGameShortcuts)
         self.action_removeShortcutLabels = QAction("Remove Shortcut Labels", self, triggered=self.removeShortcutLabels)
-        #Background Music Menu
-        self.action_DisableBackgroundMusic = QAction("&Disable", self, triggered=self.BGM_DisableBackgroundMusic)
-        self.action_bgm_donkeyKong = QAction("Donkey Kong", self, triggered=self.BGM_DonkeyKong)
-        self.action_bgm_pokemon = QAction("Pokemon", self, triggered=self.BGM_Pokemon)
-        self.action_bgm_supermariooverworld = QAction("Super Mario Overworld", self, triggered=self.BGM_SuperMarioOverworld)
+
         #Console Logos
         self.action_consolelogos_Default = QAction("Restore Default", self, triggered=self.ConsoleLogos_RestoreDefault)
         self.action_consolelogos_Western = QAction("Western Logos", self, triggered=self.ConsoleLogos_WesternLogos)
         
-        
+
+    def change_background_music(self, evt):
+        print(evt)
+
     def loadMenus(self):
         self.menu_file = self.menuBar().addMenu("&File")
         self.menu_file.addAction(self.about_action)
@@ -210,16 +209,20 @@ class MainWindow (QMainWindow):
         self.menu_os.addAction(self.GBABIOSFix_action)
         self.menu_os.addAction(self.action_changeShortcuts)
         self.menu_os.addAction(self.action_removeShortcutLabels)
-        
+
+        # Background Music Menu
         self.menu_bgm = self.menuBar().addMenu("&Background Music")
-        self.menu_bgm.addAction(self.action_DisableBackgroundMusic)
-        self.menu_bgm.addAction(self.action_bgm_donkeyKong) 
-        self.menu_bgm.addAction(self.action_bgm_pokemon) 
-        self.menu_bgm.addAction(self.action_bgm_supermariooverworld) 
+        self.music_options = tadpole_functions.get_background_music()
+        for music in self.music_options:
+            self.menu_bgm.addAction(QAction(music, self, triggered=self.change_background_music))
 
         self.menu_consoleLogos = self.menuBar().addMenu("Console Logos")
         self.menu_consoleLogos.addAction(self.action_consolelogos_Default)
         self.menu_consoleLogos.addAction(self.action_consolelogos_Western)
+
+    def change_background_music(self):
+        """event to change background music"""
+        BGM_change(self.music_options[self.sender().text()])
 
     def about(self):
         QMessageBox.about(self, "About Tadpole","Tadpole was created by EricGoldstein based on the original work from tzlion on frogtool")
@@ -266,20 +269,7 @@ class MainWindow (QMainWindow):
     
     def ConsoleLogos_WesternLogos(self):
         self.ConsoleLogos_change("https://github.com/EricGoldsteinNz/SF2000_Resources/raw/main/ConsoleLogos/western_console_logos/sfcdr.cpl")
-    
-    
-    def BGM_DisableBackgroundMusic(self):
-        BGM_change()
-    
-    def BGM_Pokemon(self):
-        BGM_change("https://github.com/EricGoldsteinNz/SF2000_Resources/raw/main/BackgroundMusic/Pokemon-Theme.bgm")
-        
-    def BGM_DonkeyKong(self):
-        BGM_change("https://github.com/EricGoldsteinNz/SF2000_Resources/raw/main/BackgroundMusic/Donkey_Kong_Country-Aquatic_Ambience.bgm")
-    
-    def BGM_SuperMarioOverworld(self):
-        BGM_change("https://github.com/EricGoldsteinNz/SF2000_Resources/raw/main/BackgroundMusic/Super_Mario-Overworld_Theme.bgm")
-    
+
     def UnderDevelopmentPopup(self):
         QMessageBox.about(self, "Developement","This feature is still under development")
         
