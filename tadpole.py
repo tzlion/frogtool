@@ -153,6 +153,8 @@ class MainWindow (QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Tadpole - SF2000 Tool")
+        self.setWindowIcon(QIcon(os.path.join(basedir, 'frog.ico')))
+
         widget = QWidget()
         self.setCentralWidget(widget)
         
