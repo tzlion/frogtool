@@ -11,6 +11,8 @@ import tadpole_functions
 
 import time
 
+basedir = os.path.dirname(__file__)
+
 def RunFrogTool():
     drive = window.combobox_drive.currentText()
     console = window.combobox_console.currentText()
@@ -30,12 +32,39 @@ def RunFrogTool():
     loadROMsToTable()
     
 def reloadDriveList():
-    currentDrive =  window.combobox_drive.currentText()
+    current_drive =  window.combobox_drive.currentText()
     available_drives = ['%s:' % d for d in string.ascii_uppercase if os.path.exists('%s:' % d)]
     window.combobox_drive.clear()
+
     for drive in available_drives:
-        window.combobox_drive.addItem(QIcon(),drive,drive)
-    window.combobox_drive.setCurrentText(currentDrive)
+        if os.path.exists(os.path.join(drive, "bios", "bisrv.asd")):
+            window.combobox_drive.addItem(QIcon(), drive, drive)
+
+    if len(window.combobox_drive) > 0:
+        toggle_features(True)
+        window.status_bar.showMessage("SF2000 Drive(s) Detected.", 20000)
+
+    else:
+        # disable functions
+        window.combobox_drive.addItem(QIcon(), "N/A", "N/A")
+        window.status_bar.showMessage("No SF2000 Drive Detected. Click refresh button to try again.", 20000)
+        toggle_features(False)
+
+    window.combobox_drive.setCurrentText(current_drive)
+
+
+def toggle_features(enable: bool):
+    """Toggles program features on or off"""
+    features = [window.btn_update,
+                window.combobox_console,
+                window.combobox_drive,
+                window.menu_os,
+                window.menu_bgm,
+                window.menu_consoleLogos,
+                window.tbl_gamelist]
+
+    for feature in features:
+        feature.setEnabled(enable)
 
 def loadROMsToTable():   
     drive = window.combobox_drive.currentText()
@@ -180,6 +209,10 @@ class MainWindow (QMainWindow):
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(1,QHeaderView.ResizeToContents)
         self.tbl_gamelist.cellClicked.connect(catchTableCellClicked)
         layout.addWidget(self.tbl_gamelist,rowCounter, 0, 1, -1)
+
+        # Status Bar
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
     
     def create_actions(self):
         #File Menu
