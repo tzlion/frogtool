@@ -1,6 +1,8 @@
 #GUI imports
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
+from PyQt5.QtMultimedia import QSoundEffect
+from PyQt5 import QtCore
 #OS imports - these should probably be moved somewhere else
 import os
 import sys
@@ -10,6 +12,8 @@ import frogtool
 import tadpole_functions
 
 import requests
+import wave
+from io import BytesIO
 
 import time
 
@@ -150,6 +154,109 @@ def BGM_change(source=""):
         QMessageBox.about(window,"Failure","Something went wrong while trying to change the background music")
 
 
+class MusicConfirmDialog(QDialog):
+    """Dialog used to confirm music selection with the ability to preview selection by listening to the music.
+
+        Args:
+            music_name (str) : Name of the music file; used only to show name in dialog
+            music_url (str) : URL to a raw music file; should be formatted for use on SF2000 (raw signed 16-bit PCM,
+                mono, little-endian, 22050 hz)
+    """
+    def __init__(self, music_name: str, music_url: str):
+        super().__init__()
+
+        # Save Arguments
+        self.music_name = music_name
+        self.music_url = music_url
+
+        # Configure Window
+        self.setWindowTitle("Confirm Music Change")
+        self.setWindowIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolume)))
+        self.sound = QSoundEffect(self)  # Used to Play Music File
+
+        # Setup Main Layout
+        self.layout_main = QVBoxLayout()
+        self.setLayout(self.layout_main)
+
+        # Main Text
+        self.label_confirm = QLabel("<h3>Change Background Music</h3><em>{}</em>".format(self.music_name),
+                                    self)
+        self.label_confirm.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
+        self.layout_main.addWidget(self.label_confirm)
+
+        # Music Preview Button
+        self.button_play = QPushButton(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)),
+                                       " Preview",
+                                       self)
+        self.layout_main.addWidget(self.button_play)
+        self.button_play.clicked.connect(self.toggle_audio)
+
+        # Main Buttons Layout (Save/Cancel)
+        self.layout_buttons = QHBoxLayout()
+        self.layout_main.addLayout(self.layout_buttons)
+
+        # Save Button
+        self.button_save = QPushButton("Save")
+        self.button_save.setDefault(True)
+        self.button_save.clicked.connect(self.accept)
+        self.layout_buttons.addWidget(self.button_save)
+
+        # Cancel Button
+        self.button_cancel = QPushButton("Cancel")
+        self.button_cancel.clicked.connect(self.reject)
+        self.layout_buttons.addWidget(self.button_cancel)
+
+    def toggle_audio(self) -> bool:
+        """toggles music preview on or off
+
+            Returns:
+                bool: True if file is playing; false if not
+        """
+        if self.sound.isPlaying():
+            self.sound.stop()
+            self.button_play.setIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)))
+            self.button_play.setText(" Preview")
+            return False
+
+        else:
+            if not self.sound.source().path():  # download and convert raw file if not already done
+                self.button_play.setDisabled(True)  # disable button while downloading
+                file_name = self.get_and_format_music_file()
+                if file_name:  # download and conversion succeeds
+                    self.sound.setSource(QtCore.QUrl.fromLocalFile(file_name))
+                    self.button_play.setDisabled(False)
+                else:  # download and conversion fails
+                    self.button_play.setText(" Download Failed")
+                    self.button_play.setIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical)))
+                    return False
+
+            # format button and play
+            self.button_play.setIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaStop)))
+            self.button_play.setText(" Stop")
+            self.sound.setLoopCount(1000)
+            self.sound.play()
+            return True
+
+    def get_and_format_music_file(self) -> str or bool:
+        """Downloads and re-formats the raw music file as wav.
+
+            Returns:
+                str or bool: path to resulting temporary wav file, or False if download fails
+        """
+        try:
+            r = requests.get(self.music_url)
+            if r.status_code == 200:  # download succeeds
+                raw_data = BytesIO(r.content)  # read raw file into memory
+                wav_filename = os.path.join(basedir, "preview.wav")
+                with wave.open(wav_filename, "wb") as wav_file:
+                    wav_file.setparams((1, 2, 22050, 0, 'NONE', 'NONE'))
+                    wav_file.writeframes(raw_data.read())
+                return wav_filename
+            return False
+        except requests.exceptions.RequestException:  # catches exceptions for multiple reasons
+            return False
+
+
 #SubClass QMainWindow to create a Tadpole general interface
 class MainWindow (QMainWindow):
     def __init__(self):
@@ -267,7 +374,9 @@ class MainWindow (QMainWindow):
 
     def change_background_music(self):
         """event to change background music"""
-        BGM_change(self.music_options[self.sender().text()])
+        d = MusicConfirmDialog(self.sender().text(), self.music_options[self.sender().text()])
+        if d.exec():
+            BGM_change(self.music_options[self.sender().text()])
 
     def about(self):
         QMessageBox.about(self, "About Tadpole","Tadpole was created by EricGoldstein based on the original work from tzlion on frogtool")
