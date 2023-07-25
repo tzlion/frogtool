@@ -10,6 +10,7 @@ import frogtool
 import tadpole_functions
 
 import requests
+import psutil
 
 import time
 
@@ -34,13 +35,14 @@ def RunFrogTool():
     loadROMsToTable()
     
 def reloadDriveList():
-    current_drive =  window.combobox_drive.currentText()
-    available_drives = ['%s:' % d for d in string.ascii_uppercase if os.path.exists('%s:' % d)]
+    current_drive = window.combobox_drive.currentText()
     window.combobox_drive.clear()
 
-    for drive in available_drives:
-        if os.path.exists(os.path.join(drive, "bios", "bisrv.asd")):
-            window.combobox_drive.addItem(QIcon(), drive, drive)
+    for drive in psutil.disk_partitions():
+        if os.path.exists(os.path.join(drive.mountpoint, "bios", "bisrv.asd")):
+            window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
+                                          drive.mountpoint,
+                                          drive.mountpoint)
 
     if len(window.combobox_drive) > 0:
         toggle_features(True)
