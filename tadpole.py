@@ -9,6 +9,8 @@ import string
 import frogtool
 import tadpole_functions
 
+import requests
+
 import time
 
 basedir = os.path.dirname(__file__)
@@ -157,7 +159,11 @@ class MainWindow (QMainWindow):
 
         widget = QWidget()
         self.setCentralWidget(widget)
-        
+
+        # Status Bar
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+
         #Load the Menus
         self.create_actions()
         self.loadMenus()
@@ -211,10 +217,6 @@ class MainWindow (QMainWindow):
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(1,QHeaderView.ResizeToContents)
         self.tbl_gamelist.cellClicked.connect(catchTableCellClicked)
         layout.addWidget(self.tbl_gamelist,rowCounter, 0, 1, -1)
-
-        # Status Bar
-        self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
     
     def create_actions(self):
         #File Menu
@@ -243,9 +245,21 @@ class MainWindow (QMainWindow):
 
         # Background Music Menu
         self.menu_bgm = self.menuBar().addMenu("&Background Music")
-        self.music_options = tadpole_functions.get_background_music()
-        for music in self.music_options:
-            self.menu_bgm.addAction(QAction(music, self, triggered=self.change_background_music))
+        try:
+            self.music_options = tadpole_functions.get_background_music()
+        except (ConnectionError, requests.exceptions.ConnectionError):
+            self.status_bar.showMessage("Error loading external music resources.", 20000)
+            error_action = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical)),
+                                   "Error Loading External Resources!",
+                                   self)
+            error_action.setDisabled(True)
+            self.menu_bgm.addAction(error_action)
+        else:
+            for music in self.music_options:
+                self.menu_bgm.addAction(QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolume)),
+                                                music,
+                                                self,
+                                                triggered=self.change_background_music))
 
         self.menu_consoleLogos = self.menuBar().addMenu("Console Logos")
         self.menu_consoleLogos.addAction(self.action_consolelogos_Default)

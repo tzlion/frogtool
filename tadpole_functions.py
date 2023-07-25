@@ -365,9 +365,14 @@ def checkDriveLooksFroggy(drivePath):
 def get_background_music(url="https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/BackgroundMusic"):
     """gets index of background music from provided GitHub API URL"""
     music = {}
-    for item in json.loads(requests.get(url).content):
-        music[item['name'].replace(".bgm", "")] = item['download_url']
-    return music
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        data = json.loads(response.content)
+        for item in data:
+            music[item['name'].replace(".bgm", "")] = item['download_url']
+        return music
+    raise ConnectionError("Unable to obtain music resources. (Status Code: {})".format(response.status_code))
 
 """
 This function downloads a file from the internet and renames it to pagefile.sys to replace the background music.
