@@ -68,17 +68,17 @@ def toggle_features(enable: bool):
     for feature in features:
         feature.setEnabled(enable)
 
-def loadROMsToTable():   
+def loadROMsToTable():
     drive = window.combobox_drive.currentText()
     system = window.combobox_console.currentText()
     if drive == "???" or system == "???":
         return
-    roms_path = f"{drive}/{system}"
+    roms_path = os.path.join(drive, system)
     try:
         files = frogtool.getROMList(roms_path)
         window.tbl_gamelist.setRowCount(len(files))
         for i,f in enumerate(files):
-            filesize = os.path.getsize(f"{roms_path}/{f}")
+            filesize = os.path.getsize(os.path.join(roms_path, f))
             humanReadableFileSize = "ERROR"
             if filesize > 1024*1024: #More than 1 Megabyte
                 humanReadableFileSize = f"{round(filesize/(1024*1024),2)} MB"
@@ -106,7 +106,7 @@ def catchTableCellClicked(clickedRow, clickedColumn):
         drive = window.combobox_drive.currentText()
         system = window.combobox_console.currentText()
         gamename = window.tbl_gamelist.item(clickedRow, 0).text()
-        viewThumbnail(f"{drive}/{system}/{gamename}")
+        viewThumbnail(os.path.join(drive, system, gamename))
     elif clickedColumn == 3:
         drive = window.combobox_drive.currentText()
         system = window.combobox_console.currentText()
@@ -118,7 +118,7 @@ def catchTableCellClicked(clickedRow, clickedColumn):
             return
         
         try:
-            tadpole_functions.changeZXXThumbnail(f"{drive}/{system}/{gamename}", newCoverFileName)
+            tadpole_functions.changeZXXThumbnail(os.path.join(drive, system, gamename), newCoverFileName)
         except tadpole_functions.Exception_InvalidPath:
             QMessageBox.about(window, "Change ROM Cover","An error occurred.")
             return
@@ -291,7 +291,7 @@ class MainWindow (QMainWindow):
             return
         
         try:
-            tadpole_functions.changeBootLogo(f"{drive}/bios/bisrv.asd", newLogoFileName)
+            tadpole_functions.changeBootLogo(os.path.join(drive, "bios", "bisrv.asd"), newLogoFileName)
         except tadpole_functions.Exception_InvalidPath:
             QMessageBox.about(self, "Change Boot Logo","An error occurred. Please ensure that you have the right drive selected and <i>bisrv.asd</i> exists in the <i>bios</i> folder")
             return
@@ -420,7 +420,7 @@ class changeGameShortcutsWindow(QWidget):
         if system == "" or system == "???":
             print("ERROR: tried to load games for shortcuts on an incorrect system")
             return
-        roms_path = f"{self.drive}/{system}"
+        roms_path = os.path.join(self.drive, system)
         try:
             files = frogtool.getROMList(roms_path)
             self.combobox_games.clear()
