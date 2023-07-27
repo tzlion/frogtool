@@ -1,7 +1,7 @@
 #GUI imports
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import Qt, QTimer
 #OS imports - these should probably be moved somewhere else
 import os
 import sys
@@ -170,62 +170,54 @@ class MainWindow (QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
 
-        #Load the Menus
+        # Load the Menus
         self.create_actions()
         self.loadMenus()
-        
-        layout = QGridLayout(widget)
-        rowCounter = 0
-        colCounter = 0
-        #Drive Select Widgets
-        self.lbl_drive = QLabel(text="Drive:")     
+
+        # Create Layouts
+        layout = QVBoxLayout(widget)
+        selector_layout = QHBoxLayout(widget)
+        layout.addLayout(selector_layout)
+
+        # Drive Select Widgets
+        self.lbl_drive = QLabel(text="Drive:")
+        self.lbl_drive.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.combobox_drive = QComboBox()
         self.combobox_drive.currentIndexChanged.connect(loadROMsToTable)
         self.btn_refreshDrives = QPushButton()
         self.btn_refreshDrives.setIcon(self.style().standardIcon(getattr(QStyle, "SP_BrowserReload")))
         self.btn_refreshDrives.clicked.connect(reloadDriveList)
-        layout.addWidget(self.lbl_drive, rowCounter, colCounter)
-        colCounter += 1
-        layout.addWidget(self.combobox_drive, rowCounter, colCounter)
-        colCounter += 1
-        layout.addWidget(self.btn_refreshDrives,rowCounter,colCounter)
-        colCounter += 1
-         
-        #Console Select Widgets
+        selector_layout.addWidget(self.lbl_drive)
+        selector_layout.addWidget(self.combobox_drive, stretch=1)
+        selector_layout.addWidget(self.btn_refreshDrives)
+
+        # Spacer
+        selector_layout.addWidget(QLabel(" "), stretch=2)
+
+        # Console Select Widgets
         self.lbl_console = QLabel(text="Console:")
+        self.lbl_console.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.combobox_console = QComboBox()
         self.combobox_console.currentIndexChanged.connect(loadROMsToTable)
-        layout.addWidget(self.lbl_console, rowCounter, colCounter)
-        colCounter += 1
-        layout.addWidget(self.combobox_console, rowCounter, colCounter)
-        colCounter += 1        
+        selector_layout.addWidget(self.lbl_console)
+        selector_layout.addWidget(self.combobox_console, stretch=1)
         
-        #Update Button Widget
+        # Update Button Widget
         self.btn_update = QPushButton("Update!")
-        layout.addWidget(self.btn_update, rowCounter, colCounter)
+        selector_layout.addWidget(self.btn_update)
         self.btn_update.clicked.connect(RunFrogTool)
-        colCounter += 1  
-        
-        self.lbl_fillerR1 = QLabel()
-        layout.addWidget(self.lbl_fillerR1, rowCounter, colCounter)
-        layout.setColumnStretch(colCounter,1)
-        colCounter += 1  
-        
-        #New Row
-        rowCounter += 1
-        colCounter = 0       
-             
-        #Game Table Widget
+
+        # Game Table Widget
         self.tbl_gamelist = QTableWidget()
         self.tbl_gamelist.setColumnCount(4)
-        self.tbl_gamelist.setHorizontalHeaderLabels(["Name","Size","Thumbnail","Actions"])
-        self.tbl_gamelist.horizontalHeader().setSectionResizeMode(0,QHeaderView.ResizeToContents)
-        self.tbl_gamelist.horizontalHeader().setSectionResizeMode(1,QHeaderView.ResizeToContents)
+        self.tbl_gamelist.setHorizontalHeaderLabels(["Name", "Size", "Thumbnail", "Actions"])
+        self.tbl_gamelist.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.tbl_gamelist.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.tbl_gamelist.cellClicked.connect(catchTableCellClicked)
-        layout.addWidget(self.tbl_gamelist,rowCounter, 0, 1, -1)
+        layout.addWidget(self.tbl_gamelist)
         
-        #reload Drives Timer
-        self.timer=QTimer()
+        # Reload Drives Timer
+        self.timer = QTimer()
         self.timer.timeout.connect(reloadDriveList)
         self.timer.start(1000)
     
