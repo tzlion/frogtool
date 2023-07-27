@@ -2,6 +2,8 @@ import os
 import sys
 import shutil
 import hashlib
+import zipfile
+import io
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 import struct
@@ -371,9 +373,14 @@ def checkDriveLooksFroggy(drivePath):
 def get_background_music(url="https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/BackgroundMusic"):
     """gets index of background music from provided GitHub API URL"""
     music = {}
-    for item in json.loads(requests.get(url).content):
-        music[item['name'].replace(".bgm", "")] = item['download_url']
-    return music
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        data = json.loads(response.content)
+        for item in data:
+            music[item['name'].replace(".bgm", "")] = item['download_url']
+        return music
+    raise ConnectionError("Unable to obtain music resources. (Status Code: {})".format(response.status_code))
 
 
 """
@@ -396,14 +403,40 @@ def downloadAndReplace(drivePath, fileToReplace, url=""):
         if not url == "":
             print(f"Downloading {fileToReplace} from {url}")
             content = requests.get(url).content
-        # write the new bgm to file
-        bgmPath = f"{drivePath}{fileToReplace}"
-        file_handle = open(bgmPath, 'wb')  # rb for read, wb for write
+
         if not content == "":
+            #write the content to file
+            bgmPath = f"{drivePath}{fileToReplace}"
+            file_handle = open(bgmPath, 'wb') #rb for read, wb for write
             file_handle.write(content)
-        file_handle.close()
+            file_handle.close()
         print ("Finished download and replace successfully")
         return True
     except (OSError, IOError) as error:
         print("An error occured while trying to download and replace a file.")
         return False
+      
+def downloadDirectoryFromGithub(location, url):
+    response = requests.get(url) 
+    if response.status_code == 200:
+        data = json.loads(response.content)
+        for item in data:
+            if item["type"] == "dir":
+                #create folder then recursively download
+                foldername = item["name"]
+                print(f"creating directory {location}/{foldername}")
+                os.makedirs(os.path.dirname(f"{location}/{foldername}/"), exist_ok=True)
+                downloadDirectoryFromGithub(f"{location}/{foldername}", item["url"])
+            else:# all other cases should be files
+                filename = item["name"]
+                downloadFileFromGithub(f"{location}/{filename}", item["download_url"])
+                
+        return True
+    raise ConnectionError("Unable to V1.5 Update. (Status Code: {})".format(response.status_code))
+    return False
+    
+def downloadFileFromGithub(outFile, url):
+    r = requests.get(url)
+    with open(outFile, 'wb') as f:
+        print(f'downloading {url} to {outFile}')
+        f.write(r.content)
