@@ -1,20 +1,26 @@
 #GUI imports
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
+from PyQt5.QtCore import QTimer
 #OS imports - these should probably be moved somewhere else
 import os
 import sys
 import string
+import threading
 #Feature imports
 import frogtool
 import tadpole_functions
 
 import requests
 import psutil
-
+import json
 import time
 
 basedir = os.path.dirname(__file__)
+
+static_NoDrives = "N/A"
+static_AllSystems = "ALL"
+
 
 def RunFrogTool():
     drive = window.combobox_drive.currentText()
@@ -22,7 +28,7 @@ def RunFrogTool():
     
     print(f"Running frogtool with drive ({drive}) and console ({console})")
     try:
-        if(console =="ALL"):
+        if(console == static_AllSystems):
             for console in frogtool.systems.keys():
                 result = frogtool.process_sys(drive,console, False)
                 QMessageBox.about(window,"Result",result)
@@ -50,7 +56,7 @@ def reloadDriveList():
 
     else:
         # disable functions
-        window.combobox_drive.addItem(QIcon(), "N/A", "N/A")
+        window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
         window.status_bar.showMessage("No SF2000 Drive Detected. Click refresh button to try again.", 20000)
         toggle_features(False)
 
@@ -73,7 +79,7 @@ def toggle_features(enable: bool):
 def loadROMsToTable():
     drive = window.combobox_drive.currentText()
     system = window.combobox_console.currentText()
-    if drive == "???" or system == "???":
+    if drive == static_NoDrives or system == "???" or system == static_AllSystems:
         return
     roms_path = os.path.join(drive, system)
     try:
@@ -219,12 +225,18 @@ class MainWindow (QMainWindow):
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(1,QHeaderView.ResizeToContents)
         self.tbl_gamelist.cellClicked.connect(catchTableCellClicked)
         layout.addWidget(self.tbl_gamelist,rowCounter, 0, 1, -1)
+        
+        #reload Drives Timer
+        self.timer=QTimer()
+        self.timer.timeout.connect(reloadDriveList)
+        self.timer.start(1000)
     
     def create_actions(self):
         #File Menu
         self.about_action = QAction("&About", self, triggered=self.about)
         self.exit_action = QAction("E&xit", self, shortcut="Ctrl+Q",triggered=self.close)
         #OS Menu
+        self.action_updateToV1_5  = QAction("V1.5", self, triggered=self.UpdatetoV1_5)                                                                              
         self.action_changeBootLogo  = QAction("Change &Boot Logo", self, triggered=self.changeBootLogo)
         self.GBABIOSFix_action = QAction("&GBA BIOS Fix", self, triggered=self.GBABIOSFix)
         self.action_changeShortcuts = QAction("Change Game Shortcuts", self, triggered=self.changeGameShortcuts)
@@ -240,6 +252,8 @@ class MainWindow (QMainWindow):
         self.menu_file.addAction(self.exit_action)
         
         self.menu_os = self.menuBar().addMenu("&OS")
+        self.menu_os.menu_update = self.menu_os.addMenu("Update")
+        self.menu_os.menu_update.addAction(self.action_updateToV1_5)                                                         
         self.menu_os.addAction(self.action_changeBootLogo)
         self.menu_os.addAction(self.GBABIOSFix_action)
         self.menu_os.addAction(self.action_changeShortcuts)
@@ -337,6 +351,23 @@ class MainWindow (QMainWindow):
         else:
             msgBox.close()
             QMessageBox.about(self, "Failure","ERROR: Something went wrong while trying to change the console logos")
+            
+    def UpdatetoV1_5(self):
+        drive = window.combobox_drive.currentText()
+        url = "https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.5"
+        
+        msgBox = QMessageBox()
+        msgBox.setWindowTitle("Downloading Console Logos")
+        msgBox.setText("Now downloading Console Logos. Depending on your internet connection speed this may take some time, please wait patiently.")
+        msgBox.show()
+        if tadpole_functions.downloadDirectoryFromGithub(drive, url):
+            msgBox.close()
+            QMessageBox.about(self, "Success","Update successfully Downloaded")
+        else:
+            msgBox.close()
+            QMessageBox.about(self, "Failure","ERROR: Something went wrong while trying to download the update")
+         
+        
               
         
 # Subclass Qidget to create a thumbnail viewing window        
@@ -453,17 +484,15 @@ app = QApplication(sys.argv)
 window = MainWindow()
 
 #Update list of drives
-available_drives_placeholder = "???"
-window.combobox_drive.addItem(QIcon(),available_drives_placeholder,available_drives_placeholder)
+window.combobox_drive.addItem(QIcon(),static_NoDrives,static_NoDrives)
 reloadDriveList()
-
 
 #Update list of consoles
 available_consoles_placeholder = "???"
 window.combobox_console.addItem(QIcon(),available_consoles_placeholder,available_consoles_placeholder)
 window.combobox_console.clear()
 #Add ALL to the list to add this fucntionality from frogtool
-window.combobox_console.addItem(QIcon(),"ALL","ALL")
+window.combobox_console.addItem(QIcon(),static_AllSystems,static_AllSystems)
 for console in frogtool.systems.keys():
     window.combobox_console.addItem(QIcon(),console,console)
     
@@ -473,3 +502,4 @@ for console in frogtool.systems.keys():
 
 window.show()
 app.exec()
+
