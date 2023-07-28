@@ -41,7 +41,7 @@ def RunFrogTool():
             QMessageBox.about(window, "Result", result)
     except frogtool.StopExecution:
         pass
-    loadROMsToTable()
+    #loadROMsToTable()
     
 def reloadDriveList():
     current_drive = window.combobox_drive.currentText()
@@ -89,10 +89,10 @@ def loadROMsToTable():
     try:
         files = frogtool.getROMList(roms_path)
         window.tbl_gamelist.setRowCount(len(files))
-        
+        print(f"found {len(files)} ROMs")
         for i,f in enumerate(files):
-            filesize = os.path.getsize(os.path.join(roms_path, f))
             humanReadableFileSize = "ERROR"
+            filesize = os.path.getsize(os.path.join(roms_path, f))           
             if filesize > 1024*1024:  # More than 1 Megabyte
                 humanReadableFileSize = f"{round(filesize/(1024*1024),2)} MB"
             elif filesize > 1024:  # More than 1 Kilobyte
@@ -102,19 +102,14 @@ def loadROMsToTable():
             window.tbl_gamelist.setItem(i, 0, QTableWidgetItem(f"{f}"))  # Filename
             window.tbl_gamelist.setItem(i, 1, QTableWidgetItem(f"{humanReadableFileSize}")) #Filesize
             window.tbl_gamelist.setItem(i, 2, QTableWidgetItem(f"view"))  # View Thumbnail Button
-            window.tbl_gamelist.setItem(i, 3, QTableWidgetItem(f"change"))  # Change Thumbnail Button
-            #add delete icon SP_TrashIcon
-            """
-            QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolume))
-            SP_DialogResetButton
-            """
-            
-            
+            window.tbl_gamelist.setItem(i, 3, QTableWidgetItem(f"change"))  # Change Thumbnail Button           
+        print("finished loading roms to table")    
         # Adjust column widths
-        window.tbl_gamelist
+        #window.tbl_gamelist
     except frogtool.StopExecution:
         # Empty the table
         window.tbl_gamelist.setRowCount(0)
+        print("frogtool stop execution on table load caught")
         
     window.tbl_gamelist.show()
 
