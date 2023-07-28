@@ -80,6 +80,7 @@ def toggle_features(enable: bool):
         feature.setEnabled(enable)
 
 def loadROMsToTable():
+    print("loading roms to table")
     drive = window.combobox_drive.currentText()
     system = window.combobox_console.currentText()
     if drive == static_NoDrives or system == "???" or system == static_AllSystems:
@@ -88,6 +89,7 @@ def loadROMsToTable():
     try:
         files = frogtool.getROMList(roms_path)
         window.tbl_gamelist.setRowCount(len(files))
+        
         for i,f in enumerate(files):
             filesize = os.path.getsize(os.path.join(roms_path, f))
             humanReadableFileSize = "ERROR"
@@ -101,6 +103,12 @@ def loadROMsToTable():
             window.tbl_gamelist.setItem(i, 1, QTableWidgetItem(f"{humanReadableFileSize}")) #Filesize
             window.tbl_gamelist.setItem(i, 2, QTableWidgetItem(f"view"))  # View Thumbnail Button
             window.tbl_gamelist.setItem(i, 3, QTableWidgetItem(f"change"))  # Change Thumbnail Button
+            #add delete icon SP_TrashIcon
+            """
+            QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolume))
+            SP_DialogResetButton
+            """
+            
             
         # Adjust column widths
         window.tbl_gamelist
@@ -295,7 +303,7 @@ class MainWindow (QMainWindow):
         self.lbl_drive = QLabel(text="Drive:")
         self.lbl_drive.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.combobox_drive = QComboBox()
-        self.combobox_drive.currentIndexChanged.connect(loadROMsToTable)
+        self.combobox_drive.activated.connect(loadROMsToTable)
         self.btn_refreshDrives = QPushButton()
         self.btn_refreshDrives.setIcon(self.style().standardIcon(getattr(QStyle, "SP_BrowserReload")))
         self.btn_refreshDrives.clicked.connect(reloadDriveList)
@@ -310,7 +318,7 @@ class MainWindow (QMainWindow):
         self.lbl_console = QLabel(text="Console:")
         self.lbl_console.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.combobox_console = QComboBox()
-        self.combobox_console.currentIndexChanged.connect(loadROMsToTable)
+        self.combobox_console.activated.connect(loadROMsToTable)
         selector_layout.addWidget(self.lbl_console)
         selector_layout.addWidget(self.combobox_console, stretch=1)
         
@@ -391,8 +399,9 @@ class MainWindow (QMainWindow):
             BGM_change(self.music_options[self.sender().text()])
 
     def about(self):
-        QMessageBox.about(self, "About Tadpole", "Tadpole was created by EricGoldstein based on the original work \
-        from tzlion on frogtool")
+        QMessageBox.about(self, "About Tadpole", 
+                                "Tadpole was created by EricGoldstein based on the original work \
+from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazing improvements")
 
     def GBABIOSFix(self):
         drive = window.combobox_drive.currentText()
@@ -603,7 +612,6 @@ reloadDriveList()
 available_consoles_placeholder = "???"
 window.combobox_console.addItem(QIcon(), available_consoles_placeholder, available_consoles_placeholder)
 window.combobox_console.clear()
-
 # Add ALL to the list to add this fucntionality from frogtool
 window.combobox_console.addItem(QIcon(), static_AllSystems, static_AllSystems)
 for console in frogtool.systems.keys():

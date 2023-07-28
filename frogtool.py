@@ -99,12 +99,12 @@ def getROMList(roms_path):
 def process_sys(drive, system, test_mode):
     print(f"Processing {system}")
 
-    roms_path = f"{drive}/{system}"
+    roms_path = os.path.join(drive,system)
     filenames = getROMList(roms_path)
 
-    index_path_files = f"{drive}/Resources/{systems[system][0]}"
-    index_path_cn = f"{drive}/Resources/{systems[system][1]}"
-    index_path_pinyin = f"{drive}/Resources/{systems[system][2]}"
+    index_path_files = os.path.join(drive,"Resources",systems[system][0])
+    index_path_cn = os.path.join(drive,"Resources",systems[system][1])
+    index_path_pinyin = os.path.join(drive,"Resources",systems[system][2])
     check_and_back_up_file(index_path_files)
     check_and_back_up_file(index_path_cn)
     check_and_back_up_file(index_path_pinyin)
@@ -179,10 +179,10 @@ def convert_zip_image_pairs_to_zxx(roms_path, system):
 
 def convert_zip_image_to_zxx(path, img_file, zip_file, zxx_ext):
 
-    img_file_path = f"{path}/{img_file.name}"
-    zip_file_path = f"{path}/{zip_file.name}"
+    img_file_path = os.path.join(path,img_file.name)
+    zip_file_path = os.path.join(path,zip_file.name)
     zxx_file_name = f"{strip_file_extension(img_file.name)}.{zxx_ext}"
-    zxx_file_path = f"{path}/{zxx_file_name}"
+    zxx_file_path = os.path.join(path,zxx_file_name)
 
     converted = rgb565_convert(img_file_path, zxx_file_path, (144, 208))
     if not converted:

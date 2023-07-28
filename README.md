@@ -31,21 +31,6 @@ Although it will back up the files it modifies, you should make your own backup 
 whole SD card so you can restore the original state of your device if anything goes wrong.
 
 
-Compatible versions
--------------------
-
-This tool has been tested & confirmed to work on the following SF2000 firmware/SD card image versions:
-* Launch version (with English & Chinese languages only)
-* 2023-04-20 update (with 17 languages)
-* 2023-05-12 update (adds keymapping, favourites, history) - This works but can mess up the favourites and history
-  sections as they're based on position in the list rather than filename. For the time being, if you have problems,
-  delete Resources/Favorites.bin and Resources/History.bin from the SD card. This won't stop the features from working
-  but will remove any existing favourites or history you have.
-
-
-Use on any later versions is at your own risk!
-
-
 Download/installation
 ---------------------
 
@@ -68,6 +53,20 @@ Basic usage steps
 3. Select the drive letter and the system you want to rebuild the game list for. Selecting ALL will rebuild all game lists.
 4. Click "Update!"
 
+
+Compatible versions
+-------------------
+
+This tool has been tested & confirmed to work on the following SF2000 firmware/SD card image versions:
+* Launch version (with English & Chinese languages only)
+* 2023-04-20 update (with 17 languages)
+* 2023-05-12 update (adds keymapping, favourites, history) - This works but can mess up the favourites and history
+  sections as they're based on position in the list rather than filename. For the time being, if you have problems,
+  delete Resources/Favorites.bin and Resources/History.bin from the SD card. This won't stop the features from working
+  but will remove any existing favourites or history you have.
+
+
+Use on any later versions is at your own risk!
 
 
 Backups
