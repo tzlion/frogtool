@@ -38,21 +38,21 @@ class Exception_InvalidPath(Exception):
 class Exception_StopExecution(Exception):
     pass   
     
-def GBABIOSFix(drive):
+def GBABIOSFix(drive: str):
     if drive == "???":
         raise Exception_InvalidPath
-    GBABIOSPath = f"{drive}/bios/gba_bios.bin"
-    if not os.path.exists(GBABIOSPath):
-        print(f"! Couldn't find game list file {GBABIOSPath}")
+    gba_bios_path = os.path.join(drive, "bios", "gba_bios.bin")
+    if not os.path.exists(gba_bios_path):
+        print(f"! Couldn't find game list file {gba_bios_path}")
         print("  Check the provided path points to an SF2000 SD card!")
         raise Exception_InvalidPath
     try:
-        GBAFolderPath = f"{drive}/GBA/mnt/sda1/bios/"
-        ROMSFolderPath = f"{drive}/ROMS/mnt/sda1/bios/"
-        os.makedirs(os.path.dirname(GBAFolderPath), exist_ok=True)       
-        os.makedirs(os.path.dirname(ROMSFolderPath), exist_ok=True)
-        shutil.copyfile(GBABIOSPath, f"{GBAFolderPath}/gba_bios.bin")
-        shutil.copyfile(GBABIOSPath, f"{ROMSFolderPath}/gba_bios.bin")
+        gba_folder_path = os.path.join(drive, "GBA", "mnt", "sda1", "bios")
+        roms_folder_path = os.path.join(drive, "ROMS", "mnt", "sda1", "bios")
+        os.makedirs(os.path.dirname(gba_folder_path), exist_ok=True)
+        os.makedirs(os.path.dirname(roms_folder_path), exist_ok=True)
+        shutil.copyfile(gba_bios_path, os.path.join(gba_folder_path, "gba_bios.bin"))
+        shutil.copyfile(gba_bios_path, os.path.join(roms_folder_path, "gba_bios.bin"))
     except (OSError, IOError) as error:
         print("! Failed to copy GBA BIOS.")
         print(error)
@@ -301,7 +301,7 @@ def changeGameShortcut(index_path, console, position, game):
         trimmedGameName = frogtool.strip_file_extension(game)
         print(f"Filename trimmed to: {trimmedGameName}")
         #Read in all the existing shortcuts from file
-        xfgle_filepath = f"{index_path}/Resources/xfgle.hgp"
+        xfgle_filepath = os.path.join(index_path, "Resources", "xfgle.hgp")
         xfgle_file_handle = open(xfgle_filepath, "r")
         lines = xfgle_file_handle.readlines()
         xfgle_file_handle.close()
@@ -358,7 +358,7 @@ The drive should be supplied as "E:"
 """    
 def checkDriveLooksFroggy(drivePath):
     for file in froggyFoldersAndFiles:
-        if not (os.path.exists(f"{drivePath}/{file}")):
+        if not os.path.exists(os.path.join(drivePath, file)):
             print(f"missing file {drivePath}/{file}")
             return False
     return True
@@ -396,7 +396,7 @@ def downloadAndReplace(drivePath, fileToReplace, url=""):
             content = requests.get(url).content
         if not content == "":
             #write the content to file
-            bgmPath = f"{drivePath}{fileToReplace}"
+            bgmPath = os.path.join(drivePath, fileToReplace)
             file_handle = open(bgmPath, 'wb') #rb for read, wb for write
             file_handle.write(content)
             file_handle.close()
