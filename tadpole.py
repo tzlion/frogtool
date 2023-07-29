@@ -754,24 +754,25 @@ class changeGameShortcutsWindow(QWidget):
         QMessageBox.about(window, "Success", f"changed {console} shortcut {position} to {game} successfully")
         
 
-# Initialise the Application
-app = QApplication(sys.argv)
+if __name__ == "__main__":
+    # Initialise the Application
+    app = QApplication(sys.argv)
 
-# Build the Window
-window = MainWindow()
+    # Build the Window
+    window = MainWindow()
 
-# Update list of drives
-window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
-reloadDriveList()
+    # Update list of drives
+    window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
+    reloadDriveList()
 
-# Update list of consoles
-available_consoles_placeholder = "???"
-window.combobox_console.addItem(QIcon(), available_consoles_placeholder, available_consoles_placeholder)
-window.combobox_console.clear()
-# Add ALL to the list to add this fucntionality from frogtool
-window.combobox_console.addItem(QIcon(), static_AllSystems, static_AllSystems)
-for console in frogtool.systems.keys():
-    window.combobox_console.addItem(QIcon(), console, console)
+    # Update list of consoles
+    available_consoles_placeholder = "???"
+    window.combobox_console.addItem(QIcon(), available_consoles_placeholder, available_consoles_placeholder)
+    window.combobox_console.clear()
+    # Add ALL to the list to add this fucntionality from frogtool
+    window.combobox_console.addItem(QIcon(), static_AllSystems, static_AllSystems)
+    for console in frogtool.systems.keys():
+        window.combobox_console.addItem(QIcon(), console, console)
     
-window.show()
-app.exec()
+    window.show()
+    app.exec()
