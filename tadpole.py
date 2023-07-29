@@ -293,6 +293,26 @@ class BootConfirmDialog(QDialog):
         # Load Initial Image
         self.current_viewer.load_from_bios(self.drive)
 
+class ReadmeDialog(QMainWindow):
+    """
+    Dialog used to display README.md file from program root.
+    """
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Read Me")
+        self.setWindowIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarContextHelpButton))
+
+        self.text_edit = QTextEdit(self)
+        self.text_edit.setReadOnly(True)
+        self.text_edit.setMinimumSize(500, 500)
+        self.setCentralWidget(self.text_edit)
+        try:
+            with open(os.path.join(basedir, "README.md"), "r") as readme_file:
+                self.text_edit.setMarkdown(readme_file.read())
+        except FileNotFoundError:  # gracefully fail if file not present
+            self.text_edit.setText(f"Unable to locate README.md file in program root folder {basedir}.")
+
 
 class MusicConfirmDialog(QDialog):
     """Dialog used to confirm music selection with the ability to preview selection by listening to the music.
@@ -457,14 +477,20 @@ class MainWindow (QMainWindow):
         self.tbl_gamelist.cellClicked.connect(catchTableCellClicked)
         layout.addWidget(self.tbl_gamelist)
 
+        self.readme_dialog = ReadmeDialog()
+
         # Reload Drives Timer
         self.timer = QTimer()
         self.timer.timeout.connect(reloadDriveList)
         self.timer.start(1000)
+
     
     def create_actions(self):
         # File Menu
-        self.about_action = QAction("&About", self, triggered=self.about)
+        self.about_action = QAction(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation),
+                                    "&About",
+                                    self,
+                                    triggered=self.about)
         self.exit_action = QAction("E&xit", self, shortcut="Ctrl+Q",triggered=self.close)
 
         # OS Menu
@@ -480,7 +506,6 @@ class MainWindow (QMainWindow):
 
     def loadMenus(self):
         self.menu_file = self.menuBar().addMenu("&File")
-        self.menu_file.addAction(self.about_action)
         self.menu_file.addAction(self.exit_action)
         
         self.menu_os = self.menuBar().addMenu("&OS")
@@ -512,6 +537,14 @@ class MainWindow (QMainWindow):
         self.menu_consoleLogos = self.menuBar().addMenu("Console Logos")
         self.menu_consoleLogos.addAction(self.action_consolelogos_Default)
         self.menu_consoleLogos.addAction(self.action_consolelogos_Western)
+
+        self.menu_help = self.menuBar().addMenu("&Help")
+        self.readme_action = QAction(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarContextHelpButton),
+                                     "Read Me",
+                                     triggered=self.show_readme)
+        self.menu_help.addAction(self.readme_action)
+        self.menu_help.addSeparator()
+        self.menu_help.addAction(self.about_action)
 
     def change_background_music(self):
         """event to change background music"""
@@ -595,6 +628,9 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
         else:
             msgBox.close()
             QMessageBox.about(self, "Failure", "ERROR: Something went wrong while trying to change the console logos")
+
+    def show_readme(self):
+        self.readme_dialog.show()
 
     def UpdatetoV1_5(self):
         drive = window.combobox_drive.currentText()
