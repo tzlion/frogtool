@@ -231,10 +231,8 @@ class BootLogoViewer(QLabel):
                 img = QImage(f.read(), 512, 200, QImage.Format_RGB16)
         else:  # otherwise let QImage autodetection do its thing
             img = QImage(path)
-            if (img.width(), img.height()) != (512, 200):  # check to determine if image is appropriate size
-                self.setText("Image dimensions are wrong.  Should be 512x200.  Click to try again.")
-                self.parent().button_save.setDisabled(True)  # disable saving
-                return False
+            if (img.width(), img.height()) != (512, 200): 
+                img = img.scaled(512, 200, Qt.IgnoreAspectRatio, Qt.SmoothTransformation) #Rescale new boot logo to correct size
         self.path = path  # update path
         self.setPixmap(QPixmap().fromImage(img))
 
@@ -495,7 +493,7 @@ class MainWindow (QMainWindow):
 
         # OS Menu
         self.action_updateToV1_5  = QAction("V1.5", self, triggered=self.UpdatetoV1_5)                                                                              
-        self.action_changeBootLogo  = QAction("&Boot Logo", self, triggered=self.changeBootLogo)
+        self.action_changeBootLogo  = QAction("Change &Boot Logo", self, triggered=self.changeBootLogo)
         self.GBABIOSFix_action = QAction("&GBA BIOS Fix", self, triggered=self.GBABIOSFix)
         self.action_changeShortcuts = QAction("Change Game Shortcuts", self, triggered=self.changeGameShortcuts)
         self.action_removeShortcutLabels = QAction("Remove Shortcut Labels", self, triggered=self.removeShortcutLabels)
