@@ -3,7 +3,6 @@ import sys
 import shutil
 import hashlib
 import zipfile
-import io
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 import struct
@@ -129,10 +128,10 @@ versionDictionary = {
 def getThumbnailFromZXX(filepath):
     """
     file_handle = open(filepath, 'rb') #rb for read bytes
-    zxx_content = bytearray(file_handle.read(os.path.getsize(filepath)))#can probably reduce this to 288*104*2
+    zxx_content = bytearray(file_handle.read(os.path.getsize(filepath)))#can probably reduce this to 208*104*2
     file_handle.close()
     thumbnailQImage = QImage()
-    for y in range (0, 288):
+    for y in range (0, 208):
         for x in range (0, 104):
             #TODO
             intColor = 
@@ -439,3 +438,9 @@ def downloadFileFromGithub(outFile, url):
     with open(outFile, 'wb') as f:
         print(f'downloading {url} to {outFile}')
         f.write(r.content)
+
+def extractImgFromROM(romFilePath, outfilePath):
+    with open(romFilePath, "rb") as rom_file:
+        rom_content = bytearray(rom_file.read())
+        img = QImage(rom_content[0:((144*208)*2)], 144, 208, QImage.Format_RGB16)
+        img.save(outfilePath)
