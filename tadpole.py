@@ -158,7 +158,8 @@ def viewThumbnail(rom_path):
             QMessageBox.about(window, "Change ROM Cover", "An error occurred.")
             return
         QMessageBox.about(window, "Change ROM Logo", "ROM cover successfully changed")
-    
+
+
 def BGM_change(source=""):
     # Check the selected drive looks like a Frog card
     drive = window.combobox_drive.currentText()
@@ -167,18 +168,23 @@ def BGM_change(source=""):
         QMessageBox.about(window, "Something doesn't Look Right", "The selected drive doesn't contain critical \
         SF2000 files. The action you selected has been aborted for your safety.")
         return
-    
-    msgBox = QMessageBox()
-    msgBox.setWindowTitle("Downloading Background Music")
-    msgBox.setText("Now downloading Background music. Depending on your internet connection speed this may take \
-    some time, please wait patiently.")
-    msgBox.show()
-    if tadpole_functions.changeBackgroundMusic(drive,source):
-        msgBox.close()
-        QMessageBox.about(window,"Success", "Background music changed successfully")
+
+    msg_box = QMessageBox()
+    msg_box.setWindowTitle("Getting Background Music")
+    msg_box.setText("Now getting background music. For downloads, this may take some time. Please wait patiently!")
+    msg_box.show()
+
+    if source[0:4] == "http":  # internet-based
+        result = tadpole_functions.changeBackgroundMusic(drive, url=source)
+    else:  # local resource
+        result = tadpole_functions.changeBackgroundMusic(drive, file=source)
+
+    if result:
+        msg_box.close()
+        QMessageBox.about(window, "Success", "Background music changed successfully")
     else:
-        msgBox.close()
-        QMessageBox.about(window,"Failure", "Something went wrong while trying to change the background music")
+        msg_box.close()
+        QMessageBox.about(window, "Failure", "Something went wrong while trying to change the background music")
 
 
 class BootLogoViewer(QLabel):
@@ -325,22 +331,24 @@ class ReadmeDialog(QMainWindow):
 
 
 class MusicConfirmDialog(QDialog):
-    """Dialog used to confirm music selection with the ability to preview selection by listening to the music.
+    """Dialog used to confirm or load music selection with the ability to preview selection by listening to the music.
+    If neither music_name nor music_url are provided, allows import from local file.
 
         Args:
             music_name (str) : Name of the music file; used only to show name in dialog
             music_url (str) : URL to a raw music file; should be formatted for use on SF2000 (raw signed 16-bit PCM,
                 mono, little-endian, 22050 hz)
     """
-    def __init__(self, music_name: str, music_url: str):
+    def __init__(self, music_name: str = "", music_url: str = ""):
         super().__init__()
 
         # Save Arguments
         self.music_name = music_name
         self.music_url = music_url
+        self.music_file = ""  # used to store filename for local files
 
         # Configure Window
-        self.setWindowTitle("Confirm Music Change")
+        self.setWindowTitle("Change Background Music")
         self.setWindowIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolume)))
         self.sound = QSoundEffect(self)  # Used to Play Music File
 
@@ -349,15 +357,20 @@ class MusicConfirmDialog(QDialog):
         self.setLayout(self.layout_main)
 
         # Main Text
-        self.label_confirm = QLabel("<h3>Change Background Music</h3><em>{}</em>".format(self.music_name),
-                                    self)
+        self.label_confirm = QLabel("<h3>Change Background Music</h3><a href='#'>Select File</a>", self)
+        if self.music_name == "" and self.music_url == "":
+            self.label_confirm.linkActivated.connect(self.load_from_file)
+            pass
         self.label_confirm.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
         self.layout_main.addWidget(self.label_confirm)
 
         # Music Preview Button
         self.button_play = QPushButton(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)),
                                        " Preview",
                                        self)
+        self.button_play.setDisabled(True)  # disable by default
+
         self.layout_main.addWidget(self.button_play)
         self.button_play.clicked.connect(self.toggle_audio)
 
@@ -367,7 +380,7 @@ class MusicConfirmDialog(QDialog):
 
         # Save Button
         self.button_save = QPushButton("Save")
-        self.button_save.setDefault(True)
+        self.button_save.setDisabled(True)  # disable by default
         self.button_save.clicked.connect(self.accept)
         self.layout_buttons.addWidget(self.button_save)
 
@@ -375,6 +388,11 @@ class MusicConfirmDialog(QDialog):
         self.button_cancel = QPushButton("Cancel")
         self.button_cancel.clicked.connect(self.reject)
         self.layout_buttons.addWidget(self.button_cancel)
+
+        if music_name and music_url:  # enable features only if using preset options
+            self.label_confirm.setText("<h3>Change Background Music</h3><em>{}</em>".format(self.music_name))
+            self.button_save.setEnabled(True)
+            self.button_play.setEnabled(True)
 
     def toggle_audio(self) -> bool:
         """toggles music preview on or off
@@ -389,14 +407,15 @@ class MusicConfirmDialog(QDialog):
             return False
 
         else:
-            if not self.sound.source().path():  # download and convert raw file if not already done
-                self.button_play.setDisabled(True)  # disable button while downloading
-                file_name = self.get_and_format_music_file()
-                if file_name:  # download and conversion succeeds
-                    self.sound.setSource(QUrl.fromLocalFile(file_name))
-                    self.button_play.setDisabled(False)
-                else:  # download and conversion fails
-                    self.button_play.setText(" Download Failed")
+            if not self.sound.source().path():  # fetch and convert raw file if not already done
+                self.button_play.setDisabled(True)  # disable button while processing
+                file_data = self.get_and_format_music_file()
+                if file_data[0]:  # fetch/conversion succeeds
+                    self.sound.setSource(QUrl.fromLocalFile(file_data[1]))
+                    self.button_play.setEnabled(True)
+                    self.button_save.setEnabled(True)  # enable saving as well since file seems OK
+                else:  # fetch/conversion fails
+                    self.button_play.setText(file_data[1])
                     self.button_play.setIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical)))
                     return False
 
@@ -407,24 +426,43 @@ class MusicConfirmDialog(QDialog):
             self.sound.play()
             return True
 
-    def get_and_format_music_file(self) -> str or bool:
-        """Downloads and re-formats the raw music file as wav.
+    def get_and_format_music_file(self) -> (bool, str):
+        """Downloads/loads and re-formats the raw music file as wav.
 
             Returns:
-                str or bool: path to resulting temporary wav file, or False if download fails
+                tuple (bool, str): True or false based on success in fetching/converting file, and path to resulting
+                    temporary wav file, error message if failed.
         """
-        try:
-            r = requests.get(self.music_url)
-            if r.status_code == 200:  # download succeeds
-                raw_data = BytesIO(r.content)  # read raw file into memory
-                wav_filename = os.path.join(basedir, "preview.wav")
-                with wave.open(wav_filename, "wb") as wav_file:
-                    wav_file.setparams((1, 2, 22050, 0, 'NONE', 'NONE'))
-                    wav_file.writeframes(raw_data.read())
-                return wav_filename
-            return False
-        except requests.exceptions.RequestException:  # catches exceptions for multiple reasons
-            return False
+        if self.music_url:  # handle internet downloads
+            try:
+                r = requests.get(self.music_url)
+                if r.status_code == 200:  # download succeeds
+                    raw_data = BytesIO(r.content)  # read raw file into memory
+            except requests.exceptions.RequestException:  # catches exceptions for multiple reasons
+                return False, "Download Failed"
+        else:  # handle local files
+            with open(self.music_file, "rb") as mf:
+                raw_data = BytesIO(mf.read())
+
+        wav_filename = os.path.join(basedir, "preview.wav")
+        with wave.open(wav_filename, "wb") as wav_file:
+            wav_file.setparams((1, 2, 22050, 0, 'NONE', 'NONE'))
+            wav_file.writeframes(raw_data.read())
+            if wav_file.getnframes() > (22050*90):  # check that file length does not exceed 90 seconds (max for Froggy)
+                return False, "Duration Too Long (90s max)"
+        return True, wav_filename
+
+    def load_from_file(self) -> bool:
+        file_name = QFileDialog.getOpenFileName(self, 'Open file', '',
+                                                "Raw Signed 16-bit PCM - Mono, Little-Endian, 22050hz (*.*)")[0]
+        if file_name:
+            self.music_file = file_name
+            self.music_name = os.path.split(file_name)[-1]
+            self.label_confirm.setText("<h3>Change Background Music</h3><em>{}</em>".format(self.music_name))
+            self.button_play.setEnabled(True)
+            self.toggle_audio()
+            return True
+        return False
 
 
 # SubClass QMainWindow to create a Tadpole general interface
@@ -543,6 +581,11 @@ class MainWindow (QMainWindow):
                                                 music,
                                                 self,
                                                 triggered=self.change_background_music))
+        self.menu_bgm.addSeparator()
+        self.menu_bgm.addAction(QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton)),
+                                        "From Local File...",
+                                        self,
+                                        triggered=self.change_background_music))
 
         self.menu_consoleLogos = self.menuBar().addMenu("Console Logos")
         self.menu_consoleLogos.addAction(self.action_consolelogos_Default)
@@ -558,9 +601,17 @@ class MainWindow (QMainWindow):
 
     def change_background_music(self):
         """event to change background music"""
-        d = MusicConfirmDialog(self.sender().text(), self.music_options[self.sender().text()])
+        if self.sender().text() == "From Local File...":  # handle local file option
+            d = MusicConfirmDialog()
+            local = True
+        else:  # handle preset options
+            d = MusicConfirmDialog(self.sender().text(), self.music_options[self.sender().text()])
+            local = False
         if d.exec():
-            BGM_change(self.music_options[self.sender().text()])
+            if local:
+                BGM_change(d.music_file)
+            else:
+                BGM_change(self.music_options[self.sender().text()])
 
     def about(self):
         QMessageBox.about(self, "About Tadpole", 
