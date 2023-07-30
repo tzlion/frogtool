@@ -809,46 +809,35 @@ class changeGameShortcutsWindow(QWidget):
    
     def __init__(self):
         super().__init__()
-        colCounter = 0
-        layout = QGridLayout()
+
+        layout = QHBoxLayout()
         # Console select
-        self.lbl_console = QLabel(text="Console:")
         self.combobox_console = QComboBox()
         
-        layout.addWidget(self.lbl_console, 0, colCounter)
-        colCounter += 1
-        layout.addWidget(self.combobox_console, 0, colCounter)
-        colCounter += 1 
-        
+        layout.addWidget(QLabel("Console:"))
+        layout.addWidget(self.combobox_console)
+
         # Position select
-        self.lbl_shortcut = QLabel(text="Shortcut:")
         self.combobox_shortcut = QComboBox()
-        layout.addWidget(self.lbl_shortcut, 0, colCounter)
-        colCounter += 1
-        layout.addWidget(self.combobox_shortcut, 0, colCounter)
-        colCounter += 1
-        
+        layout.addWidget(QLabel("Shortcut:"))
+        layout.addWidget(self.combobox_shortcut)
+
         # Game Select
-        self.lbl_game = QLabel(text="Game:")
         self.combobox_games = QComboBox()
-        layout.addWidget(self.lbl_game, 0, colCounter)
-        colCounter += 1
-        layout.addWidget(self.combobox_games, 0, colCounter)
-        layout.setColumnStretch(colCounter,1)
-        colCounter += 1 
-        
+        layout.addWidget(QLabel("Game:"))
+        layout.addWidget(self.combobox_games, stretch=1)
+
         # Update Button Widget
         self.btn_update = QPushButton("Update!")
-        layout.addWidget(self.btn_update, 0, colCounter)
+        layout.addWidget(self.btn_update)
         self.btn_update.clicked.connect(self.changeShortcut) 
-        colCounter += 1
-        
+
         self.setLayout(layout)
         self.setWindowTitle(f"Change System Shortcuts") 
         for console in frogtool.systems.keys():
-            self.combobox_console.addItem(QIcon(), console,console)
+            self.combobox_console.addItem(QIcon(), console, console)
         
-        for i in range(1,5):
+        for i in range(1, 5):
             self.combobox_shortcut.addItem(QIcon(), f"{i}", i)
         self.combobox_console.currentIndexChanged.connect(self.loadROMsToGameShortcutList) 
 
@@ -891,24 +880,25 @@ class changeGameShortcutsWindow(QWidget):
         QMessageBox.about(window, "Success", f"changed {console} shortcut {position} to {game} successfully")
         
 
-# Initialise the Application
-app = QApplication(sys.argv)
+if __name__ == "__main__":
+    # Initialise the Application
+    app = QApplication(sys.argv)
 
-# Build the Window
-window = MainWindow()
+    # Build the Window
+    window = MainWindow()
 
-# Update list of drives
-window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
-reloadDriveList()
+    # Update list of drives
+    window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
+    reloadDriveList()
 
-# Update list of consoles
-available_consoles_placeholder = "???"
-window.combobox_console.addItem(QIcon(), available_consoles_placeholder, available_consoles_placeholder)
-window.combobox_console.clear()
-# Add ALL to the list to add this fucntionality from frogtool
-window.combobox_console.addItem(QIcon(), static_AllSystems, static_AllSystems)
-for console in frogtool.systems.keys():
-    window.combobox_console.addItem(QIcon(), console, console)
+    # Update list of consoles
+    available_consoles_placeholder = "???"
+    window.combobox_console.addItem(QIcon(), available_consoles_placeholder, available_consoles_placeholder)
+    window.combobox_console.clear()
+    # Add ALL to the list to add this fucntionality from frogtool
+    window.combobox_console.addItem(QIcon(), static_AllSystems, static_AllSystems)
+    for console in frogtool.systems.keys():
+        window.combobox_console.addItem(QIcon(), console, console)
     
-window.show()
-app.exec()
+    window.show()
+    app.exec()
