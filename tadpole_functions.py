@@ -386,8 +386,30 @@ This function downloads a file from the internet and renames it to pagefile.sys 
 """
 
 
-def changeBackgroundMusic(drivePath, url=""):
-    return downloadAndReplace(drivePath, "/Resources/pagefile.sys", url)
+def changeBackgroundMusic(drive_path: str, url: str = "", file: str = "") -> bool:
+    """
+    Changes background music to music from the provided URL or file
+
+    Params:
+        url (str):  URL to music file to use for replacement.
+        file (str):  Full path to a local file to use for replacement.
+
+    Returns:
+        bool: True if successful, False if not.
+
+    Raises:
+        ValueError: When both url and file params are provided.
+    """
+    if url and not file:
+        return downloadAndReplace(drive_path, "/Resources/pagefile.sys", url)
+    elif file and not url:
+        try:
+            shutil.copyfile(os.path.join(drive_path, "Resources", "pagefile.sys"), file)
+            return True
+        except:
+            return False
+    else:
+        raise ValueError("Provide only url or path, not both")
 
 
 def changeConsoleLogos(drivePath, url=""):
