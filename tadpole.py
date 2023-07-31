@@ -99,12 +99,25 @@ def loadROMsToTable():
                 humanReadableFileSize = f"{round(filesize/1024,2)} KB"
             else:  # Less than 1 Kilobyte
                 humanReadableFileSize = f"filesize Bytes"
-            window.tbl_gamelist.setItem(i, 0, QTableWidgetItem(f"{f}"))  # Filename
-            window.tbl_gamelist.setItem(i, 1, QTableWidgetItem(f"{humanReadableFileSize}")) #Filesize
-            window.tbl_gamelist.setItem(i, 2, QTableWidgetItem(f"view"))  # View Thumbnail Button
-            window.tbl_gamelist.setItem(i, 3, QTableWidgetItem(f"change"))  # Change Thumbnail Button           
+            
+            # Filename
+            cell_filename = QTableWidgetItem(f"{f}")
+            cell_filename.setTextAlignment(Qt.AlignCenter)
+            cell_filename.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
+            window.tbl_gamelist.setItem(i, 0, cell_filename)  
+            #Filesize
+            cell_fileSize = QTableWidgetItem(f"{humanReadableFileSize}")
+            cell_fileSize.setTextAlignment(Qt.AlignCenter)
+            cell_fileSize.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
+            window.tbl_gamelist.setItem(i, 1, cell_fileSize) 
+            # View Thumbnail Button 
+            cell_viewthumbnail = QTableWidgetItem(f"view")
+            cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
+            cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
+            window.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)        
         print("finished loading roms to table")    
         # Adjust column widths
+        print(f"tblsize {}")
         #window.tbl_gamelist
     except frogtool.StopExecution:
         # Empty the table
@@ -116,30 +129,11 @@ def loadROMsToTable():
 
 def catchTableCellClicked(clickedRow, clickedColumn):
     print(f"clicked view thumbnail for {clickedRow},{clickedColumn}")
-    if clickedColumn == 2:  #view thumbnail
+    if window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Thumbnail":  #view thumbnail
         drive = window.combobox_drive.currentText()
         system = window.combobox_console.currentText()
         gamename = window.tbl_gamelist.item(clickedRow, 0).text()
         viewThumbnail(os.path.join(drive, system, gamename))
-    elif clickedColumn == 3: #change thumbnail
-        drive = window.combobox_drive.currentText()
-        system = window.combobox_console.currentText()
-        gamename = window.tbl_gamelist.item(clickedRow, 0).text()
-        newCoverFileName = QFileDialog.getOpenFileName(window,
-                                                       'Open file',
-                                                       'c:\\',
-                                                       "Image files (*.jpg *.png *.webp);;All Files (*.*)")[0]
-        print(f"user tried to load image: {newCoverFileName}")
-        if newCoverFileName is None or newCoverFileName == "":
-            print("user cancelled image select")
-            return
-        
-        try:
-            tadpole_functions.changeZXXThumbnail(os.path.join(drive, system, gamename), newCoverFileName)
-        except tadpole_functions.Exception_InvalidPath:
-            QMessageBox.about(window, "Change ROM Cover", "An error occurred.")
-            return
-        QMessageBox.about(window, "Change ROM Cover", "ROM cover successfully changed")
         
 
 def viewThumbnail(rom_path):
@@ -480,10 +474,11 @@ class MainWindow (QMainWindow):
 
         # Game Table Widget
         self.tbl_gamelist = QTableWidget()
-        self.tbl_gamelist.setColumnCount(4)
-        self.tbl_gamelist.setHorizontalHeaderLabels(["Name", "Size", "Thumbnail", "Actions"])
+        self.tbl_gamelist.setColumnCount(3)
+        self.tbl_gamelist.setHorizontalHeaderLabels(["Name", "Size", "Thumbnail"])
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.tbl_gamelist.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.tbl_gamelist.cellClicked.connect(catchTableCellClicked)
         layout.addWidget(self.tbl_gamelist)
 
@@ -754,7 +749,7 @@ class ROMCoverViewer(QLabel):
         """
         if self.changeable:  # only do something if image is changeable
             file_name = QFileDialog.getOpenFileName(self, 'Open file', '',
-                                                    "Images (*.jpg *.png *.webp);;RAW (RGB565 Little Endian) Images (*.raw)")[0]
+                                                    "Image files (*.gif *jpeg *.jpg *.png *.webp);;All Files (*.*)")[0]
             if len(file_name) > 0:  # confirm if user selected a file
                 self.load_image(file_name)
 
