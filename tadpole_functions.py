@@ -39,25 +39,6 @@ class Exception_InvalidPath(Exception):
 class Exception_StopExecution(Exception):
     pass   
     
-def GBABIOSFix(drive: str):
-    if drive == "???":
-        raise Exception_InvalidPath
-    gba_bios_path = os.path.join(drive, "bios", "gba_bios.bin")
-    if not os.path.exists(gba_bios_path):
-        print(f"! Couldn't find game list file {gba_bios_path}")
-        print("  Check the provided path points to an SF2000 SD card!")
-        raise Exception_InvalidPath
-    try:
-        gba_folder_path = os.path.join(drive, "GBA", "mnt", "sda1", "bios")
-        roms_folder_path = os.path.join(drive, "ROMS", "mnt", "sda1", "bios")
-        os.makedirs(os.path.dirname(gba_folder_path), exist_ok=True)
-        os.makedirs(os.path.dirname(roms_folder_path), exist_ok=True)
-        shutil.copyfile(gba_bios_path, os.path.join(gba_folder_path, "gba_bios.bin"))
-        shutil.copyfile(gba_bios_path, os.path.join(roms_folder_path, "gba_bios.bin"))
-    except (OSError, IOError) as error:
-        print("! Failed to copy GBA BIOS.")
-        print(error)
-        raise Exception_InvalidPath
     
    
 def changeBootLogo(index_path, newLogoFileName):
@@ -461,8 +442,48 @@ def downloadFileFromGithub(outFile, url):
         print(f'downloading {url} to {outFile}')
         f.write(r.content)
 
+def emptyFavourites(drive) -> bool:
+    return emptyFile(os.path.join(drive, "Resources", "Favorites.bin"))
+    
+def emptyFile(path) -> bool:
+    print(f"Deleting file {path}")
+    try:      
+        if os.path.isfile(path):
+            os.remove(path)
+        else:
+            print("File not found, guess thats still a success? @Goldstein to check the spelling if this is a bug")
+        return True
+    except:
+        print("Error while trying to delete a file")
+    return False
+
+def emptyHistory(drive) -> bool:
+    return emptyFile(os.path.join(drive, "Resources", "History.bin"))
+
+
 def extractImgFromROM(romFilePath, outfilePath):
     with open(romFilePath, "rb") as rom_file:
         rom_content = bytearray(rom_file.read())
         img = QImage(rom_content[0:((144*208)*2)], 144, 208, QImage.Format_RGB16)
         img.save(outfilePath)
+        
+        
+def GBABIOSFix(drive: str):
+    if drive == "???":
+        raise Exception_InvalidPath
+    gba_bios_path = os.path.join(drive, "bios", "gba_bios.bin")
+    if not os.path.exists(gba_bios_path):
+        print(f"! Couldn't find game list file {gba_bios_path}")
+        print("  Check the provided path points to an SF2000 SD card!")
+        raise Exception_InvalidPath
+    try:
+        gba_folder_path = os.path.join(drive, "GBA", "mnt", "sda1", "bios")
+        roms_folder_path = os.path.join(drive, "ROMS", "mnt", "sda1", "bios")
+        os.makedirs(os.path.dirname(gba_folder_path), exist_ok=True)
+        os.makedirs(os.path.dirname(roms_folder_path), exist_ok=True)
+        shutil.copyfile(gba_bios_path, os.path.join(gba_folder_path, "gba_bios.bin"))
+        shutil.copyfile(gba_bios_path, os.path.join(roms_folder_path, "gba_bios.bin"))
+    except (OSError, IOError) as error:
+        print("! Failed to copy GBA BIOS.")
+        print(error)
+        raise Exception_InvalidPath

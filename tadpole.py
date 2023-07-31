@@ -31,6 +31,9 @@ def RunFrogTool():
     
     print(f"Running frogtool with drive ({drive}) and console ({console})")
     try:
+        #should probably replace this with with rebuilding the favourites list at some point
+        tadpole_functions.emptyFavourites(drive)
+        tadpole_functions.emptyHistory(drive)
         if(console == static_AllSystems):
             for console in frogtool.systems.keys():
                 result = frogtool.process_sys(drive, console, False)
@@ -117,7 +120,6 @@ def loadROMsToTable():
             window.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)        
         print("finished loading roms to table")    
         # Adjust column widths
-        print(f"tblsize {}")
         #window.tbl_gamelist
     except frogtool.StopExecution:
         # Empty the table
