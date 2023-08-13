@@ -76,6 +76,7 @@ def toggle_features(enable: bool):
                 window.menu_os,
                 window.menu_bgm,
                 window.menu_consoleLogos,
+                window.menu_boxart,
                 window.tbl_gamelist]
 
     for feature in features:
@@ -563,8 +564,8 @@ class MainWindow (QMainWindow):
     def loadMenus(self):
         self.menu_file = self.menuBar().addMenu("&File")
         self.menu_file.addAction(self.exit_action)
-        self.action_Test = QAction("Test Function", self,triggered=self.testFunction)
-        self.menu_file.addAction(self.action_Test)
+        #self.action_Test = QAction("Test Function", self,triggered=self.testFunction)
+        #self.menu_file.addAction(self.action_Test)
         
         # OS Menu
         self.menu_os = self.menuBar().addMenu("&OS")
@@ -714,7 +715,12 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
         window.window_shortcuts.show()
     
     def removeShortcutLabels(self):
-        self.UnderDevelopmentPopup()
+        drive = window.combobox_drive.currentText()
+        if tadpole_functions.stripShortcutText(drive):
+            QMessageBox.about(window, "Successfully removed Shortcut Labels", "Success!.")
+        else:
+            QMessageBox.about(window, "Something went wrong", "An error occured. Please contact EricGoldstein via the RetroHandheld Discord to look into it.")
+        #self.UnderDevelopmentPopup()
         
     def ConsoleLogos_RestoreDefault(self):
         self.ConsoleLogos_change("https://github.com/EricGoldsteinNz/SF2000_Resources/raw/main/ConsoleLogos/default/sfcdr.cpl")

@@ -529,4 +529,24 @@ def downloadROMArt(console : str, ROMpath : str):
     return False
     
     
-     
+def stripShortcutText(drive: str):
+    if drive == "???" or drive == "":
+        raise Exception_InvalidPath
+    gakne_path = os.path.join(drive, "Resources", "gakne.ctp")
+    try:
+        gakne = open(gakne_path, "rb")
+        data = bytearray(gakne.read())
+        gakne.close()
+        # Gakne is made up of 8 rows of 4 items for a total of 32 items.
+        # Each image is 144 x 32. Total image size 576 x 256.
+        # To only strip the shortcut text we want to leave the settings menu items. So we have to skip the first 18,432 bytes
+        
+        for i in range (18432, len(data)):
+            data[i-1] = 0x00
+        gakne = open(gakne_path, "wb")
+        gakne.write(data)
+        gakne.close()
+        return True
+    except (OSError, IOError) as e:
+        print(f"! Failed striping shortcut labels. {e}")
+        return False
