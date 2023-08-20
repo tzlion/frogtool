@@ -4,6 +4,8 @@ from PyQt5.QtGui import *
 from PyQt5.QtMultimedia import QSoundEffect
 from PyQt5.QtCore import Qt, QTimer, QUrl
 
+from datetime import datetime
+
 # OS imports - these should probably be moved somewhere else
 import os
 import sys
@@ -620,6 +622,11 @@ class MainWindow (QMainWindow):
         self.DownloadBoxart_action = QAction("Download for zips", self, triggered=self.downloadBoxartForZips)
         self.menu_boxart.addAction(self.DownloadBoxart_action)
         
+        # Saves Menu
+        menu_saves = self.menuBar().addMenu("Saves")
+        BackupAllSaves_action = QAction("Backup All Saves", self, triggered=self.createSaveBackup)
+        menu_saves.addAction(BackupAllSaves_action)
+        
         # Help Menu
         self.menu_help = self.menuBar().addMenu("&Help")
         self.readme_action = QAction(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarContextHelpButton),
@@ -791,6 +798,22 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
         else:
             msgBox.close()
             QMessageBox.about(self, "Failure","ERROR: Something went wrong while trying to download the update")
+            
+    def createSaveBackup(self):
+        drive = window.combobox_drive.currentText()
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        msgBox = QMessageBox()
+        msgBox.setWindowTitle("Creating Save Backup")
+        msgBox.setText("Please Wait")
+        msgBox.show()
+        savefilename = f"SF2000SaveBackup_{timestamp}.zip"
+        if tadpole_functions.createSaveBackup(drive,savefilename):   
+            msgBox.close()
+            QMessageBox.about(self, "Success",f"Save backup created as:\n\r{savefilename}")
+        else:
+            msgBox.close()
+            QMessageBox.about(self, "Failure","ERROR: Something went wrong while trying to create the save backup")    
+        
     
 # Subclass Qidget to create a thumbnail viewing window        
 class thumbnailWindow(QDialog):

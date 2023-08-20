@@ -11,6 +11,7 @@ import frogtool
 import requests
 import json
 import logging
+import re
 
 
 try:
@@ -31,6 +32,10 @@ systems = {
     "GBA":    ["vfnet.tax", "htuiw.nec", "sppnp.bvs",6], 
     "ARCADE": ["mswb7.tax", "msdtc.nec", "mfpmp.bvs",7]
 }
+
+supported_save_ext = [
+    "sav", "sa0", "sa1", "sa2", "sa3"
+] 
 
 
 class Exception_InvalidPath(Exception):
@@ -554,3 +559,40 @@ def stripShortcutText(drive: str):
     except (OSError, IOError) as e:
         print(f"! Failed striping shortcut labels. {e}")
         return False
+
+def createSaveBackup(drive: str, zip_file_name):
+    if drive == "???" or drive == "":
+        raise Exception_InvalidPath
+        
+    #folders = systems.keys
+    #folders.append("ROMS")
+    #for folder in folders:
+        
+    #list(filter(check_save, zip_files))   
+    try:
+        # Create object of ZipFile
+        with zipfile.ZipFile(zip_file_name, 'w') as zip_object:
+            # Traverse all files in directory
+            for folder_name, sub_folders, file_names in os.walk(drive):
+                for filename in file_names:
+                    # Filter for save files
+                    if check_is_save_file(filename):
+                        print(f"Found save: {folder_name} ; {filename}")
+                        # Create filepath of files in directory
+                        file_path = os.path.join(folder_name, filename)
+                        # Add files to zip file
+                        try:
+                            zip_object.write(file_path, os.path.basename(file_path))   
+                        except OSError:
+                            os.utime(file_path, None)
+                            zip_object.write(file_path, os.path.basename(file_path))
+        return True
+    except Exception as e:
+        return False
+                     
+
+
+def check_is_save_file(filename):
+    file_regex = ".+\\.(" + "|".join(supported_save_ext) + ")$"
+    return re.search(file_regex, filename.lower())
+        
