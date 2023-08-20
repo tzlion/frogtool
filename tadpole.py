@@ -773,17 +773,17 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
 
     def UpdatetoV1_5(self):
         url = "https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.5"
-        UpdateDevice(url)
+        self.UpdateDevice(url)
     
     def Updateto20230803(self):
         url = "https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/20230803"
-        UpdateDevice(url)
+        self.UpdateDevice(url)
 
     def UpdateDevice(self, url):
         drive = window.combobox_drive.currentText()       
         msgBox = QMessageBox()
-        msgBox.setWindowTitle("Downloading Console Logos")
-        msgBox.setText("Now downloading Console Logos. Depending on your internet connection speed this may take some time, please wait patiently.")
+        msgBox.setWindowTitle("Downloading Console Update")
+        msgBox.setText("Now downloading Console Update. Depending on your internet connection speed this may take some time, please wait patiently.")
         msgBox.show()
         if tadpole_functions.downloadDirectoryFromGithub(drive, url):
             msgBox.close()
