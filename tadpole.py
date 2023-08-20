@@ -527,7 +527,7 @@ class MainWindow (QMainWindow):
         selector_layout.addWidget(self.combobox_console, stretch=1)
         
         # Update Button Widget
-        self.btn_update = QPushButton("Update!")
+        self.btn_update = QPushButton("Rebuild!")
         selector_layout.addWidget(self.btn_update)
         self.btn_update.clicked.connect(RunFrogTool)
 
@@ -570,8 +570,12 @@ class MainWindow (QMainWindow):
         # OS Menu
         self.menu_os = self.menuBar().addMenu("&OS")
         # Update Submenu
+        action_detectOSVersion = QAction("Detect Version", self, triggered=self.detectOSVersion)
+        self.menu_os.addAction(action_detectOSVersion)
         self.menu_os.menu_update = self.menu_os.addMenu("Update")
-        self.action_updateToV1_5  = QAction("V1.5", self, triggered=self.UpdatetoV1_5)                                                                              
+        action_updateTo20230803  = QAction("2023.08.03", self, triggered=self.Updateto20230803)                                                                              
+        self.menu_os.menu_update.addAction(action_updateTo20230803)   
+        self.action_updateToV1_5  = QAction("2023.04.20 (V1.5)", self, triggered=self.UpdatetoV1_5)                                                                              
         self.menu_os.menu_update.addAction(self.action_updateToV1_5)   
         self.action_changeBootLogo  = QAction("Change &Boot Logo", self, triggered=self.changeBootLogo)
         self.menu_os.addAction(self.action_changeBootLogo)
@@ -628,10 +632,23 @@ class MainWindow (QMainWindow):
     def testFunction(self):
         print("Called test function. Remember to disable this before publishing")
         try:
-            tadpole_functions.downloadROMArt("GBA","E:\GBA\DoEsNoTeXiSt.zip")
+            tadpole_functions.bisrv_getFirmwareVersion("C:\\Users\\OEM\\Downloads\\bisrv (1).asd")
         except tadpole_functions.InvalidURLError:
             print("URL did not return a valid file")
-            
+    
+    def detectOSVersion(self):
+        print("Tadpole~DetectOSVersion: Trying to read bisrv hash")
+        drive = window.combobox_drive.currentText()
+        try:
+            detectedVersion = tadpole_functions.bisrv_getFirmwareVersion(os.path.join(drive,"bios","bisrv.asd"))
+            if not detectedVersion:
+                detectedVersion = "Version Not Found"
+            QMessageBox.about(self, "Detected OS Version", f"Finished scanning OS. Detected version:\n\r{detectedVersion}")
+        except Exception as e:
+            print("tadpole~detectOSVersion: Error occured while trying to find OS Version")
+
+
+    
     def downloadBoxartForZips(self):
         """
         thread_boxart = threading.Thread(target = thread_downloadBoxartForZips)
@@ -755,9 +772,15 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
         self.readme_dialog.show()
 
     def UpdatetoV1_5(self):
-        drive = window.combobox_drive.currentText()
         url = "https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.5"
-        
+        UpdateDevice(url)
+    
+    def Updateto20230803(self):
+        url = "https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/20230803"
+        UpdateDevice(url)
+
+    def UpdateDevice(self, url):
+        drive = window.combobox_drive.currentText()       
         msgBox = QMessageBox()
         msgBox.setWindowTitle("Downloading Console Logos")
         msgBox.setText("Now downloading Console Logos. Depending on your internet connection speed this may take some time, please wait patiently.")
@@ -768,8 +791,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
         else:
             msgBox.close()
             QMessageBox.about(self, "Failure","ERROR: Something went wrong while trying to download the update")
-            
-        
+    
 # Subclass Qidget to create a thumbnail viewing window        
 class thumbnailWindow(QDialog):
     """

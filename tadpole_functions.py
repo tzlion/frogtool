@@ -45,8 +45,7 @@ class InvalidURLError(Exception):
    
 def changeBootLogo(index_path, newLogoFileName):
     # Confirm we arent going to brick the firmware by finding a known version
-    bisrvHash = bisrv_getFirmwareVersion(index_path)
-    sfVersion = versionDictionary.get(bisrvHash)
+    sfVersion = bisrv_getFirmwareVersion(index_path)
     print(f"Found Version: {sfVersion}")
     if sfVersion == None:
         return False  
@@ -104,7 +103,8 @@ def QImageToRGB565Logo(inputQImage):
 
 # hash, versionName
 versionDictionary = {
-    "031edd7d41651593c5fe5c006fa5752b37fddff7bc4e843aa6af0c950f4b9406": "04.20"
+    "6aebab0e4da39e0a997df255ad6a1bd12fdd356cdf51a85c614d47109a0d7d07": "2023.04.20 (V1.5)",
+    "3f0ca7fcd47f1202828f6dbc177d8f4e6c9f37111e8189e276d925ffd2988267": "2023.08.03"
 }
 
 
@@ -216,46 +216,50 @@ def bisrv_getFirmwareVersion(index_path):
         file_handle = open(index_path, 'rb')  # rb for read, wb for write
         bisrv_content = bytearray(file_handle.read(os.path.getsize(index_path)))
         file_handle.close()
+        print("Finished reading file")
+        # First, replace CRC32 bits with 00...
+        bisrv_content[396] = 0x00
+        bisrv_content[397] = 0x00
+        bisrv_content[398] = 0x00
+        bisrv_content[399] = 0x00
+        print("Blanked CRC32")
         
-        # Only really worthwhile doing this for big bisrv.asd files...
-        if (len(bisrv_content)> 12640000):
-            # First, replace CRC32 bits with 00...
-            bisrv_content[396] = 0x00
-            bisrv_content[397] = 0x00
-            bisrv_content[398] = 0x00
-            bisrv_content[399] = 0x00
-          
         # Next identify the boot logo position, and blank it out too...
-            badExceptionOffset = findSequence(offset_logo_presequence, bisrv_content)
-            if (badExceptionOffset > -1):  # Check we found the boot logo position
-                bootLogoStart = badExceptionOffset + 16
-                for i in range(bootLogoStart, bootLogoStart + 204800):
+        print("start finding logo")
+        badExceptionOffset = findSequence(offset_logo_presequence, bisrv_content)
+        print("finished finding logo")
+        if (badExceptionOffset > -1):  # Check we found the boot logo position
+            bootLogoStart = badExceptionOffset + 16
+            for i in range(bootLogoStart, bootLogoStart + 204800):
+                bisrv_content[i] = 0x00
+        else:  # If no boot logo found exit
+            return False
+        
+        print("Blanked Bootlogo")
+        
+        # Next identify the emulator button mappings (if they exist), and blank them out too...
+        preButtonMapOffset = findSequence(offset_buttonMap_presequence, bisrv_content)
+        if preButtonMapOffset > -1:
+            postButtonMapOffset = findSequence(offset_buttonMap_postsequence, bisrv_content, preButtonMapOffset)
+            if postButtonMapOffset > -1:
+                for i in range(preButtonMapOffset + 16, i < postButtonMapOffset):
                     bisrv_content[i] = 0x00
-            else:  # If no boot logo found exit
-                return False
-
-            # Next identify the emulator button mappings (if they exist), and blank them out too...
-            preButtonMapOffset = findSequence(offset_buttonMap_presequence, bisrv_content)
-            if preButtonMapOffset > -1:
-                postButtonMapOffset = findSequence(offset_buttonMap_postsequence, bisrv_content, preButtonMapOffset)
-                if postButtonMapOffset > -1:
-                    for i in range(preButtonMapOffset + 16, i < postButtonMapOffset):
-                        bisrv_content[i] = 0x00
-                else:
-                    return False
             else:
                 return False
+        else:
+            return False
 
         # If we're here, we've zeroed-out all of the bits of the firmware that are
         # semi-user modifiable (boot logo, button mappings and the CRC32 bits); now
         # we can generate a hash of what's left and compare it against some known
         # values...
-          
+        print("starting to compute hash")  
         sha256hasher = hashlib.new('sha256')
-        sha256hasher.update(b"Nobody inspects the spammish repetition")
+        sha256hasher.update(bisrv_content)
         bisrvHash = sha256hasher.hexdigest()
         print(f"Hash: {bisrvHash}")
-        return bisrvHash
+        version = versionDictionary.get(bisrvHash)
+        return version
    
         # else:
         #      return False
