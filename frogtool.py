@@ -117,14 +117,8 @@ def process_sys(drive, system, test_mode):
     
     no_files = len(filenames)
     if no_files == 0:
-        print("No ROMs found! Type Y to confirm you want to save an empty game list, or anything else to cancel")
-        conf = input()
-        if conf.upper() != "Y":
-            print("Cancelling, game list not modified")
-            return "Cancelling, game list not modified"
-    else:
-        print(f"Found {no_files} ROMs")
-
+        print("No ROMs found!")
+        return f"No ROMs found to rebuild in {system}"
 
     stripped_names = list(map(strip_file_extension, filenames))
 
