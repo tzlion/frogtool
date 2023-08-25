@@ -12,7 +12,8 @@ import requests
 import json
 import logging
 import re
-
+import urllib.request
+import urllib.parse
 
 try:
     from PIL import Image
@@ -520,7 +521,69 @@ ROMArt_console = {
     "ARCADE": ""
 }
 
-def downloadROMArt(console : str, ROMpath : str):    
+#Credit to https://github.com/Mte90/My-Scripts/blob/master/retroarch/lpl-thumbnails-downloader.py for fuzzy matching of libretro thumbnails
+def downloadROMArt(console : str, ROMpath : str, game : str, retry, realname : str):
+    clean_game = game
+    if realname == '':
+        realname = game
+    original_game = realname.replace('/', '_').replace(':', '_') + '.png'
+    game = urllib.parse.quote(game.replace('&', '_').replace(':', '_').replace('/', '_') + '.png')
+    thumbnail = 0
+    if not os.path.exists(ROMpath + '/Named_Boxarts/' + original_game):
+        try:
+            urllib.request.urlretrieve(ROMART_baseURL + 'Named_Boxarts/' + game, ROMpath + '/Named_Boxarts/' + original_game)
+            thumbnail += 1
+        except:
+            pass
+    else:
+        thumbnail += 1
+    if not os.path.exists(ROMpath + '/Named_Snaps/' + original_game):
+        try:
+            urllib.request.urlretrieve(ROMART_baseURL + 'Named_Snaps/' + game, ROMpath + '/Named_Snaps/' + original_game)
+            thumbnail += 1
+        except:
+            pass
+    else:
+        thumbnail += 1
+    if not os.path.exists(ROMpath + '/Named_Titles/' + original_game):
+        try:
+            urllib.request.urlretrieve(ROMART_baseURL + 'Named_Titles/' + game, ROMpath + '/Named_Titles/' + original_game)
+            thumbnail += 1
+        except:
+            pass
+    else:
+        thumbnail += 1
+
+    if thumbnail == 0:
+        print("Not found " + clean_game + ' at ' + ROMART_baseURL + 'Named_Boxarts/' + game)
+        if retry is False:
+            try:
+                if clean_game.count(',') > 1:
+                    # Try with switching stuff inside parenthesis because the game can have different filenames
+                    s = re.findall('\((.*?)\)', clean_game)
+                    s = s[0].split(', ')
+                    try_game_name = s[1] + ', ' + s[0].replace(', ', '')
+                    clean_game = clean_game.replace(s[0] + ', ' + s[1], try_game_name)
+                    downloadROMArt(console, ROMpath, clean_game, True, realname)
+                    downloadROMArt(console, ROMpath, clean_game.replace(',', ''), True, realname)
+            except:
+                pass
+            if '(Euro)' in clean_game:
+                # Try with bootleg
+                clean_game = clean_game.replace('(Euro)', '(bootleg)')
+                downloadROMArt(console, ROMpath, clean_game, True, realname)
+            if '(' not in clean_game:
+                # Try with adding a country
+                downloadROMArt(console, ROMpath, clean_game + " (Japan)", True, realname)
+                downloadROMArt(console, ROMpath, clean_game + " (USA)", True, realname)
+                downloadROMArt(console, ROMpath, clean_game + " (Europe)", True, realname)
+            if '(Europe)' in clean_game:
+                # Try with replacing a country
+                clean_game = clean_game.replace('(Europe)', '(USA)')
+                downloadROMArt(console, ROMpath, clean_game, True, realname)
+    else:
+        print(' Downloaded ' + realname + ' ' + str(thumbnail) + ' thumbnails')    
+    '''
     try:
         if console == "" or ROMArt_console[console] == "":
             print("ROMART invalid console value supplied")
@@ -532,11 +595,14 @@ def downloadROMArt(console : str, ROMpath : str):
         if (downloadFileFromGithub(outFile,URLtoDownload)):
             print("Finished downloading. Success.")
             return True
+        #let's keep going and compare what's in the list
+        print(f"No thumbnail exactly matches  {outFile}")
+
         
     except Exception as e:
         logging.exception(f"CRITICAL ERROR while downloading ROMART: {str(e)}")
     return False
-    
+    '''
     
 def stripShortcutText(drive: str):
     if drive == "???" or drive == "":

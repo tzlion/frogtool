@@ -674,7 +674,8 @@ class MainWindow (QMainWindow):
             zip_files = list(filter(frogtool.check_zip, zip_files))
             for file in zip_files:
                 counter_total = counter_total + 1
-                if tadpole_functions.downloadROMArt(console,file):
+                game = os.path.splitext(file.name)
+                if tadpole_functions.downloadROMArt(console,file.path, game[0], False, ""):
                     counter_success = counter_success + 1
         QMessageBox.about(self, "Downloading Boxart Complete", f"Downloaded {counter_success} covers for {counter_total} zips")
     #def thread_downloadBoxartForZips():
