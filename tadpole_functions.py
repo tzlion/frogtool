@@ -571,9 +571,6 @@ def downloadROMArt(console : str, ROMpath : str, game : str, artType: str, retry
         if (downloadFileFromGithub(outFile,URLtoDownload)):
             print("Finished downloading. Success.")
             return True
-        #let's keep going and compare what's in the list
-        print(f"No thumbnail exactly matches  {outFile}")
-
         
     except Exception as e:
         logging.exception(f"CRITICAL ERROR while downloading ROMART: {str(e)}")
