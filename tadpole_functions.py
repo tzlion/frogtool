@@ -527,19 +527,25 @@ def downloadROMArt(console : str, ROMpath : str, game : str, retry, realname : s
     if realname == '':
         realname = game
     original_game = realname.replace('/', '_').replace(':', '_') + '.png'
-    game = urllib.parse.quote(game.replace('&', '_').replace(':', '_').replace('/', '_') + '.png')
+    #game = urllib.parse.quote(game.replace('&', '_').replace(':', '_').replace('/', '_') + '.png')
+    game = game + '.png'
     thumbnail = 0
     if not os.path.exists(ROMpath + '/Named_Boxarts/' + original_game):
         try:
-            urllib.request.urlretrieve(ROMART_baseURL + 'Named_Boxarts/' + game, ROMpath + '/Named_Boxarts/' + original_game)
-            thumbnail += 1
+            #urllib.request.urlretrieve(ROMART_baseURL + ROMArt_console[console] + '/Named_Boxarts/' + game, ROMpath)
+            #thumbnail += 1
+            if (downloadFileFromGithub(original_game + '.png',ROMART_baseURL + ROMArt_console[console] + '/Named_Boxarts/' + game)):
+                print("Finished downloading. Success.")
+            else:
+                print("Failed downloading")
         except:
             pass
     else:
         thumbnail += 1
+        '''
     if not os.path.exists(ROMpath + '/Named_Snaps/' + original_game):
         try:
-            urllib.request.urlretrieve(ROMART_baseURL + 'Named_Snaps/' + game, ROMpath + '/Named_Snaps/' + original_game)
+            urllib.request.urlretrieve(ROMART_baseURL + ROMArt_console[console] + '/Named_Snaps/' + game, ROMpath + '/Named_Snaps/' + original_game)
             thumbnail += 1
         except:
             pass
@@ -547,15 +553,15 @@ def downloadROMArt(console : str, ROMpath : str, game : str, retry, realname : s
         thumbnail += 1
     if not os.path.exists(ROMpath + '/Named_Titles/' + original_game):
         try:
-            urllib.request.urlretrieve(ROMART_baseURL + 'Named_Titles/' + game, ROMpath + '/Named_Titles/' + original_game)
+            urllib.request.urlretrieve(ROMART_baseURL + ROMArt_console[console] +  '/Named_Titles/' + game, ROMpath + '/Named_Titles/' + original_game)
             thumbnail += 1
         except:
             pass
     else:
         thumbnail += 1
-
+'''
     if thumbnail == 0:
-        print("Not found " + clean_game + ' at ' + ROMART_baseURL + 'Named_Boxarts/' + game)
+        print("Not found " + clean_game + ' at ' + ROMART_baseURL + ROMArt_console[console] + '/Named_Boxarts/' + game)
         if retry is False:
             try:
                 if clean_game.count(',') > 1:
