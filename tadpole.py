@@ -42,6 +42,8 @@ def RunFrogTool():
 
         else:
             result = frogtool.process_sys(drive, console, False)
+            #remember to reload table if we delete any files
+            loadROMsToTable()
             QMessageBox.about(window, "Result", result)
     except frogtool.StopExecution:
         pass
@@ -620,9 +622,13 @@ class MainWindow (QMainWindow):
 
         # Download Boxart Menu
         self.menu_boxart = self.menuBar().addMenu("Boxart")
-        self.DownloadBoxart_action = QAction("Download for zips", self, triggered=self.downloadBoxartForZips)
+        self.DownloadBoxart_action = QAction("Download Boxart for zips", self, triggered=self.downloadBoxartForZips)
         self.menu_boxart.addAction(self.DownloadBoxart_action)
-        
+        self.DownloadBoxart_action = QAction("Download Snaps for zips", self, triggered=self.downloadBoxartForZips)
+        self.menu_boxart.addAction(self.DownloadBoxart_action)
+        self.DownloadBoxart_action = QAction("Download Titles for zips", self, triggered=self.downloadBoxartForZips)
+        self.menu_boxart.addAction(self.DownloadBoxart_action)
+
         # Saves Menu
         menu_saves = self.menuBar().addMenu("Saves")
         BackupAllSaves_action = QAction("Backup All Saves", self, triggered=self.createSaveBackup)
@@ -664,6 +670,14 @@ class MainWindow (QMainWindow):
         dialog_pleasewait = PleaseWaitDialog("Downloading boxart from Goldsteins Github repo")
         dialog_pleasewait.exec()
         """
+        #TODO: I shouldn't base this on strings incase it gets localized, should base it on the item clicked with "sender" obj but I can't figure out where that data is in that object 
+        art_Selection = self.sender().text()
+        if(art_Selection == "Download Titles for zips"):
+            art_Type = "/Named_Titles/"
+        elif(art_Selection == "Download Snaps for zips"):
+            art_Type = "/Named_Snaps/"
+        else:
+           art_Type = "/Named_Boxarts/"
         drive = window.combobox_drive.currentText()
         counter_success = 0
         counter_total = 0
@@ -675,9 +689,9 @@ class MainWindow (QMainWindow):
             for file in zip_files:
                 counter_total = counter_total + 1
                 game = os.path.splitext(file.name)
-                if tadpole_functions.downloadROMArt(console,file.path, game[0], False, ""):
+                if tadpole_functions.downloadROMArt(console,file.path, game[0], art_Type,  False, ""):
                     counter_success = counter_success + 1
-        QMessageBox.about(self, "Downloading Boxart Complete", f"Downloaded {counter_success} covers for {counter_total} zips")
+        QMessageBox.about(self, "Downloading Boxart Complete", f"Found {counter_success} covers for {counter_total} zips")
     #def thread_downloadBoxartForZips():
         
     

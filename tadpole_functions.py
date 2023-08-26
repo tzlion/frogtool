@@ -521,74 +521,46 @@ ROMArt_console = {
     "ARCADE": ""
 }
 
-#Credit to https://github.com/Mte90/My-Scripts/blob/master/retroarch/lpl-thumbnails-downloader.py for fuzzy matching of libretro thumbnails
-def downloadROMArt(console : str, ROMpath : str, game : str, retry, realname : str):
-    clean_game = game
+#Credit to https://github.com/Mte90/My-Scripts/blob/master/retroarch/lpl-thumbnails-downloader.py for fuzzy matching cases of libretro thumbnails 
+def downloadROMArt(console : str, ROMpath : str, game : str, artType: str, retry, realname : str):
+    #store the original name so we can match it once its found
     if realname == '':
         realname = game
-    original_game = realname.replace('/', '_').replace(':', '_') + '.png'
-    #game = urllib.parse.quote(game.replace('&', '_').replace(':', '_').replace('/', '_') + '.png')
+    #get some copies of strings we need for comparisons
+    clean_game = game
     game = game + '.png'
-    thumbnail = 0
-    if not os.path.exists(ROMpath + '/Named_Boxarts/' + original_game):
-        try:
-            #urllib.request.urlretrieve(ROMART_baseURL + ROMArt_console[console] + '/Named_Boxarts/' + game, ROMpath)
-            #thumbnail += 1
-            if (downloadFileFromGithub(original_game + '.png',ROMART_baseURL + ROMArt_console[console] + '/Named_Boxarts/' + game)):
-                print("Finished downloading. Success.")
-            else:
-                print("Failed downloading")
-        except:
-            pass
+
+    outFile = os.path.join(os.path.dirname(ROMpath),f"{realname}.png")
+    #if file doesn't exist, get to work, otherwise report success and move on
+    if not os.path.exists(outFile):
+        if downloadFileFromGithub(outFile,ROMART_baseURL + ROMArt_console[console] + artType + game):
+            print(' Downloaded ' + realname + ' ' + ' thumbnail')
+            return True    
+        else:
+            print("Not found " + clean_game + ' at ' + ROMART_baseURL + ROMArt_console[console] + '/Named_Boxarts/' + game)
     else:
-        thumbnail += 1
-        '''
-    if not os.path.exists(ROMpath + '/Named_Snaps/' + original_game):
-        try:
-            urllib.request.urlretrieve(ROMART_baseURL + ROMArt_console[console] + '/Named_Snaps/' + game, ROMpath + '/Named_Snaps/' + original_game)
-            thumbnail += 1
-        except:
-            pass
-    else:
-        thumbnail += 1
-    if not os.path.exists(ROMpath + '/Named_Titles/' + original_game):
-        try:
-            urllib.request.urlretrieve(ROMART_baseURL + ROMArt_console[console] +  '/Named_Titles/' + game, ROMpath + '/Named_Titles/' + original_game)
-            thumbnail += 1
-        except:
-            pass
-    else:
-        thumbnail += 1
-'''
-    if thumbnail == 0:
-        print("Not found " + clean_game + ' at ' + ROMART_baseURL + ROMArt_console[console] + '/Named_Boxarts/' + game)
-        if retry is False:
-            try:
-                if clean_game.count(',') > 1:
-                    # Try with switching stuff inside parenthesis because the game can have different filenames
-                    s = re.findall('\((.*?)\)', clean_game)
-                    s = s[0].split(', ')
-                    try_game_name = s[1] + ', ' + s[0].replace(', ', '')
-                    clean_game = clean_game.replace(s[0] + ', ' + s[1], try_game_name)
-                    downloadROMArt(console, ROMpath, clean_game, True, realname)
-                    downloadROMArt(console, ROMpath, clean_game.replace(',', ''), True, realname)
-            except:
-                pass
-            if '(Euro)' in clean_game:
-                # Try with bootleg
-                clean_game = clean_game.replace('(Euro)', '(bootleg)')
-                downloadROMArt(console, ROMpath, clean_game, True, realname)
-            if '(' not in clean_game:
-                # Try with adding a country
-                downloadROMArt(console, ROMpath, clean_game + " (Japan)", True, realname)
-                downloadROMArt(console, ROMpath, clean_game + " (USA)", True, realname)
-                downloadROMArt(console, ROMpath, clean_game + " (Europe)", True, realname)
-            if '(Europe)' in clean_game:
-                # Try with replacing a country
-                clean_game = clean_game.replace('(Europe)', '(USA)')
-                downloadROMArt(console, ROMpath, clean_game, True, realname)
-    else:
-        print(' Downloaded ' + realname + ' ' + str(thumbnail) + ' thumbnails')    
+        return True
+    if retry is False:
+        if '(' not in clean_game:
+            # Try with adding countries
+            if downloadROMArt(console, ROMpath, clean_game + " (USA)", artType, True, realname):
+                return True
+            if downloadROMArt(console, ROMpath, clean_game + " (Japan)", artType, True, realname):
+                return True
+            if downloadROMArt(console, ROMpath, clean_game + " (Europe)", artType, True, realname):
+                return True
+            if downloadROMArt(console, ROMpath, clean_game + " (USA, Europe)", artType, True, realname):
+                return True
+            if downloadROMArt(console, ROMpath, clean_game + " (Europe) (En,Fr,De)", artType, True, realname):
+                return True
+            if downloadROMArt(console, ROMpath, clean_game + " (USA) (En,Fr,De)", artType, True, realname):
+                return True
+        if '(Europe)' in clean_game:
+            # Try with replacing a country
+            clean_game = clean_game.replace('(Europe)', '(USA)')
+            if downloadROMArt(console, ROMpath, clean_game, artType, True, realname):
+                return True
+    return False
     '''
     try:
         if console == "" or ROMArt_console[console] == "":
@@ -608,8 +580,7 @@ def downloadROMArt(console : str, ROMpath : str, game : str, retry, realname : s
     except Exception as e:
         logging.exception(f"CRITICAL ERROR while downloading ROMART: {str(e)}")
     return False
-    '''
-    
+    '''    
 def stripShortcutText(drive: str):
     if drive == "???" or drive == "":
         raise Exception_InvalidPath
