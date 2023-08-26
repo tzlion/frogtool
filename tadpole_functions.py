@@ -12,8 +12,6 @@ import requests
 import json
 import logging
 import re
-import urllib.request
-import urllib.parse
 
 try:
     from PIL import Image

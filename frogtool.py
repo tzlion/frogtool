@@ -135,8 +135,6 @@ def process_sys(drive, system, test_mode):
     write_index_file(name_map_pinyin, sort_normal, index_path_pinyin, test_mode)
 
     print("Done\n")
-
-    #refresh screen as any removed zips are now gone
     return f"Finished updating {system} with {no_files} ROMs"
 
 
