@@ -518,48 +518,28 @@ ROMArt_console = {
     "GBA":    "Nintendo - Game Boy Advance", 
     "ARCADE": ""
 }
-
-#Credit to https://github.com/Mte90/My-Scripts/blob/master/retroarch/lpl-thumbnails-downloader.py for fuzzy matching cases of libretro thumbnails 
-def downloadROMArt(console : str, ROMpath : str, game : str, artType: str, retry, realname : str):
-    #store the original name so we can match it once its found
-    if realname == '':
-        realname = game
-    #get some copies of strings we need for comparisons
-    clean_game = game
-    game = game + '.png'
+ 
+def downloadROMArt(console : str, ROMpath : str, game : str, artType: str, realname : str):
 
     outFile = os.path.join(os.path.dirname(ROMpath),f"{realname}.png")
-    #if file doesn't exist, get to work, otherwise report success and move on
-    if not os.path.exists(outFile):
-        if downloadFileFromGithub(outFile,ROMART_baseURL + ROMArt_console[console] + artType + game):
-            print(' Downloaded ' + realname + ' ' + ' thumbnail')
-            return True    
-        else:
-            print("Not found " + clean_game + ' at ' + ROMART_baseURL + ROMArt_console[console] + '/Named_Boxarts/' + game)
+    if(downloadFileFromGithub(outFile,ROMART_baseURL + ROMArt_console[console] + artType + game)):
+        print(' Downloaded ' + realname + ' ' + ' thumbnail')
+        return True    
     else:
-        return True
-    if retry is False:
-        if '(' not in clean_game:
-            # Try with adding countries
-            if downloadROMArt(console, ROMpath, clean_game + " (USA)", artType, True, realname):
-                return True
-            if downloadROMArt(console, ROMpath, clean_game + " (Japan)", artType, True, realname):
-                return True
-            if downloadROMArt(console, ROMpath, clean_game + " (Europe)", artType, True, realname):
-                return True
-            if downloadROMArt(console, ROMpath, clean_game + " (USA, Europe)", artType, True, realname):
-                return True
-            if downloadROMArt(console, ROMpath, clean_game + " (Europe) (En,Fr,De)", artType, True, realname):
-                return True
-            if downloadROMArt(console, ROMpath, clean_game + " (USA) (En,Fr,De)", artType, True, realname):
-                return True
-        if '(Europe)' in clean_game:
-            # Try with replacing a country
-            clean_game = clean_game.replace('(Europe)', '(USA)')
-            if downloadROMArt(console, ROMpath, clean_game, artType, True, realname):
-                return True
-    return False
-
+        print(' Could not downlaod ' + realname + ' ' + ' thumbnail')
+        return True  
+    #     return False
+    # #Always try to download USA version, otherwise, stick with whatever hits next
+    # #TODO can make this a lot cleaner and even user decided priority
+    # if downloadFileFromGithub(outFile,ROMART_baseURL + ROMArt_console[console] + artType + realname + " (USA).png"):
+    #     print(' Downloaded ' + realname + ' ' + ' thumbnail')
+    #     return True   
+    # elif downloadFileFromGithub(outFile,ROMART_baseURL + ROMArt_console[console] + artType + game):
+    #     print(' Downloaded ' + realname + ' ' + ' thumbnail')
+    #     return True    
+    # else:
+    #     return False
+    
 def stripShortcutText(drive: str):
     if drive == "???" or drive == "":
         raise Exception_InvalidPath
