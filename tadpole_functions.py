@@ -528,9 +528,8 @@ def downloadROMArt(console : str, ROMpath : str, game : str, artType: str, realn
     else:
         print(' Could not downlaod ' + realname + ' ' + ' thumbnail')
         return True  
-    #     return False
+    # #TODO eventually make this a lot cleaner and even user decided priority of locale
     # #Always try to download USA version, otherwise, stick with whatever hits next
-    # #TODO can make this a lot cleaner and even user decided priority
     # if downloadFileFromGithub(outFile,ROMART_baseURL + ROMArt_console[console] + artType + realname + " (USA).png"):
     #     print(' Downloaded ' + realname + ' ' + ' thumbnail')
     #     return True   
