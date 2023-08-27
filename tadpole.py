@@ -507,7 +507,7 @@ class MainWindow (QMainWindow):
 
         # Create Layouts
         layout = QVBoxLayout(widget)
-        selector_layout = QHBoxLayout(widget)
+        selector_layout = QHBoxLayout()
         layout.addLayout(selector_layout)
 
         # Drive Select Widgets
