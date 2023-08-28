@@ -41,12 +41,11 @@ def RunFrogTool():
             for console in frogtool.systems.keys():
                 result = frogtool.process_sys(drive, console, False)
                 QMessageBox.about(window, "Result", result)
-
         else:
-            result = frogtool.process_sys(drive, console, False)
-            #remember to reload table if we delete any files
-            loadROMsToTable()
+            result = frogtool.process_sys(drive, console, False)       
             QMessageBox.about(window, "Result", result)
+        #remember to reload table if we delete any files
+        loadROMsToTable()
     except frogtool.StopExecution:
         pass
     
@@ -93,6 +92,8 @@ def loadROMsToTable():
     drive = window.combobox_drive.currentText()
     system = window.combobox_console.currentText()
     if drive == static_NoDrives or system == "???" or system == static_AllSystems:
+        #TODO: should load ALL ROMs to the table rather than none
+        window.tbl_gamelist.setRowCount(0)
         return
     roms_path = os.path.join(drive, system)
     try:
@@ -667,19 +668,20 @@ class MainWindow (QMainWindow):
     
     def downloadBoxartForZips(self):
 
-        msgBox = QMessageBox()
+        msgBox = DownloadMessageBox()
         msgBox.setText("Downloading thumbnails...")
-        msgBox.setStyleSheet("QLabel{min-width: 500px;min-height: 100px}")
+        """
+        msgBox.setStyleSheet("QLabel{min-width: 300px}")
         msgBox.setWindowFlags(Qt.CustomizeWindowHint)
         # Create a dialog for progress
         layout = msgBox.layout()
-        layout.itemAtPosition( layout.rowCount() - 1, 0 ).widget().hide()
+        #layout.itemAtPosition( layout.rowCount() - 1, 0 ).widget().hide()
         progress = QProgressBar()
         progress.setFixedWidth(300)
 
         # Add the progress bar at the bottom (last row + 1) and first column with column span
         layout.addWidget(progress,layout.rowCount(), 0, 1, layout.columnCount(), Qt.AlignCenter )
-
+        """
         #TODO hook up a cancel button...but I can't get it to work right now
         #cancelBtn = msgBox.addButton('Cancel', QMessageBox.RejectRole)
         #layout.addWidget(cancelBtn,layout.rowCount(), 0, 1, layout.columnCount(), Qt.AlignCenter )
@@ -715,12 +717,12 @@ class MainWindow (QMainWindow):
                 continue
             zip_files = os.scandir(os.path.join(drive,console))
             zip_files = list(filter(frogtool.check_zip, zip_files))
-            msgBox.setText("Downloading " + str(len(zip_files)) + " thumbnails for\n" + ROMArt_console[console])
+            msgBox.setText("Trying to find thumbnails for " + str(len(zip_files)) + " ROMs\n" + ROMArt_console[console])
             #reset progress bar for next console
             games_total = 0
-            progress.reset()
-            progress.setMaximum(len(zip_files)+1)
-            progress.setValue(0)
+            msgBox.progress.reset()
+            msgBox.progress.setMaximum(len(zip_files)+1)
+            msgBox.progress.setValue(0)
             QApplication.processEvents()
             #Scrape the url for .png files
             url_for_scraping = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type
@@ -736,7 +738,7 @@ class MainWindow (QMainWindow):
                 game = os.path.splitext(file.name)
                 outFile = os.path.join(os.path.dirname(file.path),f"{game[0]}.png")
                 games_total = games_total +1
-                progress.setValue(games_total)
+                msgBox.progress.setValue(games_total)
                 QApplication.processEvents()
                 if not os.path.exists(outFile):
                     counter_total = counter_total + 1
@@ -1038,6 +1040,33 @@ class ROMCoverViewer(QLabel):
             self.parent().button_save.setDisabled(False)
         return True
 
+class DownloadMessageBox(QMessageBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        grid_layout = self.layout()
+
+        qt_msgboxex_icon_label = self.findChild(QLabel, "qt_msgboxex_icon_label")
+        qt_msgboxex_icon_label.deleteLater()
+
+        qt_msgbox_label = self.findChild(QLabel, "qt_msgbox_label")
+        qt_msgbox_label.setAlignment(Qt.AlignCenter)
+        grid_layout.removeWidget(qt_msgbox_label)
+
+        qt_msgbox_buttonbox = self.findChild(QDialogButtonBox, "qt_msgbox_buttonbox")
+        grid_layout.removeWidget(qt_msgbox_buttonbox)
+        
+        self.setStyleSheet("QLabel{min-width: 300px}")
+        self.setWindowFlags(Qt.CustomizeWindowHint)
+        # Create a dialog for progress
+        self.progress = QProgressBar()
+        self.progress.setFixedWidth(300)
+
+        
+
+        grid_layout.addWidget(qt_msgbox_label, 0, 0, alignment=Qt.AlignCenter)
+        # Add the progress bar at the bottom (last row + 1) and first column with column span
+        grid_layout.addWidget(self.progress,1, 0, 1, grid_layout.columnCount(), Qt.AlignCenter )
+        grid_layout.addWidget(qt_msgbox_buttonbox, 2, 0, alignment=Qt.AlignCenter)
 
 # Subclass Qidget to create a change shortcut window        
 class changeGameShortcutsWindow(QWidget):
