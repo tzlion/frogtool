@@ -82,6 +82,7 @@ def toggle_features(enable: bool):
                 window.menu_bgm,
                 window.menu_consoleLogos,
                 window.menu_boxart,
+                window.menu_saves,
                 window.tbl_gamelist]
 
     for feature in features:
@@ -631,9 +632,9 @@ class MainWindow (QMainWindow):
         self.menu_boxart.addAction(self.DownloadBoxart_action)
 
         # Saves Menu
-        menu_saves = self.menuBar().addMenu("Saves")
+        self.menu_saves = self.menuBar().addMenu("Saves")
         BackupAllSaves_action = QAction("Backup All Saves", self, triggered=self.createSaveBackup)
-        menu_saves.addAction(BackupAllSaves_action)
+        self.menu_saves.addAction(BackupAllSaves_action)
         
         # Help Menu
         self.menu_help = self.menuBar().addMenu("&Help")
