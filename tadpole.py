@@ -666,9 +666,7 @@ class MainWindow (QMainWindow):
     
     def downloadBoxartForZips(self):
 
-        #msgBox = QMessageBox( QMessageBox.Warning, "Downloading thumbnails", "Please wait while thumbnails download.", QMessageBox.NoButton )
         msgBox = QMessageBox()
-        #msgBox.setWindowIcon(QtGui.QIcon('PathToIcon/icon.png'))
         msgBox.setText("Downloading thumbnails...")
         msgBox.setStyleSheet("QLabel{min-width: 500px;min-height: 100px}")
         msgBox.setWindowFlags(Qt.CustomizeWindowHint)
@@ -684,6 +682,7 @@ class MainWindow (QMainWindow):
         #TODO hook up a cancel button...but I can't get it to work right now
         #cancelBtn = msgBox.addButton('Cancel', QMessageBox.RejectRole)
         #layout.addWidget(cancelBtn,layout.rowCount(), 0, 1, layout.columnCount(), Qt.AlignCenter )
+
         msgBox.show()
 
         #Need the url for scraping the png's, which is different
@@ -748,7 +747,18 @@ class MainWindow (QMainWindow):
                             break
         QApplication.processEvents()
 
-        QMessageBox.about(self, "Downloading Boxart Complete", f"Found {counter_success} covers for {counter_total} zips")
+        #QMessageBox.about(self, "Downloading Boxart Complete", f"Found {counter_success} covers for {counter_total} zips")
+        #QMessageBox.question(self, "Downloading Boxart Complete", f"Found {counter_success} covers for {counter_total} zips.  Do you want to rebuild all the game lists now?" )
+        qm = QMessageBox
+        ret = qm.question(self,'', "Downloading Boxart Complete\n" + f"Found {counter_success} covers for {counter_total} zips.\n\nDo you want to rebuild all the game lists?", qm.Yes | qm.No)
+        if ret == qm.Yes:
+            #set the console to "All"
+            window.combobox_console.setCurrentIndex(0)
+            RunFrogTool()
+            return
+        else:
+            return
+
 
     def change_background_music(self):
         """event to change background music"""
