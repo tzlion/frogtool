@@ -13,7 +13,6 @@ import json
 import logging
 import re
 
-
 try:
     from PIL import Image
     from PIL import ImageDraw
@@ -519,24 +518,26 @@ ROMArt_console = {
     "GBA":    "Nintendo - Game Boy Advance", 
     "ARCADE": ""
 }
+ 
+def downloadROMArt(console : str, ROMpath : str, game : str, artType: str, realname : str):
 
-def downloadROMArt(console : str, ROMpath : str):    
-    try:
-        if console == "" or ROMArt_console[console] == "":
-            print("ROMART invalid console value supplied")
-            return False
-        title = (os.path.splitext(os.path.basename(ROMpath))[0]).split('.')[0]
-        URLtoDownload = f"{ROMART_baseURL}{ROMArt_console[console]}/Named_Boxarts/{title}.png"
-        outFile = os.path.join(os.path.dirname(ROMpath),f"{title}.png")
-        print(f"Trying to download to {outFile} from {URLtoDownload}")
-        if (downloadFileFromGithub(outFile,URLtoDownload)):
-            print("Finished downloading. Success.")
-            return True
-        
-    except Exception as e:
-        logging.exception(f"CRITICAL ERROR while downloading ROMART: {str(e)}")
-    return False
-    
+    outFile = os.path.join(os.path.dirname(ROMpath),f"{realname}.png")
+    if(downloadFileFromGithub(outFile,ROMART_baseURL + ROMArt_console[console] + artType + game)):
+        print(' Downloaded ' + realname + ' ' + ' thumbnail')
+        return True    
+    else:
+        print(' Could not downlaod ' + realname + ' ' + ' thumbnail')
+        return True  
+    # #TODO eventually make this a lot cleaner and even user decided priority of locale
+    # #Always try to download USA version, otherwise, stick with whatever hits next
+    # if downloadFileFromGithub(outFile,ROMART_baseURL + ROMArt_console[console] + artType + realname + " (USA).png"):
+    #     print(' Downloaded ' + realname + ' ' + ' thumbnail')
+    #     return True   
+    # elif downloadFileFromGithub(outFile,ROMART_baseURL + ROMArt_console[console] + artType + game):
+    #     print(' Downloaded ' + realname + ' ' + ' thumbnail')
+    #     return True    
+    # else:
+    #     return False
     
 def stripShortcutText(drive: str):
     if drive == "???" or drive == "":
