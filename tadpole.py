@@ -1067,6 +1067,7 @@ class DownloadMessageBox(QMessageBox):
         # Add the progress bar at the bottom (last row + 1) and first column with column span
         grid_layout.addWidget(self.progress,1, 0, 1, grid_layout.columnCount(), Qt.AlignCenter )
         grid_layout.addWidget(qt_msgbox_buttonbox, 2, 0, alignment=Qt.AlignCenter)
+        qt_msgbox_buttonbox.hide()
 
 # Subclass Qidget to create a change shortcut window        
 class changeGameShortcutsWindow(QWidget):
