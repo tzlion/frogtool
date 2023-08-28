@@ -114,11 +114,12 @@ def process_sys(drive, system, test_mode):
     if system != "ARCADE":
         convert_zip_image_pairs_to_zxx(roms_path, system)
 
-    
+    #Bugfix: get new filenames now that we have converted from zip to zxx
+    filenames = getROMList(roms_path)
     no_files = len(filenames)
     if no_files == 0:
-        print("No ROMs found!")
-        return f"No ROMs found to rebuild in {system}"
+        print("No ROMs found! Going to save an empty file list")
+        #return f"No ROMs found to rebuild in {system}"
 
     stripped_names = list(map(strip_file_extension, filenames))
 
