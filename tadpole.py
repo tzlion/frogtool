@@ -49,7 +49,6 @@ def RunFrogTool():
             QMessageBox.about(window, "Result", result)
     except frogtool.StopExecution:
         pass
-    #loadROMsToTable()
     
 def reloadDriveList():
     current_drive = window.combobox_drive.currentText()
@@ -622,13 +621,13 @@ class MainWindow (QMainWindow):
                                         self,
                                         triggered=self.change_background_music))
 
-        # Download Boxart Menu
-        self.menu_boxart = self.menuBar().addMenu("Boxart")
-        self.DownloadBoxart_action = QAction("Download Boxart for zips", self, triggered=self.downloadBoxartForZips)
+        # Download Thumbnails Menu
+        self.menu_boxart = self.menuBar().addMenu("Thumbnails")
+        self.DownloadBoxart_action = QAction("Download Boxart thumbnails for zip files", self, triggered=self.downloadBoxartForZips)
         self.menu_boxart.addAction(self.DownloadBoxart_action)
-        self.DownloadBoxart_action = QAction("Download Snaps for zips", self, triggered=self.downloadBoxartForZips)
+        self.DownloadBoxart_action = QAction("Download Snaps thumbnails for zip files", self, triggered=self.downloadBoxartForZips)
         self.menu_boxart.addAction(self.DownloadBoxart_action)
-        self.DownloadBoxart_action = QAction("Download Titles for zips", self, triggered=self.downloadBoxartForZips)
+        self.DownloadBoxart_action = QAction("Download Titles thumbnails for zip files", self, triggered=self.downloadBoxartForZips)
         self.menu_boxart.addAction(self.DownloadBoxart_action)
 
         # Saves Menu
@@ -666,6 +665,27 @@ class MainWindow (QMainWindow):
 
     
     def downloadBoxartForZips(self):
+
+        #msgBox = QMessageBox( QMessageBox.Warning, "Downloading thumbnails", "Please wait while thumbnails download.", QMessageBox.NoButton )
+        msgBox = QMessageBox()
+        #msgBox.setWindowIcon(QtGui.QIcon('PathToIcon/icon.png'))
+        msgBox.setText("Downloading thumbnails...")
+        msgBox.setStyleSheet("QLabel{min-width: 500px;min-height: 100px}")
+        msgBox.setWindowFlags(Qt.CustomizeWindowHint)
+        # Create a dialog for progress
+        layout = msgBox.layout()
+        layout.itemAtPosition( layout.rowCount() - 1, 0 ).widget().hide()
+        progress = QProgressBar()
+        progress.setFixedWidth(300)
+
+        # Add the progress bar at the bottom (last row + 1) and first column with column span
+        layout.addWidget(progress,layout.rowCount(), 0, 1, layout.columnCount(), Qt.AlignCenter )
+
+        #TODO hook up a cancel button...but I can't get it to work right now
+        #cancelBtn = msgBox.addButton('Cancel', QMessageBox.RejectRole)
+        #layout.addWidget(cancelBtn,layout.rowCount(), 0, 1, layout.columnCount(), Qt.AlignCenter )
+        msgBox.show()
+
         #Need the url for scraping the png's, which is different
         ROMART_baseURL_parsing = "https://github.com/EricGoldsteinNz/libretro-thumbnails/tree/master/"
         
@@ -695,7 +715,13 @@ class MainWindow (QMainWindow):
                 continue
             zip_files = os.scandir(os.path.join(drive,console))
             zip_files = list(filter(frogtool.check_zip, zip_files))
-
+            msgBox.setText("Downloading " + str(len(zip_files)) + " thumbnails for\n" + ROMArt_console[console])
+            #reset progress bar for next console
+            games_total = 0
+            progress.reset()
+            progress.setMaximum(len(zip_files)+1)
+            progress.setValue(0)
+            QApplication.processEvents()
             #Scrape the url for .png files
             url_for_scraping = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type
             response = requests.get(url_for_scraping)
@@ -709,6 +735,9 @@ class MainWindow (QMainWindow):
             for file in zip_files:
                 game = os.path.splitext(file.name)
                 outFile = os.path.join(os.path.dirname(file.path),f"{game[0]}.png")
+                games_total = games_total +1
+                progress.setValue(games_total)
+                QApplication.processEvents()
                 if not os.path.exists(outFile):
                     counter_total = counter_total + 1
                     url_to_download = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type + game[0]
@@ -717,6 +746,8 @@ class MainWindow (QMainWindow):
                             tadpole_functions.downloadROMArt(console,file.path,x,art_Type,game[0])
                             counter_success = counter_success + 1
                             break
+        QApplication.processEvents()
+
         QMessageBox.about(self, "Downloading Boxart Complete", f"Found {counter_success} covers for {counter_total} zips")
 
     def change_background_music(self):
