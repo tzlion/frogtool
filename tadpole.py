@@ -11,6 +11,7 @@ import os
 import sys
 import string
 import threading
+import queue
 # Feature imports
 import frogtool
 import tadpole_functions
@@ -20,6 +21,7 @@ from io import BytesIO
 import psutil
 import json
 import time
+from bs4 import BeautifulSoup
 
 basedir = os.path.dirname(__file__)
 
@@ -42,6 +44,8 @@ def RunFrogTool():
 
         else:
             result = frogtool.process_sys(drive, console, False)
+            #remember to reload table if we delete any files
+            loadROMsToTable()
             QMessageBox.about(window, "Result", result)
     except frogtool.StopExecution:
         pass
@@ -620,9 +624,13 @@ class MainWindow (QMainWindow):
 
         # Download Boxart Menu
         self.menu_boxart = self.menuBar().addMenu("Boxart")
-        self.DownloadBoxart_action = QAction("Download for zips", self, triggered=self.downloadBoxartForZips)
+        self.DownloadBoxart_action = QAction("Download Boxart for zips", self, triggered=self.downloadBoxartForZips)
         self.menu_boxart.addAction(self.DownloadBoxart_action)
-        
+        self.DownloadBoxart_action = QAction("Download Snaps for zips", self, triggered=self.downloadBoxartForZips)
+        self.menu_boxart.addAction(self.DownloadBoxart_action)
+        self.DownloadBoxart_action = QAction("Download Titles for zips", self, triggered=self.downloadBoxartForZips)
+        self.menu_boxart.addAction(self.DownloadBoxart_action)
+
         # Saves Menu
         menu_saves = self.menuBar().addMenu("Saves")
         BackupAllSaves_action = QAction("Backup All Saves", self, triggered=self.createSaveBackup)
@@ -658,12 +666,27 @@ class MainWindow (QMainWindow):
 
     
     def downloadBoxartForZips(self):
-        """
-        thread_boxart = threading.Thread(target = thread_downloadBoxartForZips)
-        thread_boxart.start()
-        dialog_pleasewait = PleaseWaitDialog("Downloading boxart from Goldsteins Github repo")
-        dialog_pleasewait.exec()
-        """
+        #Need the url for scraping the png's, which is different
+        ROMART_baseURL_parsing = "https://github.com/EricGoldsteinNz/libretro-thumbnails/tree/master/"
+        
+        ROMArt_console = {  
+            "FC":     "Nintendo - Nintendo Entertainment System",
+            "SFC":    "Nintendo - Super Nintendo Entertainment System",
+            "MD":     "Sega - Mega Drive - Genesis",
+            "GB":     "Nintendo - Game Boy",
+            "GBC":    "Nintendo - Game Boy Color",
+            "GBA":    "Nintendo - Game Boy Advance", 
+            "ARCADE": ""
+        }
+
+        #TODO: I shouldn't base this on strings incase it gets localized, should base it on the item clicked with "sender" obj but I can't figure out where that data is in that object 
+        art_Selection = self.sender().text()
+        if(art_Selection == "Download Titles for zips"):
+            art_Type = "/Named_Titles/"
+        elif(art_Selection == "Download Snaps for zips"):
+            art_Type = "/Named_Snaps/"
+        else:
+           art_Type = "/Named_Boxarts/"
         drive = window.combobox_drive.currentText()
         counter_success = 0
         counter_total = 0
@@ -672,14 +695,30 @@ class MainWindow (QMainWindow):
                 continue
             zip_files = os.scandir(os.path.join(drive,console))
             zip_files = list(filter(frogtool.check_zip, zip_files))
+
+            #Scrape the url for .png files
+            url_for_scraping = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type
+            response = requests.get(url_for_scraping)
+            # BeautifulSoup magically find ours PNG's and ties them up into a nice bow
+            soup = BeautifulSoup(response.content, 'html.parser')
+            json_response = json.loads(soup.contents[0])
+            png_files = []
+            for value in json_response['payload']['tree']['items']:
+                png_files.append(value['name'])
+
             for file in zip_files:
-                counter_total = counter_total + 1
-                if tadpole_functions.downloadROMArt(console,file):
-                    counter_success = counter_success + 1
-        QMessageBox.about(self, "Downloading Boxart Complete", f"Downloaded {counter_success} covers for {counter_total} zips")
-    #def thread_downloadBoxartForZips():
-        
-    
+                game = os.path.splitext(file.name)
+                outFile = os.path.join(os.path.dirname(file.path),f"{game[0]}.png")
+                if not os.path.exists(outFile):
+                    counter_total = counter_total + 1
+                    url_to_download = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type + game[0]
+                    for x in png_files:
+                        if game[0] in x:
+                            tadpole_functions.downloadROMArt(console,file.path,x,art_Type,game[0])
+                            counter_success = counter_success + 1
+                            break
+        QMessageBox.about(self, "Downloading Boxart Complete", f"Found {counter_success} covers for {counter_total} zips")
+
     def change_background_music(self):
         """event to change background music"""
         if self.sender().text() == "From Local File...":  # handle local file option
