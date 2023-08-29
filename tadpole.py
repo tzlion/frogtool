@@ -121,7 +121,7 @@ def loadROMsToTable():
             cell_fileSize.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
             window.tbl_gamelist.setItem(i, 1, cell_fileSize) 
             # View Thumbnail Button 
-            cell_viewthumbnail = QTableWidgetItem(f"view")
+            cell_viewthumbnail = QTableWidgetItem(f"View")
             cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
             cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
             window.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)     
@@ -147,7 +147,7 @@ def catchTableCellClicked(clickedRow, clickedColumn):
         system = window.combobox_console.currentText()
         gamename = window.tbl_gamelist.item(clickedRow, 0).text()
         viewThumbnail(os.path.join(drive, system, gamename))
-    elif window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Delete":  #Delete ROM
+    elif window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Delete ROM":  #Delete ROM
         drive = window.combobox_drive.currentText()
         system = window.combobox_console.currentText()
         gamename = window.tbl_gamelist.item(clickedRow, 0).text()
@@ -172,7 +172,7 @@ def viewThumbnail(rom_path):
 
 def deleteROM(rom_path):
     qm = QMessageBox
-    ret = qm.question(qm,'', "Are you sure you want to delete this and rebuild the ROM list? " + rom_path, qm.Yes | qm.No)
+    ret = qm.question(window,'', "Are you sure you want to delete " + rom_path +" and rebuild the ROM list? " , qm.Yes | qm.No)
     if ret == qm.Yes:
         os.remove(rom_path)
         RunFrogTool()
@@ -559,11 +559,13 @@ class MainWindow (QMainWindow):
 
         # Game Table Widget
         self.tbl_gamelist = QTableWidget()
-        self.tbl_gamelist.setColumnCount(3)
-        self.tbl_gamelist.setHorizontalHeaderLabels(["Name", "Size", "Thumbnail"])
+        self.tbl_gamelist.setColumnCount(4)
+        self.tbl_gamelist.setHorizontalHeaderLabels(["Name", "Size", "Thumbnail", "Delete ROM"])
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.tbl_gamelist.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
+
         self.tbl_gamelist.cellClicked.connect(catchTableCellClicked)
         layout.addWidget(self.tbl_gamelist)
 
