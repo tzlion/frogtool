@@ -121,10 +121,15 @@ def loadROMsToTable():
             cell_fileSize.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
             window.tbl_gamelist.setItem(i, 1, cell_fileSize) 
             # View Thumbnail Button 
-            cell_viewthumbnail = QTableWidgetItem(f"view")
+            cell_viewthumbnail = QTableWidgetItem(f"View")
             cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
             cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
-            window.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)        
+            window.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)   
+            # View Delete Button 
+            cell_delete = QTableWidgetItem(f"Delete")
+            cell_delete.setTextAlignment(Qt.AlignCenter)
+            cell_delete.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
+            window.tbl_gamelist.setItem(i, 3, cell_delete)     
         print("finished loading roms to table")    
         # Adjust column widths
         #window.tbl_gamelist
@@ -143,6 +148,12 @@ def catchTableCellClicked(clickedRow, clickedColumn):
         system = window.combobox_console.currentText()
         gamename = window.tbl_gamelist.item(clickedRow, 0).text()
         viewThumbnail(os.path.join(drive, system, gamename))
+    if window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Delete":  #Delete ROM
+        drive = window.combobox_drive.currentText()
+        system = window.combobox_console.currentText()
+        gamename = window.tbl_gamelist.item(clickedRow, 0).text()
+        deleteROM(os.path.join(drive, system, gamename))
+        
         
 
 def viewThumbnail(rom_path):
@@ -162,6 +173,15 @@ def viewThumbnail(rom_path):
             return
         QMessageBox.about(window, "Change ROM Logo", "ROM cover successfully changed")
 
+def deleteROM(rom_path):
+    qm = QMessageBox
+    ret = qm.question(qm,'', "Are you sure you want to delete this and rebuild the ROM list? " + rom_path, qm.Yes | qm.No)
+    if ret == qm.Yes:
+        os.remove(rom_path)
+        RunFrogTool()
+        return
+    else:
+        return
 
 def BGM_change(source=""):
     # Check the selected drive looks like a Frog card
