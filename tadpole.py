@@ -1057,17 +1057,38 @@ class DownloadMessageBox(QMessageBox):
         
         self.setStyleSheet("QLabel{min-width: 300px}")
         self.setWindowFlags(Qt.CustomizeWindowHint)
+        self.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
         # Create a dialog for progress
         self.progress = QProgressBar()
         self.progress.setFixedWidth(300)
 
-        
-
-        grid_layout.addWidget(qt_msgbox_label, 0, 0, alignment=Qt.AlignCenter)
+        self.spacer = QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        grid_layout.addItem(self.spacer, 0, 0, 1, self.layout().columnCount())
+        grid_layout.addWidget(qt_msgbox_label, 1, 0, alignment=Qt.AlignCenter)
         # Add the progress bar at the bottom (last row + 1) and first column with column span
-        grid_layout.addWidget(self.progress,1, 0, 1, grid_layout.columnCount(), Qt.AlignCenter )
-        grid_layout.addWidget(qt_msgbox_buttonbox, 2, 0, alignment=Qt.AlignCenter)
+        grid_layout.addWidget(self.progress,2, 0, 1, grid_layout.columnCount(), Qt.AlignCenter )
+        grid_layout.addWidget(qt_msgbox_buttonbox, 3, 0, alignment=Qt.AlignCenter)
         qt_msgbox_buttonbox.hide()
+    
+    def setText(self, text):
+        super().setText(text)
+        
+        longest = ""
+        for part in text.split("\n"):
+            if len(part) > len(longest):
+                longest = part
+        
+        font_matrix = self.fontMetrics()
+        width = font_matrix.boundingRect(longest).width() + 8 # Have to add ~20 as a buffer
+        self.spacer = QSpacerItem(width, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.layout().addItem(self.spacer, 0, 0, 1, self.layout().columnCount())
+        
+        
+        
+        #qt_msgbox_label = self.findChild(QLabel, "qt_msgbox_label")
+        #print(f"Width: {qt_msgbox_label.width()}")
+        #self.setFixedWidth(qt_msgbox_label.width()+100)
+
 
 # Subclass Qidget to create a change shortcut window        
 class changeGameShortcutsWindow(QWidget):
