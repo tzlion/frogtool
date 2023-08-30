@@ -12,6 +12,7 @@ import sys
 import string
 import threading
 import queue
+import shutil
 # Feature imports
 import frogtool
 import tadpole_functions
@@ -37,10 +38,12 @@ def RunFrogTool():
         #should probably replace this with with rebuilding the favourites list at some point
         tadpole_functions.emptyFavourites(drive)
         tadpole_functions.emptyHistory(drive)
+        total_roms = 0
         if(console == static_AllSystems):
             for console in frogtool.systems.keys():
                 result = frogtool.process_sys(drive, console, False)
-                QMessageBox.about(window, "Result", result)
+            #TODO: eventually we could return a total roms across all systems, but not sure users will care
+            QMessageBox.about(window, "Result", "Rebuilt all roms for all systems")
         else:
             result = frogtool.process_sys(drive, console, False)       
             QMessageBox.about(window, "Result", result)
@@ -81,7 +84,7 @@ def toggle_features(enable: bool):
                 window.menu_bgm,
                 window.menu_consoleLogos,
                 window.menu_boxart,
-                window.menu_saves,
+                window.menu_roms,
                 window.tbl_gamelist]
 
     for feature in features:
@@ -176,6 +179,7 @@ def deleteROM(rom_path):
     if ret == qm.Yes:
         os.remove(rom_path)
         RunFrogTool()
+        loadROMsToTable()
         return
     else:
         return
@@ -653,9 +657,11 @@ class MainWindow (QMainWindow):
         self.menu_boxart.addAction(self.DownloadBoxart_action)
 
         # Saves Menu
-        self.menu_saves = self.menuBar().addMenu("Saves")
-        BackupAllSaves_action = QAction("Backup All Saves", self, triggered=self.createSaveBackup)
-        self.menu_saves.addAction(BackupAllSaves_action)
+        self.menu_roms = self.menuBar().addMenu("ROMs")
+        BackupAllSaves_action = QAction("Backup All ROMs saves", self, triggered=self.createSaveBackup)
+        self.menu_roms.addAction(BackupAllSaves_action)
+        CopyRoms_action = QAction("Add (Copy) ROMs...", self, triggered=self.copyRoms)
+        self.menu_roms.addAction(CopyRoms_action)
         
         # Help Menu
         self.menu_help = self.menuBar().addMenu("&Help")
@@ -687,21 +693,16 @@ class MainWindow (QMainWindow):
 
     
     def downloadBoxartForZips(self):
-
+        drive = window.combobox_drive.currentText()
+        user_selected_console = window.combobox_console.currentText()
+        #ARCADE can't get ROM art, so just return
+        if user_selected_console == "ARCADE":
+            QMessageBox.about(self, "Download Thumbnails", "Custom Arcade ROMS cannot have thumbnails at this time.")
+            return
+        
         msgBox = DownloadMessageBox()
         msgBox.setText("Downloading thumbnails...")
-        """
-        msgBox.setStyleSheet("QLabel{min-width: 300px}")
-        msgBox.setWindowFlags(Qt.CustomizeWindowHint)
-        # Create a dialog for progress
-        layout = msgBox.layout()
-        #layout.itemAtPosition( layout.rowCount() - 1, 0 ).widget().hide()
-        progress = QProgressBar()
-        progress.setFixedWidth(300)
 
-        # Add the progress bar at the bottom (last row + 1) and first column with column span
-        layout.addWidget(progress,layout.rowCount(), 0, 1, layout.columnCount(), Qt.AlignCenter )
-        """
         #TODO hook up a cancel button...but I can't get it to work right now
         #cancelBtn = msgBox.addButton('Cancel', QMessageBox.RejectRole)
         #layout.addWidget(cancelBtn,layout.rowCount(), 0, 1, layout.columnCount(), Qt.AlignCenter )
@@ -723,18 +724,54 @@ class MainWindow (QMainWindow):
 
         #TODO: I shouldn't base this on strings incase it gets localized, should base it on the item clicked with "sender" obj but I can't figure out where that data is in that object 
         art_Selection = self.sender().text()
-        if(art_Selection == "Download Titles for zips"):
+        if('Titles' in art_Selection):
             art_Type = "/Named_Titles/"
-        elif(art_Selection == "Download Snaps for zips"):
+        elif('Snaps'in art_Selection):
             art_Type = "/Named_Snaps/"
         else:
            art_Type = "/Named_Boxarts/"
-        drive = window.combobox_drive.currentText()
         counter_success = 0
         counter_total = 0
-        for console in tadpole_functions.systems.keys():
-            if console == "ARCADE":
-                continue
+        #TODO: this needs to be cleaned up and turned into a tadpole_function
+        if user_selected_console == "ALL":
+            for console in tadpole_functions.systems.keys():
+                if console == "ARCADE":
+                    continue
+                zip_files = os.scandir(os.path.join(drive,console))
+                zip_files = list(filter(frogtool.check_zip, zip_files))
+                msgBox.setText("Trying to find thumbnails for " + str(len(zip_files)) + " ROMs\n" + ROMArt_console[console])
+                #reset progress bar for next console
+                games_total = 0
+                msgBox.progress.reset()
+                msgBox.progress.setMaximum(len(zip_files)+1)
+                msgBox.progress.setValue(0)
+                QApplication.processEvents()
+                #Scrape the url for .png files
+                url_for_scraping = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type
+                response = requests.get(url_for_scraping)
+                # BeautifulSoup magically find ours PNG's and ties them up into a nice bow
+                soup = BeautifulSoup(response.content, 'html.parser')
+                json_response = json.loads(soup.contents[0])
+                png_files = []
+                for value in json_response['payload']['tree']['items']:
+                    png_files.append(value['name'])
+
+                for file in zip_files:
+                    game = os.path.splitext(file.name)
+                    outFile = os.path.join(os.path.dirname(file.path),f"{game[0]}.png")
+                    games_total = games_total +1
+                    msgBox.progress.setValue(games_total)
+                    QApplication.processEvents()
+                    if not os.path.exists(outFile):
+                        counter_total = counter_total + 1
+                        url_to_download = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type + game[0]
+                        for x in png_files:
+                            if game[0] in x:
+                                tadpole_functions.downloadROMArt(console,file.path,x,art_Type,game[0])
+                                counter_success = counter_success + 1
+                                break
+        else:
+            console = user_selected_console
             zip_files = os.scandir(os.path.join(drive,console))
             zip_files = list(filter(frogtool.check_zip, zip_files))
             msgBox.setText("Trying to find thumbnails for " + str(len(zip_files)) + " ROMs\n" + ROMArt_console[console])
@@ -770,13 +807,9 @@ class MainWindow (QMainWindow):
                             break
         QApplication.processEvents()
 
-        #QMessageBox.about(self, "Downloading Boxart Complete", f"Found {counter_success} covers for {counter_total} zips")
-        #QMessageBox.question(self, "Downloading Boxart Complete", f"Found {counter_success} covers for {counter_total} zips.  Do you want to rebuild all the game lists now?" )
         qm = QMessageBox
-        ret = qm.question(self,'', "Downloading Boxart Complete\n" + f"Found {counter_success} covers for {counter_total} zips.\n\nDo you want to rebuild all the game lists?", qm.Yes | qm.No)
+        ret = qm.question(self,'', "Downloading Boxart Complete\n" + f"Found {counter_success} covers for {counter_total} zips for {console}.\n\nDo you want to rebuild game lists?", qm.Yes | qm.No)
         if ret == qm.Yes:
-            #set the console to "All"
-            window.combobox_console.setCurrentIndex(0)
             RunFrogTool()
             return
         else:
@@ -918,7 +951,31 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
             msgBox.close()
             QMessageBox.about(self, "Failure","ERROR: Something went wrong while trying to create the save backup")    
         
-    
+    def copyRoms(self):
+        drive = window.combobox_drive.currentText()
+        console = window.combobox_console.currentText()
+
+        if(console == "ALL"):
+            QMessageBox.about(self, "Action needed",f"Please select a console in the dropdown")
+            return
+        filenames, _ = QFileDialog.getOpenFileNames(self,"Select ROMs",'',"ROM files (*.zip *.bkp \
+                                                    *.zfc *.zsf *.zmd *.zgb *.zfb *.smc *.fig *.sfc *.gd3 *.gd7 *.dx2 *.bsx *.swc \
+                                                    *.nes *.nfc *.fds *.unf *.gbc *.gb *.sgb *.gba *.agb *.gbz *.bin *.md *.smd *.gen *.sms)")
+        if filenames:
+            for filename in filenames:
+                shutil.copy(filename, drive + console)
+                print (filename + "added to " + drive + console)
+            qm = QMessageBox
+            ret = qm.question(self,'', f"Added " + str(len(filenames)) + " ROMs to " + drive + console + "\n\nDo you want to try to download thumbnails?", qm.Yes | qm.No)
+            if ret == qm.Yes:
+                MainWindow.downloadBoxartForZips(self)
+                RunFrogTool()
+                loadROMsToTable()
+                return
+            else:
+                loadROMsToTable()
+                return
+
 # Subclass Qidget to create a thumbnail viewing window        
 class thumbnailWindow(QDialog):
     """

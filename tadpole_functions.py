@@ -591,8 +591,6 @@ def createSaveBackup(drive: str, zip_file_name):
     except Exception as e:
         return False
                      
-
-
 def check_is_save_file(filename):
     file_regex = ".+\\.(" + "|".join(supported_save_ext) + ")$"
     return re.search(file_regex, filename.lower())
