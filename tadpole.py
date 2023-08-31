@@ -177,9 +177,13 @@ def deleteROM(rom_path):
     qm = QMessageBox
     ret = qm.question(window,'', "Are you sure you want to delete " + rom_path +" and rebuild the ROM list? " , qm.Yes | qm.No)
     if ret == qm.Yes:
-        os.remove(rom_path)
-        RunFrogTool()
-        loadROMsToTable()
+        try:
+            os.remove(rom_path)
+            RunFrogTool()
+            loadROMsToTable()
+        except Exception:
+            QMessageBox.about(window, "Error","Could not delete file.")
+            loadROMsToTable()
         return
     else:
         return
@@ -697,7 +701,7 @@ class MainWindow (QMainWindow):
         user_selected_console = window.combobox_console.currentText()
         #ARCADE can't get ROM art, so just return
         if user_selected_console == "ARCADE":
-            QMessageBox.about(self, "Download Thumbnails", "Custom Arcade ROMS cannot have thumbnails at this time.")
+            QMessageBox.about(self, "Download Thumbnails", "Custom Arcade ROMs cannot have thumbnails at this time.")
             return
         
         msgBox = DownloadMessageBox()
@@ -902,9 +906,9 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
     
         msgBox = QMessageBox()
         msgBox.setWindowTitle("Downloading Console Logos")
-        msgBox.setText("Now downloading Console Logos. Depending on your internet connection speed this may take some \
-        time, please wait patiently.")
+        msgBox.setText("Now downloading Console Logos. Depending on your internet connection speed this may take some time.")
         msgBox.show()
+        QApplication.processEvents()
         if tadpole_functions.changeConsoleLogos(drive, url):
             msgBox.close()
             QMessageBox.about(self, "Success", "Console logos successfully changed")
@@ -925,10 +929,11 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
 
     def UpdateDevice(self, url):
         drive = window.combobox_drive.currentText()       
-        msgBox = QMessageBox()
-        msgBox.setWindowTitle("Downloading Console Update")
+        msgBox = QMessageBox().setWindowTitle("Downloading Console Update")
         msgBox.setText("Now downloading Console Update. Depending on your internet connection speed this may take some time, please wait patiently.")
         msgBox.show()
+        QApplication.processEvents()
+
         if tadpole_functions.downloadDirectoryFromGithub(drive, url):
             msgBox.close()
             QMessageBox.about(self, "Success","Update successfully Downloaded")
@@ -969,7 +974,6 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
             ret = qm.question(self,'', f"Added " + str(len(filenames)) + " ROMs to " + drive + console + "\n\nDo you want to try to download thumbnails?", qm.Yes | qm.No)
             if ret == qm.Yes:
                 MainWindow.downloadBoxartForZips(self)
-                RunFrogTool()
                 loadROMsToTable()
                 return
             else:
