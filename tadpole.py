@@ -62,6 +62,9 @@ def reloadDriveList():
     if len(window.combobox_drive) > 0:
         toggle_features(True)
         window.status_bar.showMessage("SF2000 Drive(s) Detected.", 20000)
+        if(current_drive == static_NoDrives):
+            print("New drive detected")
+            loadROMsToTable()
 
     else:
         # disable functions
@@ -91,24 +94,25 @@ def loadROMsToTable():
     print("loading roms to table")
     drive = window.combobox_drive.currentText()
     system = window.combobox_console.currentText()
-    if drive == static_NoDrives or system == "???" or system == static_AllSystems:
-        #TODO: should load ALL ROMs to the table rather than none
-        window.tbl_gamelist.setRowCount(0)
-        return
-    roms_path = os.path.join(drive, system)
     try:
-        files = frogtool.getROMList(roms_path)
+        files = []
+        if drive == static_NoDrives or system == "???" or system == static_AllSystems:
+            #TODO: should load ALL ROMs to the table rather than none
+            """
+            for sys in tadpole_functions.systems.keys():
+                roms_path = os.path.join(drive, sys)
+                files.append(frogtool.getROMList(roms_path))
+            """
+            window.tbl_gamelist.setRowCount(len(files))
+            return
+        else:    
+            roms_path = os.path.join(drive, system)
+            files = frogtool.getROMList(roms_path)
         window.tbl_gamelist.setRowCount(len(files))
         print(f"found {len(files)} ROMs")
         for i,f in enumerate(files):
-            humanReadableFileSize = "ERROR"
-            filesize = os.path.getsize(os.path.join(roms_path, f))           
-            if filesize > 1024*1024:  # More than 1 Megabyte
-                humanReadableFileSize = f"{round(filesize/(1024*1024),2)} MB"
-            elif filesize > 1024:  # More than 1 Kilobyte
-                humanReadableFileSize = f"{round(filesize/1024,2)} KB"
-            else:  # Less than 1 Kilobyte
-                humanReadableFileSize = f"filesize Bytes"
+            filesize = os.path.getsize(os.path.join(roms_path, f)) 
+            humanReadableFileSize = tadpole_functions.getHumanReadableFileSize(filesize)
             
             # Filename
             cell_filename = QTableWidgetItem(f"{f}")

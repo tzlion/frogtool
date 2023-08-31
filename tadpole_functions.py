@@ -597,3 +597,13 @@ def check_is_save_file(filename):
     file_regex = ".+\\.(" + "|".join(supported_save_ext) + ")$"
     return re.search(file_regex, filename.lower())
         
+        
+def getHumanReadableFileSize(filesize):
+    humanReadableFileSize = "ERROR"          
+    if filesize > 1024*1024:  # More than 1 Megabyte
+        humanReadableFileSize = f"{round(filesize/(1024*1024),2)} MB"
+    elif filesize > 1024:  # More than 1 Kilobyte
+        humanReadableFileSize = f"{round(filesize/1024,2)} KB"
+    else:  # Less than 1 Kilobyte
+        humanReadableFileSize = f"filesize Bytes"
+    return humanReadableFileSize
