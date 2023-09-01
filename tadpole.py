@@ -703,7 +703,7 @@ class MainWindow (QMainWindow):
                 else:
                     return
             else:
-                QMessageBox.about(self, "No update needed", f"You are already on the latest firmware: {detectedVersion}")
+                QMessageBox.about(self, "Detected OS Version", f"You are on the latest firmware: {detectedVersion}")
 
         except Exception as e:
             QMessageBox.about("tadpole~detectOSVersion: Error occured while trying to find OS Version" + str(e))
@@ -943,7 +943,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
     def UpdateDevice(self, url):
         drive = window.combobox_drive.currentText()
         msgBox = DownloadMessageBox()
-        msgBox.setText("Downloading Console Update.")
+        msgBox.setText("Downloading Firmware Update.")
         msgBox.show()
         msgBox.showProgress(25)
 
