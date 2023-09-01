@@ -606,10 +606,10 @@ class MainWindow (QMainWindow):
         # OS Menu
         self.menu_os = self.menuBar().addMenu("&OS")
         # Update Submenu
-        action_detectOSVersion = QAction("Detect Version", self, triggered=self.detectOSVersion)
+        action_detectOSVersion = QAction("Detect and update firmware", self, triggered=self.detectOSVersion)
         self.menu_os.addAction(action_detectOSVersion)
-        self.menu_os.menu_update = self.menu_os.addMenu("Update")
-        action_updateTo20230803  = QAction("2023.08.03", self, triggered=self.Updateto20230803)                                                                              
+        self.menu_os.menu_update = self.menu_os.addMenu("Manually change firmware")
+        action_updateTo20230803  = QAction("2023.08.03 (V1.6)", self, triggered=self.Updateto20230803)                                                                              
         self.menu_os.menu_update.addAction(action_updateTo20230803)   
         self.action_updateToV1_5  = QAction("2023.04.20 (V1.5)", self, triggered=self.UpdatetoV1_5)                                                                              
         self.menu_os.menu_update.addAction(self.action_updateToV1_5)   
@@ -686,13 +686,27 @@ class MainWindow (QMainWindow):
     def detectOSVersion(self):
         print("Tadpole~DetectOSVersion: Trying to read bisrv hash")
         drive = window.combobox_drive.currentText()
+        msg_box = DownloadMessageBox()
+        msg_box.setText("Detecting firmware version")
+        msg_box.show()
         try:
+            msg_box.showProgress(50)
             detectedVersion = tadpole_functions.bisrv_getFirmwareVersion(os.path.join(drive,"bios","bisrv.asd"))
             if not detectedVersion:
                 detectedVersion = "Version Not Found"
-            QMessageBox.about(self, "Detected OS Version", f"Finished scanning OS. Detected version:\n\r{detectedVersion}")
+            #TODO: move this from string base to something else...or at lesat make sure this gets updated when/if new firmware gets out there
+            if detectedVersion != "2023.08.03 (V1.6)":
+                qm = QMessageBox
+                ret = qm.question(self,"Detected OS Version", f"Detected version: "+ detectedVersion + "\nDo you want to update to the latest firmware?" , qm.Yes | qm.No)
+                if ret == qm.Yes:
+                    MainWindow.Updateto20230803(self)
+                else:
+                    return
+            else:
+                QMessageBox.about(self, "No update needed", f"You are already on the latest firmware: {detectedVersion}")
+
         except Exception as e:
-            print("tadpole~detectOSVersion: Error occured while trying to find OS Version")
+            QMessageBox.about("tadpole~detectOSVersion: Error occured while trying to find OS Version" + str(e))
 
 
     
@@ -903,12 +917,11 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
             QMessageBox.about(window, "Something doesn't Look Right", "The selected drive doesn't contain critical \
             SF2000 files. The action you selected has been aborted for your safety.")
             return
-    
-        msgBox = QMessageBox()
-        msgBox.setWindowTitle("Downloading Console Logos")
-        msgBox.setText("Now downloading Console Logos. Depending on your internet connection speed this may take some time.")
+        
+        msgBox = DownloadMessageBox()
+        msgBox.setText(" Downloading Console logos.")
         msgBox.show()
-        QApplication.processEvents()
+        msgBox.showProgress(25)
         if tadpole_functions.changeConsoleLogos(drive, url):
             msgBox.close()
             QMessageBox.about(self, "Success", "Console logos successfully changed")
@@ -928,11 +941,11 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
         self.UpdateDevice(url)
 
     def UpdateDevice(self, url):
-        drive = window.combobox_drive.currentText()       
-        msgBox = QMessageBox().setWindowTitle("Downloading Console Update")
-        msgBox.setText("Now downloading Console Update. Depending on your internet connection speed this may take some time, please wait patiently.")
+        drive = window.combobox_drive.currentText()
+        msgBox = DownloadMessageBox()
+        msgBox.setText("Downloading Console Update.")
         msgBox.show()
-        QApplication.processEvents()
+        msgBox.showProgress(25)
 
         if tadpole_functions.downloadDirectoryFromGithub(drive, url):
             msgBox.close()
@@ -1164,7 +1177,10 @@ class DownloadMessageBox(QMessageBox):
         self.spacer = QSpacerItem(width, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
         self.layout().addItem(self.spacer, 0, 0, 1, self.layout().columnCount())
         
-        
+    def showProgress(self, progressValue):
+        start_time = time.time()
+        self.progress.setValue(progressValue)
+        QApplication.processEvents()
         
         #qt_msgbox_label = self.findChild(QLabel, "qt_msgbox_label")
         #print(f"Width: {qt_msgbox_label.width()}")
