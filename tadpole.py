@@ -45,13 +45,30 @@ def RunFrogTool():
             #TODO: eventually we could return a total roms across all systems, but not sure users will care
             QMessageBox.about(window, "Result", "Rebuilt all roms for all systems")
         else:
-            result = frogtool.process_sys(drive, console, False)       
-            QMessageBox.about(window, "Result", result)
+            result = frogtool.process_sys(drive, console, False)
+            processGameShortcuts()       
+            QMessageBox.about(window, "Result", result)        
         #remember to reload table if we delete any files
         loadROMsToTable()
     except frogtool.StopExecution:
         pass
-    
+
+def processGameShortcuts():
+    drive = window.combobox_drive.currentText()
+    console = window.combobox_console.currentText()
+    for i in range(window.tbl_gamelist.rowCount()):
+        comboBox = window.tbl_gamelist.cellWidget(i, 4)
+        #if its blank, it doesn't have a position so move on
+        if comboBox.currentText() == '':
+            continue
+        else:
+            position = int(comboBox.currentText())
+            #position is 0 based
+            position = position - 1
+            game = window.tbl_gamelist.item(i, 0).text()
+            #print(drive + " " + console + " " + str(position) + " "+ game)
+            tadpole_functions.changeGameShortcut(drive, console, position, game)
+
 def reloadDriveList():
     current_drive = window.combobox_drive.currentText()
     window.combobox_drive.clear()
@@ -132,7 +149,16 @@ def loadROMsToTable():
             cell_delete = QTableWidgetItem(f"Delete")
             cell_delete.setTextAlignment(Qt.AlignCenter)
             cell_delete.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
-            window.tbl_gamelist.setItem(i, 3, cell_delete)        
+            window.tbl_gamelist.setItem(i, 3, cell_delete)
+            # Add to Shortcuts
+            shortcut_comboBox = QComboBox()
+            shortcut_comboBox.addItem("")
+            shortcut_comboBox.addItem("1")
+            shortcut_comboBox.addItem("2")
+            shortcut_comboBox.addItem("3")
+            shortcut_comboBox.addItem("4")
+            cell_shortcuts = window.tbl_gamelist.setCellWidget(i, 4, shortcut_comboBox)
+            shortcut_comboBox.activated.connect(window.validateGameShortcutComboBox)
         print("finished loading roms to table")    
         # Adjust column widths
         #window.tbl_gamelist
@@ -145,14 +171,12 @@ def loadROMsToTable():
 
 def catchTableCellClicked(clickedRow, clickedColumn):
     print(f"clicked view thumbnail for {clickedRow},{clickedColumn}")
+    drive = window.combobox_drive.currentText()
+    system = window.combobox_console.currentText()
     if window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Thumbnail":  #view thumbnail
-        drive = window.combobox_drive.currentText()
-        system = window.combobox_console.currentText()
         gamename = window.tbl_gamelist.item(clickedRow, 0).text()
         viewThumbnail(os.path.join(drive, system, gamename))
-    elif window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Delete ROM":  #Delete ROM
-        drive = window.combobox_drive.currentText()
-        system = window.combobox_console.currentText()
+    elif window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Delete ROM": 
         gamename = window.tbl_gamelist.item(clickedRow, 0).text()
         deleteROM(os.path.join(drive, system, gamename))
 
@@ -188,6 +212,9 @@ def deleteROM(rom_path):
     else:
         return
 
+def addToShortcuts(rom_path):
+    qm = QMessageBox
+    qm.setText("Time to set the rompath!")
 
 def BGM_change(source=""):
     # Check the selected drive looks like a Frog card
@@ -567,13 +594,13 @@ class MainWindow (QMainWindow):
 
         # Game Table Widget
         self.tbl_gamelist = QTableWidget()
-        self.tbl_gamelist.setColumnCount(4)
-        self.tbl_gamelist.setHorizontalHeaderLabels(["Name", "Size", "Thumbnail", "Delete ROM"])
+        self.tbl_gamelist.setColumnCount(5)
+        self.tbl_gamelist.setHorizontalHeaderLabels(["Name", "Size", "Thumbnail", "Delete ROM", "Shortcut Slot"])
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
-
+        self.tbl_gamelist.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
         self.tbl_gamelist.cellClicked.connect(catchTableCellClicked)
         layout.addWidget(self.tbl_gamelist)
 
@@ -592,10 +619,6 @@ class MainWindow (QMainWindow):
                                     self,
                                     triggered=self.about)
         self.exit_action = QAction("E&xit", self, shortcut="Ctrl+Q",triggered=self.close)
-
-
-
-
 
     def loadMenus(self):
         self.menu_file = self.menuBar().addMenu("&File")
@@ -707,8 +730,6 @@ class MainWindow (QMainWindow):
 
         except Exception as e:
             QMessageBox.about("tadpole~detectOSVersion: Error occured while trying to find OS Version" + str(e))
-
-
     
     def downloadBoxartForZips(self):
         drive = window.combobox_drive.currentText()
@@ -992,6 +1013,18 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
             else:
                 loadROMsToTable()
                 return
+    def validateGameShortcutComboBox(self):
+        currentComboBox = self.sender() 
+        if currentComboBox.currentText() != '':
+            for i in range(self.tbl_gamelist.rowCount()):
+                comboBox = window.tbl_gamelist.cellWidget(i, 4)
+                if comboBox == currentComboBox:
+                    continue
+                if comboBox.currentText() == currentComboBox.currentText():
+                    QMessageBox.about(window, "Error","You had the shortcut: " + comboBox.currentText() + " assigned to " + window.tbl_gamelist.item(i, 0).text()+ "\nChanging it to the newly selected game.")
+                    comboBox.setCurrentIndex(0)
+                    return False
+        return True
 
 # Subclass Qidget to create a thumbnail viewing window        
 class thumbnailWindow(QDialog):
