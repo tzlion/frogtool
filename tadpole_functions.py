@@ -108,7 +108,7 @@ def QImageToRGB565Logo(inputQImage):
 # hash, versionName
 versionDictionary = {
     "6aebab0e4da39e0a997df255ad6a1bd12fdd356cdf51a85c614d47109a0d7d07": "2023.04.20 (V1.5)",
-    "3f0ca7fcd47f1202828f6dbc177d8f4e6c9f37111e8189e276d925ffd2988267": "2023.08.03"
+    "3f0ca7fcd47f1202828f6dbc177d8f4e6c9f37111e8189e276d925ffd2988267": "2023.08.03 (V1.6)"
 }
 
 
@@ -318,7 +318,52 @@ def changeGameShortcut(index_path, console, position, game):
         return False
   
     return -1
-    
+
+#returns the position of the game's shortcut on the main screen.  If it isn't a shortcut, it returns 0  
+def getGameShortcutPosition(index_path, console, game):
+        
+    try:
+        trimmedGameName = frogtool.strip_file_extension(game)
+        print(f"Filename trimmed to: {trimmedGameName}")
+        #Read in all the existing shortcuts from file
+        xfgle_filepath = os.path.join(index_path, "Resources", "xfgle.hgp")
+        xfgle_file_handle = open(xfgle_filepath, "r")
+        lines = xfgle_file_handle.readlines()
+        xfgle_file_handle.close()
+        prefix = 9
+        if console == "ARCADE":  # Arcade lines must be prefixed with "6", all others can be anything.
+            prefix = 6
+        # see if this game is listed.  If so get its position
+        savedShortcut = f"{prefix} {game}*\n"
+        for i, gameShortcutLine in enumerate(lines):
+            if gameShortcutLine == savedShortcut:
+                print("Found " + savedShortcut + " on line " + str(i))
+                #now we found the match of the raw location, now we need to return the position from console
+                #from xfgle, the positions start with 3 random lines, and then go down in order from FC -> SNES -> ... -> Arcade
+                if(console == "FC" ):
+                    return (i - 3)
+                if(console == "SFC" ):
+                    return (i - 7)
+                if(console == "MD" ):
+                    return (i - 11)
+                if(console == "GB" ):
+                    return (i - 15)
+                if(console == "GBC" ):
+                    return (i - 19)
+                if(console == "GBA" ):
+                    return (i - 23)
+                if(console == "ARCADE" ):
+                    return (i - 27)
+        return 0
+        #ines[4*systems[console][3]+position] = f"{prefix} {game}*\n"
+        # Save the changes out to file
+    #     xfgle_file_handle = open(xfgle_filepath, "w")
+    #     for line in lines:
+    #         xfgle_file_handle.write(line)
+    #     xfgle_file_handle.close()       
+    except (OSError, IOError):
+        print(f"! Failed changing the shortcut file")
+        return 0
 
 def findSequence(needle, haystack, offset = 0):
     # Loop through the data array starting from the offset
@@ -591,8 +636,6 @@ def createSaveBackup(drive: str, zip_file_name):
     except Exception as e:
         return False
                      
-
-
 def check_is_save_file(filename):
     file_regex = ".+\\.(" + "|".join(supported_save_ext) + ")$"
     return re.search(file_regex, filename.lower())
