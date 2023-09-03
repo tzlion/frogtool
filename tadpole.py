@@ -121,8 +121,9 @@ def loadROMsToTable():
         window.tbl_gamelist.setRowCount(len(files))
         print(f"found {len(files)} ROMs")
         for i,f in enumerate(files):
+            game = f
             humanReadableFileSize = "ERROR"
-            filesize = os.path.getsize(os.path.join(roms_path, f))           
+            filesize = os.path.getsize(os.path.join(roms_path, game))           
             if filesize > 1024*1024:  # More than 1 Megabyte
                 humanReadableFileSize = f"{round(filesize/(1024*1024),2)} MB"
             elif filesize > 1024:  # More than 1 Kilobyte
@@ -131,7 +132,7 @@ def loadROMsToTable():
                 humanReadableFileSize = f"filesize Bytes"
             
             # Filename
-            cell_filename = QTableWidgetItem(f"{f}")
+            cell_filename = QTableWidgetItem(f"{game}")
             cell_filename.setTextAlignment(Qt.AlignVCenter)
             cell_filename.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
             window.tbl_gamelist.setItem(i, 0, cell_filename)  
@@ -157,9 +158,14 @@ def loadROMsToTable():
             shortcut_comboBox.addItem("2")
             shortcut_comboBox.addItem("3")
             shortcut_comboBox.addItem("4")
+            # set previously saved shortcuts
+            position = tadpole_functions.getGameShortcutPosition(drive, system, game)
+            shortcut_comboBox.setCurrentIndex(position)
+            # get a callback to make sure the user isnt' setting the same shortcut twice
             cell_shortcuts = window.tbl_gamelist.setCellWidget(i, 4, shortcut_comboBox)
             shortcut_comboBox.activated.connect(window.validateGameShortcutComboBox)
         print("finished loading roms to table")    
+
         # Adjust column widths
         #window.tbl_gamelist
     except frogtool.StopExecution:
