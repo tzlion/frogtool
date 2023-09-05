@@ -5,6 +5,7 @@ import hashlib
 import zipfile
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
 import struct
 import zlib
 import frogtool
@@ -120,7 +121,6 @@ def getThumbnailFromZXX(filepath):
     thumbnailQImage = QImage()
     for y in range (0, 208):
         for x in range (0, 104):
-            #TODO
             intColor = 
             thumbnailQImage.setPixel(x,y,)
             
@@ -447,6 +447,78 @@ def changeBackgroundMusic(drive_path: str, url: str = "", file: str = "") -> boo
     else:
         raise ValueError("Provide only url or path, not both")
 
+"""
+This function downloads a file from the internet and downloads it to resources.
+"""
+
+
+def changeTheme(drive_path: str, url: str = "", file: str = "", progressBar: QProgressBar = "") -> bool:
+    """
+    Changes background theme from the provided URL or file
+
+    Params:
+        url (str):  URL to theme files to use for replacement.
+        file (str):  Full path to a zip file to use for replacement.
+        ProgressBar: address of the progressbar to update on screen
+    Returns:
+        bool: True if successful, False if not.
+
+    Raises:
+        ValueError: When both url and file params are provided.
+    """
+    if url and not file:
+        #TODO enable online themes
+        zip_file = "theme.zip"
+        downloadFileFromGithub(zip_file, url)
+        try:
+            with zipfile.ZipFile(zip_file) as zip:
+                progressBar.setMaximum(len(zip.infolist()))
+                progress = 6
+                #TODO: Hacky but assume any zip folder with more than 49 files is not a theme zip
+                if len(zip.infolist()) > 49:
+                    return False
+                for zip_info in zip.infolist():     
+                    #print(zip_info)
+                    if zip_info.is_dir():
+                        continue
+                    zip_info.filename = os.path.basename(zip_info.filename)
+                    progress += 1
+                    progressBar.setValue(progress)
+                    QApplication.processEvents()
+                    zip.extract(zip_info, drive_path + "Resources")
+                    #Cleanup temp zip file
+            if os.path.exists(zip_file):
+                    os.remove(zip_file)   
+            return True
+        except:
+            if os.path.exists(zip_file):
+                os.remove(zip_file)   
+            return False
+
+        return True
+    elif file and not url:
+        try:
+            with zipfile.ZipFile(file) as zip:
+                progressBar.setMaximum(len(zip.infolist()))
+                progress = 2
+                #TODO: Hacky but assume any zip folder with more than 49 files is not a theme zip
+                if len(zip.infolist()) > 49:
+                    return False
+                for zip_info in zip.infolist():     
+                    #print(zip_info)
+                    if zip_info.is_dir():
+                        continue
+                    zip_info.filename = os.path.basename(zip_info.filename)
+                    progress += 1
+                    progressBar.setValue(progress)
+                    QApplication.processEvents()
+                    #TODO validate this is a real theme...maybe just check a set of files?
+                    zip.extract(zip_info, drive_path + "Resources")
+            return True
+        except:
+            return False
+    else:
+        raise ValueError("Error updating theme")
 
 def changeConsoleLogos(drivePath, url=""):
     return downloadAndReplace(drivePath, "/Resources/sfcdr.cpl", url)    

@@ -94,7 +94,6 @@ def getROMList(roms_path):
     files = list(filter(check_rom, files))
     filenames = list(map(file_entry_to_name, files))
     return filenames
-#TODO
 
 def process_sys(drive, system, test_mode):
     print(f"Processing {system}")
