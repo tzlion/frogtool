@@ -663,10 +663,21 @@ class MainWindow (QMainWindow):
         self.menu_os.menu_update.addAction(self.action_updateToV1_5)
             #Sub-menu for updating themes
         self.menu_os.menu_change_theme = self.menu_os.addMenu("Theme")
-        action_resetToOriginalTheme  = QAction("garlicOS Simple Theme (by ZERTER).zip", self, triggered=self.change_theme)                                                                              
-        self.menu_os.menu_change_theme.addAction(action_resetToOriginalTheme)  
-        action_resetToOriginalTheme  = QAction("Restore Original Theme", self, triggered=self.resetToOriginalTheme)                                                                              
-        self.menu_os.menu_change_theme.addAction(action_resetToOriginalTheme)   
+        try:
+            self.theme_options = tadpole_functions.get_themes()
+        except (ConnectionError, requests.exceptions.ConnectionError):
+            self.status_bar.showMessage("Error loading external theme resources.", 20000)
+            error_action = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical)),
+                                   "Error Loading External Resources!",
+                                   self)
+            error_action.setDisabled(True)
+            self.menu_os.menu_change_theme.addAction(error_action)
+        else:
+            for theme in self.theme_options:
+                self.menu_os.menu_change_theme.addAction(QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolume)),
+                                                theme,
+                                                self,
+                                                triggered=self.change_theme))
         self.menu_os.menu_change_theme.addSeparator()
         self.menu_os.menu_change_theme.addAction(QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton)),
                                         "Update From Local Zip File...",
@@ -1024,25 +1035,10 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
             msgBox.close()
             QMessageBox.about(self, "Failure","ERROR: Something went wrong while trying to download the update")
 
-    def resetToOriginalTheme(self):
-        drive = window.combobox_drive.currentText()
-        url = "https://raw.githubusercontent.com/jasongrieves/SF2000_Resources/main/Themes/stock_theme_resources.zip"
-        msgBox = DownloadMessageBox()
-        msgBox.setText("Updating Theme...")
-        msgBox.show()
-        progress = 5
-        msgBox.showProgress(progress, True)
-        result = tadpole_functions.changeTheme(drive, url, "", msgBox.progress)
-        msgBox.close()
-        if result:
-            QMessageBox.about(window, "Success", "Theme changed successfully")
-        else:
-            QMessageBox.about(window, "Failure", "Something went wrong while trying to change the theme")
-
     def change_theme(self, url):
         drive = window.combobox_drive.currentText()
-        #TODO don't hardcode this url
-        url = "https://raw.githubusercontent.com/jasongrieves/SF2000_Resources/main/Themes/garlicOS%20Simple%20Theme%20(by%20ZERTER).zip"
+        #TODO error handling
+        url =  self.theme_options[self.sender().text()]
         msgBox = DownloadMessageBox()
         msgBox.setText("Updating Theme...")
         msgBox.show()
