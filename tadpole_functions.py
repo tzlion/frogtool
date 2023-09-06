@@ -416,6 +416,17 @@ def get_background_music(url="https://api.github.com/repos/EricGoldsteinNz/SF200
         return music
     raise ConnectionError("Unable to obtain music resources. (Status Code: {})".format(response.status_code))
 
+def get_themes(url="https://api.github.com/repos/jasongrieves/SF2000_Resources/contents/Themes") -> bool:
+    """gets index of theme from provided GitHub API URL"""
+    theme = {}
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        data = json.loads(response.content)
+        for item in data:
+            theme[item['name'].replace(".zip", "")] = item['download_url']
+        return theme
+    raise ConnectionError("Unable to obtain theme resources. (Status Code: {})".format(response.status_code))
 
 """
 This function downloads a file from the internet and renames it to pagefile.sys to replace the background music.
