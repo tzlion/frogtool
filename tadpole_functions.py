@@ -544,20 +544,26 @@ def downloadAndReplace(drivePath, fileToReplace, url=""):
         print("An error occured while trying to download and replace a file.")
         return False
       
-def downloadDirectoryFromGithub(location, url):
+def downloadDirectoryFromGithub(location, url, progressBar):
     response = requests.get(url) 
     if response.status_code == 200:
         data = json.loads(response.content)
+        #progressBar.reset()
+        downloadTotal = 0
+        progressBar.setMaximum(len(data)+1)
         for item in data:
             if item["type"] == "dir":
                 #create folder then recursively download
                 foldername = item["name"]
                 print(f"creating directory {location}/{foldername}")
                 os.makedirs(os.path.dirname(f"{location}/{foldername}/"), exist_ok=True)
-                downloadDirectoryFromGithub(f"{location}/{foldername}", item["url"])
+                downloadDirectoryFromGithub(f"{location}/{foldername}", item["url"], progressBar)
             else:# all other cases should be files
                 filename = item["name"]
                 downloadFileFromGithub(f"{location}/{filename}", item["download_url"])
+                downloadTotal += 1
+                progressBar.setValue(downloadTotal)
+                QApplication.processEvents()
                 
         return True
     raise ConnectionError("Unable to V1.5 Update. (Status Code: {})".format(response.status_code))

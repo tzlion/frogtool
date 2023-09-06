@@ -30,31 +30,30 @@ basedir = os.path.dirname(__file__)
 static_NoDrives = "N/A"
 static_AllSystems = "ALL"
 
-def RunFrogTool():
+def RunFrogTool(console):
     drive = window.combobox_drive.currentText()
-    console = window.combobox_console.currentText()
-    
     print(f"Running frogtool with drive ({drive}) and console ({console})")
     try:
         #should probably replace this with rebuilding the favourites list at some point
         tadpole_functions.emptyFavourites(drive)
         tadpole_functions.emptyHistory(drive)
         #Give progress to user if rebuilding has hundreds of ROMS
-        progress = 20
         rebuildingmsgBox = DownloadMessageBox()
         rebuildingmsgBox.progress.reset()
         rebuildingmsgBox.setText("Rebuilding roms...")
+        progress = 50
+        rebuildingmsgBox.showProgress(progress, True)
         rebuildingmsgBox.show()
         if(console == static_AllSystems):
             for console in frogtool.systems.keys():
-                progress += 10
-                rebuildingmsgBox.showProgress(progress)
                 result = frogtool.process_sys(drive, console, False)
+                #Update Progress
+                progress += 10
+                rebuildingmsgBox.showProgress(progress, True)
             #TODO: eventually we could return a total roms across all systems, but not sure users will care
-            QMessageBox.about(window, "Result", "Rebuilt all roms for all systems")
+            rebuildingmsgBox.close()
+            QMessageBox.about(window, "Result", "Rebuilt all ROMS for all systems")
         else:
-            progress += 50
-            rebuildingmsgBox.showProgress(progress)
             result = frogtool.process_sys(drive, console, False)
             processGameShortcuts()       
             QMessageBox.about(window, "Result", result)        
@@ -122,6 +121,8 @@ def loadROMsToTable():
     print("loading roms to table")
     drive = window.combobox_drive.currentText()
     system = window.combobox_console.currentText()
+    msgBox = DownloadMessageBox()
+    msgBox.setText(" Loading "+ system + " ROMS...")
     if drive == static_NoDrives or system == "???" or system == static_AllSystems:
         #TODO: should load ALL ROMs to the table rather than none
         window.tbl_gamelist.setRowCount(0)
@@ -129,6 +130,10 @@ def loadROMsToTable():
     roms_path = os.path.join(drive, system)
     try:
         files = frogtool.getROMList(roms_path)
+        msgBox.progress.reset()
+        msgBox.progress.setMaximum(len(files))
+        msgBox.show()
+        QApplication.processEvents()
         window.tbl_gamelist.setRowCount(len(files))
         print(f"found {len(files)} ROMs")
         for i,f in enumerate(files):
@@ -175,16 +180,20 @@ def loadROMsToTable():
             cell_delete.setTextAlignment(Qt.AlignCenter)
             cell_delete.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
             window.tbl_gamelist.setItem(i, 4, cell_delete)
+            # Update progressbar
+            msgBox.showProgress(i, False)
         print("finished loading roms to table")    
-
-        # Adjust column widths
-        #window.tbl_gamelist
     except frogtool.StopExecution:
         # Empty the table
         window.tbl_gamelist.setRowCount(0)
         print("frogtool stop execution on table load caught")
-        
+    msgBox.close()  
     window.tbl_gamelist.show()
+
+def RebuildClicked(self):
+    console = window.combobox_console.currentText()
+    RunFrogTool(console)
+    return
 
 def catchTableCellClicked(clickedRow, clickedColumn):
     print(f"clicked view thumbnail for {clickedRow},{clickedColumn}")
@@ -220,8 +229,7 @@ def deleteROM(rom_path):
     if ret == qm.Yes:
         try:
             os.remove(rom_path)
-            RunFrogTool()
-            loadROMsToTable()
+            RunFrogTool(window.combobox_console.currentText())
         except Exception:
             QMessageBox.about(window, "Error","Could not delete file.")
             loadROMsToTable()
@@ -245,7 +253,7 @@ def BGM_change(source=""):
     msg_box = DownloadMessageBox()
     msg_box.setText("Downloading background music.")
     msg_box.show()
-    msg_box.showProgress(25)
+    msg_box.showProgress(25, True)
 
     if source[0:4] == "http":  # internet-based
         result = tadpole_functions.changeBackgroundMusic(drive, url=source)
@@ -606,13 +614,14 @@ class MainWindow (QMainWindow):
         # Update Button Widget
         self.btn_update = QPushButton("Rebuild!")
         selector_layout.addWidget(self.btn_update)
-        self.btn_update.clicked.connect(RunFrogTool)
+        self.btn_update.clicked.connect(RebuildClicked)
 
         # Game Table Widget
         self.tbl_gamelist = QTableWidget()
         self.tbl_gamelist.setColumnCount(5)
         self.tbl_gamelist.setHorizontalHeaderLabels(["Name", "Size", "Thumbnail", "Shortcut Slot", "Delete ROM"])
-        self.tbl_gamelist.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.tbl_gamelist.horizontalHeader().setSectionResizeMode(0, QHeaderView.Interactive)
+        self.tbl_gamelist.horizontalHeader().resizeSection(0, 400) 
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
@@ -705,6 +714,8 @@ class MainWindow (QMainWindow):
 
         # ROMS Menu
         self.menu_roms = self.menuBar().addMenu("ROMs")
+        RebuildAll_action = QAction("Rebuild All ROMs", self, triggered=self.rebuildAll)
+        self.menu_roms.addAction(RebuildAll_action)
         BackupAllSaves_action = QAction("Backup All ROMs saves", self, triggered=self.createSaveBackup)
         self.menu_roms.addAction(BackupAllSaves_action)
         CopyRoms_action = QAction("Add (Copy) ROMs...", self, triggered=self.copyRoms)
@@ -741,23 +752,32 @@ class MainWindow (QMainWindow):
         msg_box.setText("Detecting firmware version")
         msg_box.show()
         try:
-            msg_box.showProgress(50)
+            msg_box.showProgress(50, True)
             detectedVersion = tadpole_functions.bisrv_getFirmwareVersion(os.path.join(drive,"bios","bisrv.asd"))
             if not detectedVersion:
                 detectedVersion = "Version Not Found"
             #TODO: move this from string base to something else...or at lesat make sure this gets updated when/if new firmware gets out there
-            if detectedVersion != "2023.08.03 (V1.6)":
+            if detectedVersion == "2023.04.20 (V1.5)":
+                msg_box.close()
                 qm = QMessageBox
                 ret = qm.question(self,"Detected OS Version", f"Detected version: "+ detectedVersion + "\nDo you want to update to the latest firmware?" , qm.Yes | qm.No)
                 if ret == qm.Yes:
                     MainWindow.Updateto20230803(self)
                 else:
                     return
-            else:
+            elif detectedVersion == "2023.08.03 (V1.6)":
+                msg_box.close()
                 QMessageBox.about(self, "Detected OS Version", f"You are on the latest firmware: {detectedVersion}")
+                return
+            else:
+                msg_box.close()
+                QMessageBox.about(self, "Detected OS Version", f"Cannot update from: {detectedVersion}")
+                return
 
         except Exception as e:
+            msg_box.close()
             QMessageBox.about("tadpole~detectOSVersion: Error occured while trying to find OS Version" + str(e))
+            return
     
     def downloadBoxartForZips(self):
         drive = window.combobox_drive.currentText()
@@ -877,7 +897,7 @@ class MainWindow (QMainWindow):
         qm = QMessageBox
         ret = qm.question(self,'', "Downloading Boxart Complete\n" + f"Found {counter_success} covers for {counter_total} zips for {user_selected_console}.\n\nDo you want to rebuild game lists?", qm.Yes | qm.No)
         if ret == qm.Yes:
-            RunFrogTool()
+            RunFrogTool(window.combobox_console.currentText())
             return
         else:
             return
@@ -926,7 +946,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
                 msgBox.setText("Updating Boot Logo...")
                 msgBox.show()
                 progress = 25
-                msgBox.showProgress(progress)
+                msgBox.showProgress(progress, True)
                 tadpole_functions.changeBootLogo(os.path.join(window.combobox_drive.currentText(),
                                                               "bios",
                                                               "bisrv.asd"),
@@ -940,8 +960,6 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
       
     def changeGameShortcuts(self):
         drive = window.combobox_drive.currentText()
-        # Check the selected drive looks like a Frog card
-        
         # Open a new modal to change the shortcuts for a specific gamename
         window.window_shortcuts = changeGameShortcutsWindow()
         window.window_shortcuts.setDrive(drive)
@@ -950,10 +968,9 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
     def removeShortcutLabels(self):
         drive = window.combobox_drive.currentText()
         if tadpole_functions.stripShortcutText(drive):
-            QMessageBox.about(window, "Successfully removed Shortcut Labels", "Success!.")
+            QMessageBox.about(window, "Success", "Successfully removed Shortcut Labels")
         else:
             QMessageBox.about(window, "Something went wrong", "An error occured. Please contact EricGoldstein via the RetroHandheld Discord to look into it.")
-        #self.UnderDevelopmentPopup()
         
     def ConsoleLogos_RestoreDefault(self):
         self.ConsoleLogos_change("https://github.com/EricGoldsteinNz/SF2000_Resources/raw/main/ConsoleLogos/default/sfcdr.cpl")
@@ -975,7 +992,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
         msgBox = DownloadMessageBox()
         msgBox.setText(" Downloading Console logos.")
         msgBox.show()
-        msgBox.showProgress(25)
+        msgBox.showProgress(25, True)
         if tadpole_functions.changeConsoleLogos(drive, url):
             msgBox.close()
             QMessageBox.about(self, "Success", "Console logos successfully changed")
@@ -999,9 +1016,8 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
         msgBox = DownloadMessageBox()
         msgBox.setText("Downloading Firmware Update.")
         msgBox.show()
-        msgBox.showProgress(25)
-
-        if tadpole_functions.downloadDirectoryFromGithub(drive, url):
+        msgBox.showProgress(0, True)
+        if tadpole_functions.downloadDirectoryFromGithub(drive, url, msgBox.progress):
             msgBox.close()
             QMessageBox.about(self, "Success","Update successfully Downloaded")
         else:
@@ -1015,7 +1031,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
         msgBox.setText("Updating Theme...")
         msgBox.show()
         progress = 5
-        msgBox.showProgress(progress)
+        msgBox.showProgress(progress, True)
         result = tadpole_functions.changeTheme(drive, url, "", msgBox.progress)
         msgBox.close()
         if result:
@@ -1031,7 +1047,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
         msgBox.setText("Updating Theme...")
         msgBox.show()
         progress = 1
-        msgBox.showProgress(progress)
+        msgBox.showProgress(progress, True)
         """event to change theme"""
         if self.sender().text() == "Update From Local Zip File...":  # handle local file option
             theme_zip = filename, _ = QFileDialog.getOpenFileName(self,"Select Theme ZIP File",'',"Theme ZIP file (*.zip)")
@@ -1051,6 +1067,9 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
         else:
             QMessageBox.about(window, "Failure", "Something went wrong while trying to change the theme")
 
+    def rebuildAll(self):
+        RunFrogTool("ALL")
+        return
 
     def createSaveBackup(self):
         drive = window.combobox_drive.currentText()
@@ -1087,7 +1106,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
             QApplication.processEvents()
             for filename in filenames:
                 games_copied += 1
-                msgBox.showProgress(games_copied)
+                msgBox.showProgress(games_copied, True)
                 shutil.copy(filename, drive + console)
                 print (filename + "added to " + drive + console)
             msgBox.close()
@@ -1180,7 +1199,7 @@ class thumbnailWindow(QDialog):
         except tadpole_functions.Exception_InvalidPath:
             QMessageBox.about(window, "Save ROM Cover", "An error occurred.")
             return
-        QMessageBox.about(window, "Save ROM Cover", "ROM cover successfully")
+        QMessageBox.about(window, "Save ROM Cover", "ROM cover saved successfully")
        
 
 
@@ -1298,10 +1317,12 @@ class DownloadMessageBox(QMessageBox):
         self.spacer = QSpacerItem(width, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
         self.layout().addItem(self.spacer, 0, 0, 1, self.layout().columnCount())
         
-    def showProgress(self, progressValue):
-        start_time = time.time()
+    def showProgress(self, progressValue, refreshBoolean):
+        #start_time = time.time()
         self.progress.setValue(progressValue)
-        QApplication.processEvents()
+        #TODO: This really is tough on long calls on performance, let's only do it when needed
+        if refreshBoolean:
+            QApplication.processEvents()
         
         #qt_msgbox_label = self.findChild(QLabel, "qt_msgbox_label")
         #print(f"Width: {qt_msgbox_label.width()}")
@@ -1403,9 +1424,15 @@ if __name__ == "__main__":
     window.combobox_console.addItem(QIcon(), available_consoles_placeholder, available_consoles_placeholder)
     window.combobox_console.clear()
     # Add ALL to the list to add this fucntionality from frogtool
-    window.combobox_console.addItem(QIcon(), static_AllSystems, static_AllSystems)
+    #TODO: Make sure Eric is ok simplifying this.
+    #  I'm still keeping "rebuild All" just adding to menu so the button is contextual
+    #window.combobox_console.addItem(QIcon(), static_AllSystems, static_AllSystems)
     for console in tadpole_functions.systems.keys():
         window.combobox_console.addItem(QIcon(), console, console)
     
     window.show()
+    
+    #Load up the table since we are showing the window
+    loadROMsToTable()
+
     app.exec()
