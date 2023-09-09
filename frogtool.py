@@ -1,5 +1,4 @@
 import os
-import sys
 import re
 import binascii
 import shutil
@@ -217,13 +216,27 @@ def rgb565_convert(src_filename, dest_filename, dest_size=None):
     except (OSError, IOError):
         print(f"! Failed opening destination file {dest_filename} for conversion")
         return False
+    
+
 
     # convert the image to RGB if it was not already
     image = Image.new('RGB', srcimage.size, (0, 0, 0))
     image.paste(srcimage, None)
 
     if dest_size and image.size != dest_size:
+        # x, y = image.size
+        # new_size=(144, 208)
+        # fill_color=(0, 0, 0, 0)
+        # size_x = max(dest_size[0], x)
+        # size_y = max(dest_size[1], y)
+        # new_im = Image.new('RGB', (new_size[0], new_size[1]), fill_color)
+        # new_im.paste(image, (int((size_x - x) / 2), int((size_y - y) / 2)))
+        # image = new_im
+        # TODO Let user pick if they want to stretch or not
+        #image = image.scaled(144, 208, Qt.KeepAspectRatio, Qt.SmoothTransformation) #Rescale new boot logo to correct size
         image = image.resize(dest_size)
+        #maxsize = (144, 208)
+        #image = image.thumbnail(maxsize) 
 
     image_height = image.size[1]
     image_width = image.size[0]

@@ -2,18 +2,12 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtMultimedia import QSoundEffect
-from PyQt5.QtCore import Qt, QTimer, QUrl
-
-from datetime import datetime
-
+from PyQt5.QtCore import Qt, QTimer, QUrl, QSize
 # OS imports - these should probably be moved somewhere else
 import os
 import sys
-import string
-import threading
-import queue
 import shutil
-import zipfile
+import hashlib
 # Feature imports
 import frogtool
 import tadpole_functions
@@ -22,29 +16,34 @@ import wave
 from io import BytesIO
 import psutil
 import json
-import time
 from bs4 import BeautifulSoup
+from PIL import Image
+from datetime import datetime
+from pathlib import Path
+import configparser
 
 basedir = os.path.dirname(__file__)
-
 static_NoDrives = "N/A"
 static_AllSystems = "ALL"
+static_TadpoleConfigFile = "Resources/tapdole.ini"
 
 def RunFrogTool(console):
     drive = window.combobox_drive.currentText()
     print(f"Running frogtool with drive ({drive}) and console ({console})")
     try:
-        #should probably replace this with rebuilding the favourites list at some point
-        tadpole_functions.emptyFavourites(drive)
-        tadpole_functions.emptyHistory(drive)
-        #Give progress to user if rebuilding has hundreds of ROMS
-        rebuildingmsgBox = DownloadMessageBox()
-        rebuildingmsgBox.progress.reset()
-        rebuildingmsgBox.setText("Rebuilding roms...")
-        progress = 50
-        rebuildingmsgBox.showProgress(progress, True)
-        rebuildingmsgBox.show()
+        #TODO: should probably replace this with rebuilding the favourites list at some point
+        #NOTE: Eric, I think its a better experience to not nuke these.  
+        #NOTE: if the user deletes a favorited ROM, the system fails gravcefully.  Deleting each time is rough on user
+        #tadpole_functions.emptyFavourites(drive)
+        #tadpole_functions.emptyHistory(drive)
         if(console == static_AllSystems):
+            #Give progress to user if rebuilding has hundreds of ROMS
+            rebuildingmsgBox = DownloadMessageBox()
+            rebuildingmsgBox.progress.reset()
+            rebuildingmsgBox.setText("Rebuilding roms...")
+            progress = 20
+            rebuildingmsgBox.showProgress(progress, True)
+            rebuildingmsgBox.show()
             for console in frogtool.systems.keys():
                 result = frogtool.process_sys(drive, console, False)
                 #Update Progress
@@ -56,9 +55,9 @@ def RunFrogTool(console):
         else:
             result = frogtool.process_sys(drive, console, False)
             processGameShortcuts()       
-            QMessageBox.about(window, "Result", result)        
-        rebuildingmsgBox.close()
-        #remember to reload table if we delete any files
+            #QMessageBox.about(window, "Result", result)
+            print("Result " + result)      
+        #Always reload the table now that the folders are all cleaned up
         loadROMsToTable()
     except frogtool.StopExecution:
         pass
@@ -92,19 +91,19 @@ def reloadDriveList():
     if len(window.combobox_drive) > 0:
         toggle_features(True)
         window.status_bar.showMessage("SF2000 Drive(s) Detected.", 20000)
-
+        #FirstRun()
     else:
         # disable functions
         window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
-        window.status_bar.showMessage("No SF2000 Drive Detected. Click refresh button to try again.", 20000)
+        window.status_bar.showMessage("No SF2000 Drive Detected. Please insert SD card and try again.", 20000)
         toggle_features(False)
 
     window.combobox_drive.setCurrentText(current_drive)
 
-
 def toggle_features(enable: bool):
     """Toggles program features on or off"""
-    features = [window.btn_update,
+    features = [window.btn_update_thumbnails,
+                window.btn_update,
                 window.combobox_console,
                 window.combobox_drive,
                 window.menu_os,
@@ -117,6 +116,8 @@ def toggle_features(enable: bool):
     for feature in features:
         feature.setEnabled(enable)
 
+#NOTE: this function refreshes the ROM table.  If you run this AND NOT FROG_TOOL, you can get your window out of sync
+#NOTE: So don't run loadROMsToTable, instead run FrogTool
 def loadROMsToTable():
     print("loading roms to table")
     drive = window.combobox_drive.currentText()
@@ -158,11 +159,25 @@ def loadROMsToTable():
             cell_fileSize.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
             window.tbl_gamelist.setItem(i, 1, cell_fileSize) 
             # View Thumbnail Button 
-            cell_viewthumbnail = QTableWidgetItem(f"View")
+            cell_viewthumbnail = QTableWidgetItem()
             cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
+            pathToROM = os.path.join(roms_path, game)
+            with open(pathToROM, "rb") as rom_file:
+                rom_content = bytearray(rom_file.read())
+            with open(os.path.join(basedir, "temp_rom_cover.raw"), "wb") as image_file:
+                image_file.write(rom_content[0:((144*208)*2)])
+                with open(pathToROM, "rb") as f:
+                    img = QImage(f.read(), 144, 208, QImage.Format_RGB16)
+            pimg = QPixmap()
+            icon = QIcon()
+            QPixmap.convertFromImage(pimg, img)
+            QIcon.addPixmap(icon, pimg)
+            cell_viewthumbnail.setIcon(icon)
+            size = QSize(144, 208)
+            window.tbl_gamelist.setIconSize(size)
             cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
             window.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)     
-            # Add to Shortcuts
+            # Add to Shortcuts-
             shortcut_comboBox = QComboBox()
             shortcut_comboBox.addItem("")
             shortcut_comboBox.addItem("1")
@@ -173,7 +188,7 @@ def loadROMsToTable():
             position = tadpole_functions.getGameShortcutPosition(drive, system, game)
             shortcut_comboBox.setCurrentIndex(position)
             # get a callback to make sure the user isn't setting the same shortcut twice
-            cell_shortcuts = window.tbl_gamelist.setCellWidget(i, 3, shortcut_comboBox)
+            window.tbl_gamelist.setCellWidget(i, 3, shortcut_comboBox)
             shortcut_comboBox.activated.connect(window.validateGameShortcutComboBox)
             # View Delete Button 
             cell_delete = QTableWidgetItem(f"Delete")
@@ -182,6 +197,7 @@ def loadROMsToTable():
             window.tbl_gamelist.setItem(i, 4, cell_delete)
             # Update progressbar
             msgBox.showProgress(i, False)
+        window.tbl_gamelist.resizeRowsToContents()
         print("finished loading roms to table")    
     except frogtool.StopExecution:
         # Empty the table
@@ -199,7 +215,7 @@ def catchTableCellClicked(clickedRow, clickedColumn):
     print(f"clicked view thumbnail for {clickedRow},{clickedColumn}")
     drive = window.combobox_drive.currentText()
     system = window.combobox_console.currentText()
-    if window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Thumbnail":  #view thumbnail
+    if window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Thumbnail":  
         gamename = window.tbl_gamelist.item(clickedRow, 0).text()
         viewThumbnail(os.path.join(drive, system, gamename))
     elif window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Delete ROM": 
@@ -229,13 +245,11 @@ def deleteROM(rom_path):
     if ret == qm.Yes:
         try:
             os.remove(rom_path)
-            RunFrogTool(window.combobox_console.currentText())
         except Exception:
             QMessageBox.about(window, "Error","Could not delete file.")
-            loadROMsToTable()
-        return
-    else:
-        return
+        RunFrogTool(window.combobox_console.currentText())
+    return
+
 
 def addToShortcuts(rom_path):
     qm = QMessageBox
@@ -266,6 +280,75 @@ def BGM_change(source=""):
     else:
         msg_box.close()
         QMessageBox.about(window, "Failure", "Something went wrong while trying to change the background music")
+
+def FirstRun(self):
+    config = configparser.ConfigParser()
+    drive = window.combobox_drive.currentText()
+    bootloaderPatchDir = os.path.join(drive,"/UpdateFirmware/")
+    bootloaderPatchPathFile = os.path.join(drive,"/UpdateFirmware/Firmware.upk")
+    bootloaderChecksum = "eb7a4e9c8aba9f133696d4ea31c1efa50abd85edc1321ce8917becdc98a66927"
+    if drive == "N/A":
+        QMessageBox().about(window, "Insert SD Card", "Your SD card must be plugged into the computer on first launch of Tadpole.\n\n\
+Please insert the SD card and relaunch Tadpole.exe.  The application will now close.")
+        sys.exit()
+    qm = QMessageBox()
+    ret = qm.warning(window,'Welcome', "Welcome to Tadpole!\n\n\
+It is advised to update the bootloader to avoid bricking the SF2000 when changing anything on the SD card.\n\n\
+Do you want to download and apply the bootloader fix?" , qm.Yes | qm.No)
+    if ret == qm.Yes:
+        #Let's delete old stuff if it exits incase they tried this before and failed
+        if Path(bootloaderPatchDir).is_dir():
+            shutil.rmtree(bootloaderPatchDir)
+        os.mkdir(bootloaderPatchDir)
+        #Download file, and continue if its successful
+        if tadpole_functions.downloadFileFromGithub(bootloaderPatchPathFile, "https://github.com/jasongrieves/SF2000_Resources/blob/60659cc783263614c20a60f6e2dd689d319c04f6/OS/Firmware.upk?raw=true"):
+            #check file correctly download
+            with open(bootloaderPatchPathFile, 'rb', buffering=0) as f:
+                downloadedchecksum = hashlib.file_digest(f, 'sha256').hexdigest()
+            #check if the hash matches
+            print("Checking if " + bootloaderChecksum + " matches " + downloadedchecksum)
+            if bootloaderChecksum != downloadedchecksum:
+                QMessageBox().about(window, "Update not successful", "The downloaded file did not download correctly.\n\
+Please try the instructions again.\
+Consult https://github.com/vonmillhausen/sf2000#bootloader-bug\n\
+or ask for help on Discord https://discord.gg/retrohandhelds.  The app will now close.")
+                sys.exit()
+            ret = QMessageBox().warning(window, "Bootloader Fix", "Downloaded bootloader to SD card.\n\n\
+You can keep this window open while you appy the fix:\n\
+1. Eject the SD card from your computer\n\
+2. Put the SD back in the SF2000)\n\
+3. Turn the SF2000 on\n\
+4. You should see a message in the lower-left corner of the screen indicating that patching is taking place.\n\
+5. The process will only last a few seconds\n\
+6. You should see the main menu on the SF2000\n\
+7. Power off the SF2000\n\
+8. Remove the SD card \n\
+9. Connect the SD card back to your computer \n\n\
+Did the update complete successfully?", qm.Yes | qm.No)
+            if Path(bootloaderPatchDir).is_dir():
+                shutil.rmtree(bootloaderPatchDir)
+            if ret == qm.Yes:
+                QMessageBox().about(window, "Update complete", "Your SF2000 should now be safe to use with \
+Tadpole. Major thanks to osaka#9664 on RetroHandhelds Discords for this fix!\n\n\
+Tadpole will not ask you again to fix the bootloader. If you want to reset Tadpole, delete the file 'Resources/tadpole.config")
+                config['bootloader'] = {'patchapplied': True}
+            else:
+                QMessageBox().about(window, "Update not successful", "Please try the instructions again.\
+Consult https://github.com/vonmillhausen/sf2000#bootloader-bug\n\
+or ask for help on Discord https://discord.gg/retrohandhelds.  The app will now close.")
+                sys.exit()
+        else:
+            QMessageBox().about(window, "Download did not complete", "Please ensure you have internet and re-open the app")
+            sys.exit()
+    else:
+        QMessageBox().about(window, "Bootloader Fix skipped", "Tadpole will not ask to fix the bootloader again.\n\
+If you want to reset Tadpole, delete the file in tadpole.config in the Resources folder")
+        #TODO: Write bootlaoder_fix=true
+        config['bootloader'] = {'patchskipped': True}
+    configPath = os.path.join(drive,"/Resources/tadpole.ini")
+    with open(configPath, 'w') as configfile:
+        config.write(configfile)
+    RunFrogTool(window.combobox_console.currentText())
 
 class BootLogoViewer(QLabel):
     """
@@ -330,7 +413,10 @@ class BootLogoViewer(QLabel):
         else:  # otherwise let QImage autodetection do its thing
             img = QImage(path)
             if (img.width(), img.height()) != (512, 200): 
-                img = img.scaled(512, 200, Qt.IgnoreAspectRatio, Qt.SmoothTransformation) #Rescale new boot logo to correct size
+                maxsize = (144, 208)
+                imag = img.thumbnail(maxsize, Image.ANTIALIAS) 
+                #img = img.scaled(512, 200, Qt.KeepAspectRatio , Qt.SmoothTransformation) #Rescale new boot logo to correct size
+                #img = img.scaled(512, 200, Qt.IgnoreAspectRatio, Qt.SmoothTransformation) #Rescale new boot logo to correct size
         self.path = path  # update path
         self.setPixmap(QPixmap().fromImage(img))
 
@@ -570,7 +656,7 @@ class MainWindow (QMainWindow):
         super().__init__()
         self.setWindowTitle("Tadpole - SF2000 Tool")
         self.setWindowIcon(QIcon(os.path.join(basedir, 'frog.ico')))
-        self.resize(1000,500)
+        self.resize(925,500)
 
         widget = QWidget()
         self.setCentralWidget(widget)
@@ -592,13 +678,13 @@ class MainWindow (QMainWindow):
         self.lbl_drive = QLabel(text="Drive:")
         self.lbl_drive.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.combobox_drive = QComboBox()
-        self.combobox_drive.activated.connect(loadROMsToTable)
-        self.btn_refreshDrives = QPushButton()
-        self.btn_refreshDrives.setIcon(self.style().standardIcon(getattr(QStyle, "SP_BrowserReload")))
-        self.btn_refreshDrives.clicked.connect(reloadDriveList)
+        self.combobox_drive.activated.connect(self.combobox_drive_change)
+        # self.btn_refreshDrives = QPushButton()
+        # self.btn_refreshDrives.setIcon(self.style().standardIcon(getattr(QStyle, "SP_BrowserReload")))
+        # self.btn_refreshDrives.clicked.connect(reloadDriveList)
         selector_layout.addWidget(self.lbl_drive)
         selector_layout.addWidget(self.combobox_drive, stretch=1)
-        selector_layout.addWidget(self.btn_refreshDrives)
+        # selector_layout.addWidget(self.btn_refreshDrives)
 
         # Spacer
         selector_layout.addWidget(QLabel(" "), stretch=2)
@@ -607,21 +693,31 @@ class MainWindow (QMainWindow):
         self.lbl_console = QLabel(text="Console:")
         self.lbl_console.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.combobox_console = QComboBox()
-        self.combobox_console.activated.connect(loadROMsToTable)
+        self.combobox_console.activated.connect(self.combobox_console_change)
         selector_layout.addWidget(self.lbl_console)
         selector_layout.addWidget(self.combobox_console, stretch=1)
         
         # Update Button Widget
-        self.btn_update = QPushButton("Rebuild!")
+        # self.btn_update = QPushButton("Update device")
+        # selector_layout.addWidget(self.btn_update)
+        # self.btn_update.clicked.connect(RebuildClicked)
+
+        # Thumbnails
+        self.btn_update_thumbnails = QPushButton("Download missing thubmnails")
+        selector_layout.addWidget(self.btn_update_thumbnails )
+        self.btn_update_thumbnails .clicked.connect(self.downloadBoxartForZips)
+
+        # Thumbnails
+        self.btn_update = QPushButton("Add ROMs...")
         selector_layout.addWidget(self.btn_update)
-        self.btn_update.clicked.connect(RebuildClicked)
+        self.btn_update.clicked.connect(self.copyRoms)
 
         # Game Table Widget
         self.tbl_gamelist = QTableWidget()
         self.tbl_gamelist.setColumnCount(5)
         self.tbl_gamelist.setHorizontalHeaderLabels(["Name", "Size", "Thumbnail", "Shortcut Slot", "Delete ROM"])
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(0, QHeaderView.Interactive)
-        self.tbl_gamelist.horizontalHeader().resizeSection(0, 400) 
+        self.tbl_gamelist.horizontalHeader().resizeSection(0, 300) 
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
@@ -631,6 +727,7 @@ class MainWindow (QMainWindow):
 
         self.readme_dialog = ReadmeDialog()
 
+        #TODO: Are we sure we want to be doing this every second?
         # Reload Drives Timer
         self.timer = QTimer()
         self.timer.timeout.connect(reloadDriveList)
@@ -666,7 +763,7 @@ class MainWindow (QMainWindow):
         try:
             self.theme_options = tadpole_functions.get_themes()
         except (ConnectionError, requests.exceptions.ConnectionError):
-            self.status_bar.showMessage("Error loading external theme resources.", 20000)
+            self.status_bar.showMessage("Error loading external theme resources.  Reconnect to internet and try restarting tadpole.", 20000)
             error_action = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical)),
                                    "Error Loading External Resources!",
                                    self)
@@ -688,7 +785,7 @@ class MainWindow (QMainWindow):
         try:
             self.music_options = tadpole_functions.get_background_music()
         except (ConnectionError, requests.exceptions.ConnectionError):
-            self.status_bar.showMessage("Error loading external music resources.", 20000)
+            self.status_bar.showMessage("Error loading external music resources. Reconnect to internet and try restarting tadpole.", 20000)
             error_action = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical)),
                                    "Error Loading External Resources!",
                                    self)
@@ -724,22 +821,11 @@ class MainWindow (QMainWindow):
         self.menu_os.addAction(self.action_removeShortcutLabels)
 
         # ROMS Menu
-        self.menu_roms = self.menuBar().addMenu("ROMs")
-        RebuildAll_action = QAction("Rebuild All ROMs", self, triggered=self.rebuildAll)
+        self.menu_roms = self.menuBar().addMenu("Consoles")
+        RebuildAll_action = QAction("Update All Consoles", self, triggered=self.rebuildAll)
         self.menu_roms.addAction(RebuildAll_action)
-        BackupAllSaves_action = QAction("Backup All ROMs saves", self, triggered=self.createSaveBackup)
-        self.menu_roms.addAction(BackupAllSaves_action)
-        CopyRoms_action = QAction("Add (Copy) ROMs...", self, triggered=self.copyRoms)
-        self.menu_roms.addAction(CopyRoms_action)
-        self.menu_roms.addSeparator()       
-            #Sub-menu for Thumbnails Menu
-        self.menu_roms.menu_update_thumbnails = self.menu_roms.addMenu("Thumbnails")
-        self.DownloadBoxart_action = QAction("Download Boxart thumbnails for zip files", self, triggered=self.downloadBoxartForZips)
-        self.menu_roms.menu_update_thumbnails.addAction(self.DownloadBoxart_action)
-        self.DownloadBoxart_action = QAction("Download Snaps thumbnails for zip files", self, triggered=self.downloadBoxartForZips)
-        self.menu_roms.menu_update_thumbnails.addAction(self.DownloadBoxart_action)
-        self.DownloadBoxart_action = QAction("Download Titles thumbnails for zip files", self, triggered=self.downloadBoxartForZips)
-        self.menu_roms.menu_update_thumbnails.addAction(self.DownloadBoxart_action)       
+        BackupAllSaves_action = QAction("Backup All Consoles' ROMs saves", self, triggered=self.createSaveBackup)
+        self.menu_roms.addAction(BackupAllSaves_action)     
         # Help Menu
         self.menu_help = self.menuBar().addMenu("&Help")
         self.readme_action = QAction(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarContextHelpButton),
@@ -830,89 +916,43 @@ class MainWindow (QMainWindow):
            art_Type = "/Named_Boxarts/"
         counter_success = 0
         counter_total = 0
-        #TODO: this needs to be cleaned up and turned into a tadpole_function
-        if user_selected_console == "ALL":
-            for console in tadpole_functions.systems.keys():
-                if console == "ARCADE":
-                    continue
-                zip_files = os.scandir(os.path.join(drive,console))
-                zip_files = list(filter(frogtool.check_zip, zip_files))
-                msgBox.setText("Trying to find thumbnails for " + str(len(zip_files)) + " ROMs\n" + ROMArt_console[console])
-                #reset progress bar for next console
-                games_total = 0
-                msgBox.progress.reset()
-                msgBox.progress.setMaximum(len(zip_files)+1)
-                msgBox.progress.setValue(0)
-                QApplication.processEvents()
-                #Scrape the url for .png files
-                url_for_scraping = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type
-                response = requests.get(url_for_scraping)
-                # BeautifulSoup magically find ours PNG's and ties them up into a nice bow
-                soup = BeautifulSoup(response.content, 'html.parser')
-                json_response = json.loads(soup.contents[0])
-                png_files = []
-                for value in json_response['payload']['tree']['items']:
-                    png_files.append(value['name'])
+        console = user_selected_console
+        zip_files = os.scandir(os.path.join(drive,console))
+        zip_files = list(filter(frogtool.check_zip, zip_files))
+        msgBox.setText("Trying to find thumbnails for " + str(len(zip_files)) + " ROMs\n" + ROMArt_console[console])
+        #reset progress bar for next console
+        games_total = 0
+        msgBox.progress.reset()
+        msgBox.progress.setMaximum(len(zip_files)+1)
+        msgBox.progress.setValue(0)
+        QApplication.processEvents()
+        #Scrape the url for .png files
+        url_for_scraping = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type
+        response = requests.get(url_for_scraping)
+        # BeautifulSoup magically find ours PNG's and ties them up into a nice bow
+        soup = BeautifulSoup(response.content, 'html.parser')
+        json_response = json.loads(soup.contents[0])
+        png_files = []
+        for value in json_response['payload']['tree']['items']:
+            png_files.append(value['name'])
 
-                for file in zip_files:
-                    game = os.path.splitext(file.name)
-                    outFile = os.path.join(os.path.dirname(file.path),f"{game[0]}.png")
-                    games_total = games_total +1
-                    msgBox.progress.setValue(games_total)
-                    QApplication.processEvents()
-                    if not os.path.exists(outFile):
-                        counter_total = counter_total + 1
-                        url_to_download = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type + game[0]
-                        for x in png_files:
-                            if game[0] in x:
-                                tadpole_functions.downloadROMArt(console,file.path,x,art_Type,game[0])
-                                counter_success = counter_success + 1
-                                break
-        else:
-            console = user_selected_console
-            zip_files = os.scandir(os.path.join(drive,console))
-            zip_files = list(filter(frogtool.check_zip, zip_files))
-            msgBox.setText("Trying to find thumbnails for " + str(len(zip_files)) + " ROMs\n" + ROMArt_console[console])
-            #reset progress bar for next console
-            games_total = 0
-            msgBox.progress.reset()
-            msgBox.progress.setMaximum(len(zip_files)+1)
-            msgBox.progress.setValue(0)
+        for file in zip_files:
+            game = os.path.splitext(file.name)
+            outFile = os.path.join(os.path.dirname(file.path),f"{game[0]}.png")
+            games_total = games_total +1
+            msgBox.progress.setValue(games_total)
             QApplication.processEvents()
-            #Scrape the url for .png files
-            url_for_scraping = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type
-            response = requests.get(url_for_scraping)
-            # BeautifulSoup magically find ours PNG's and ties them up into a nice bow
-            soup = BeautifulSoup(response.content, 'html.parser')
-            json_response = json.loads(soup.contents[0])
-            png_files = []
-            for value in json_response['payload']['tree']['items']:
-                png_files.append(value['name'])
-
-            for file in zip_files:
-                game = os.path.splitext(file.name)
-                outFile = os.path.join(os.path.dirname(file.path),f"{game[0]}.png")
-                games_total = games_total +1
-                msgBox.progress.setValue(games_total)
-                QApplication.processEvents()
-                if not os.path.exists(outFile):
-                    counter_total = counter_total + 1
-                    url_to_download = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type + game[0]
-                    for x in png_files:
-                        if game[0] in x:
-                            tadpole_functions.downloadROMArt(console,file.path,x,art_Type,game[0])
-                            counter_success = counter_success + 1
-                            break
+            if not os.path.exists(outFile):
+                counter_total = counter_total + 1
+                url_to_download = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type + game[0]
+                for x in png_files:
+                    if game[0] in x:
+                        tadpole_functions.downloadROMArt(console,file.path,x,art_Type,game[0])
+                        counter_success = counter_success + 1
+                        break
         QApplication.processEvents()
         msgBox.close()
-        qm = QMessageBox
-        ret = qm.question(self,'', "Downloading Boxart Complete\n" + f"Found {counter_success} covers for {counter_total} zips for {user_selected_console}.\n\nDo you want to rebuild game lists?", qm.Yes | qm.No)
-        if ret == qm.Yes:
-            RunFrogTool(window.combobox_console.currentText())
-            return
-        else:
-            return
-
+        RunFrogTool(window.combobox_console.currentText())
 
     def change_background_music(self):
         """event to change background music"""
@@ -931,7 +971,7 @@ class MainWindow (QMainWindow):
     def about(self):
         QMessageBox.about(self, "About Tadpole", 
                                 "Tadpole was created by EricGoldstein based on the original work \
-from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazing improvements")
+from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieves for many amazing improvements")
 
     def GBABIOSFix(self):
         drive = window.combobox_drive.currentText()
@@ -1010,6 +1050,12 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
         else:
             msgBox.close()
             QMessageBox.about(self, "Failure", "ERROR: Something went wrong while trying to change the console logos")
+
+    def combobox_drive_change(self):
+        RunFrogTool(self.combobox_console.currentText())
+
+    def combobox_console_change(self):
+        RunFrogTool(self.combobox_console.currentText())
 
     def show_readme(self):
         self.readme_dialog.show()
@@ -1110,11 +1156,8 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie for many amazi
             ret = qm.question(self,'', f"Added " + str(len(filenames)) + " ROMs to " + drive + console + "\n\nDo you want to try to download thumbnails?", qm.Yes | qm.No)
             if ret == qm.Yes:
                 MainWindow.downloadBoxartForZips(self)
-                loadROMsToTable()
-                return
-            else:
-                loadROMsToTable()
-                return
+            RunFrogTool(window.combobox_console.currentText())
+
             
     def validateGameShortcutComboBox(self):
         currentComboBox = self.sender() 
@@ -1262,7 +1305,7 @@ class ROMCoverViewer(QLabel):
         else:  # otherwise let QImage autodetection do its thing
             img = QImage(path)
             if (img.width(), img.height()) != (144, 208): 
-                img = img.scaled(144, 208, Qt.IgnoreAspectRatio, Qt.SmoothTransformation) #Rescale new boot logo to correct size
+                img = img.scaled(144, 208, Qt.KeepAspectRatio, Qt.SmoothTransformation) #Rescale new boot logo to correct size
         self.path = path  # update path
         self.setPixmap(QPixmap().fromImage(img))
 
@@ -1416,8 +1459,8 @@ if __name__ == "__main__":
     reloadDriveList()
 
     # Update list of consoles
-    available_consoles_placeholder = "???"
-    window.combobox_console.addItem(QIcon(), available_consoles_placeholder, available_consoles_placeholder)
+    # available_consoles_placeholder = "???"
+    # window.combobox_console.addItem(QIcon(), available_consoles_placeholder, available_consoles_placeholder)
     window.combobox_console.clear()
     # Add ALL to the list to add this fucntionality from frogtool
     #TODO: Make sure Eric is ok simplifying this.
@@ -1427,8 +1470,18 @@ if __name__ == "__main__":
         window.combobox_console.addItem(QIcon(), console, console)
     
     window.show()
-    
-    #Load up the table since we are showing the window
-    loadROMsToTable()
-
+    #if tadpole.ini already exists, skip over first run, otherwise create it
+    #Run First Run to create config, check bootloader, etc.
+    if window.combobox_drive.currentText() == "N/A":
+        QMessageBox().about(window, "Insert SD Card", "Your SD card must be plugged into the computer on launch of Tadpole.\n\n\
+Please insert the SD card and relaunch Tadpole.exe.  The application will now close.")
+        sys.exit()
+    config = configparser.ConfigParser()
+    configPath = os.path.join(window.combobox_drive.currentText(),"/Resources/tadpole.ini")
+    config.read(configPath)
+    #If the file doesn't exist (or it has nothing in it), let's go first run
+    if(config.sections() == []):
+        FirstRun(window)
+    #Otherwise run main tool and go
+    RunFrogTool(window.combobox_console.currentText())    
     app.exec()

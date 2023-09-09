@@ -1,5 +1,4 @@
 import os
-import sys
 import shutil
 import hashlib
 import zipfile
@@ -7,16 +6,12 @@ from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 import struct
-import zlib
 import frogtool
 import requests
 import json
-import logging
 import re
-
 try:
     from PIL import Image
-    from PIL import ImageDraw
     image_lib_avail = True
 except ImportError:
     Image = None
@@ -185,7 +180,9 @@ def getImageData565(src_filename, dest_size=None):
     image.paste(srcimage, None)
 
     if dest_size and image.size != dest_size:
-        image = image.resize(dest_size)
+        #TODO: let user decide to stretch or not
+        maxsize = (144, 208)
+        image = image.thumbnail(maxsize, Image.ANTIALIAS) 
 
     image_height = image.size[1]
     image_width = image.size[0]
@@ -207,7 +204,6 @@ def getImageData565(src_filename, dest_size=None):
             rgb = (r << 11) | (g << 5) | b
             rgb565Data.append(struct.pack('H', rgb))
     return rgb565Data
-
 
 offset_logo_presequence = [0x62, 0x61, 0x64, 0x5F, 0x65, 0x78, 0x63, 0x65, 0x70, 0x74, 0x69, 0x6F, 0x6E, 0x00, 0x00, 0x00]
 offset_buttonMap_presequence = [0x00, 0x00, 0x00, 0x71, 0xDB, 0x8E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
@@ -297,7 +293,7 @@ def changeGameShortcut(index_path, console, position, game):
         
     try:
         trimmedGameName = frogtool.strip_file_extension(game)
-        print(f"Filename trimmed to: {trimmedGameName}")
+        #print(f"Filename trimmed to: {trimmedGameName}")
         #Read in all the existing shortcuts from file
         xfgle_filepath = os.path.join(index_path, "Resources", "xfgle.hgp")
         xfgle_file_handle = open(xfgle_filepath, "r")
@@ -324,7 +320,7 @@ def getGameShortcutPosition(index_path, console, game):
         
     try:
         trimmedGameName = frogtool.strip_file_extension(game)
-        print(f"Filename trimmed to: {trimmedGameName}")
+        #print(f"Filename trimmed to: {trimmedGameName}")
         #Read in all the existing shortcuts from file
         xfgle_filepath = os.path.join(index_path, "Resources", "xfgle.hgp")
         xfgle_file_handle = open(xfgle_filepath, "r")
@@ -337,7 +333,7 @@ def getGameShortcutPosition(index_path, console, game):
         savedShortcut = f"{prefix} {game}*\n"
         for i, gameShortcutLine in enumerate(lines):
             if gameShortcutLine == savedShortcut:
-                print("Found " + savedShortcut + " on line " + str(i))
+                print("Found " + savedShortcut + "as shortcut")
                 #now we found the match of the raw location, now we need to return the position from console
                 #from xfgle, the positions start with 3 random lines, and then go down in order from FC -> SNES -> ... -> Arcade
                 if(console == "FC" ):
@@ -478,7 +474,6 @@ def changeTheme(drive_path: str, url: str = "", file: str = "", progressBar: QPr
         ValueError: When both url and file params are provided.
     """
     if url and not file:
-        #TODO enable online themes
         zip_file = "theme.zip"
         downloadFileFromGithub(zip_file, url)
         try:
