@@ -56,7 +56,8 @@ def RunFrogTool(console):
             QMessageBox.about(window, "Result", "Rebuilt all ROMS for all systems")
         else:
             result = frogtool.process_sys(drive, console, False)
-            processGameShortcuts()       
+            #TODO: its late, but I don't think I need this anymore after fixing the bug
+            #processGameShortcuts()       
             #QMessageBox.about(window, "Result", result)
             print("Result " + result)      
         #Always reload the table now that the folders are all cleaned up
@@ -216,6 +217,7 @@ def loadROMsToTable():
         window.tbl_gamelist.setRowCount(0)
         print("frogtool stop execution on table load caught")
     msgBox.close()  
+    window.tbl_gamelist.scrollToTop()
     window.tbl_gamelist.show()
 
 def RebuildClicked(self):
@@ -980,19 +982,19 @@ class MainWindow (QMainWindow):
         for file in zip_files:
             game = os.path.splitext(file.name)
             outFile = os.path.join(os.path.dirname(file.path),f"{game[0]}.png")
-            games_total = games_total +1
+
             msgBox.progress.setValue(games_total)
             QApplication.processEvents()
             if not os.path.exists(outFile):
-                counter_total = counter_total + 1
                 url_to_download = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type + game[0]
                 for x in png_files:
                     if game[0] in x:
                         tadpole_functions.downloadROMArt(console,file.path,x,art_Type,game[0])
-                        counter_success = counter_success + 1
+                        games_total += 1
                         break
         QApplication.processEvents()
         msgBox.close()
+        QMessageBox.about(self, "Downloaded Thumbnails", "Downloaded " + str(games_total) + " thumbnails")
         RunFrogTool(window.combobox_console.currentText())
 
     def change_background_music(self):
@@ -1225,8 +1227,8 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
                 if comboBox.currentText() == currentComboBox.currentText():
                     QMessageBox.about(window, "Error","You had the shortcut: " + comboBox.currentText() + " assigned to " + window.tbl_gamelist.item(i, 0).text()+ "\nChanging it to the newly selected game.")
                     comboBox.setCurrentIndex(0)
-                    return False
-        return True
+        processGameShortcuts()
+        return
 
 # Subclass Qidget to create a thumbnail viewing window        
 class SettingsWindow(QDialog):
