@@ -144,7 +144,6 @@ def find_matching_file_diff_ext(target, files):
         if file_no_ext == target_no_ext:
             return file
 
-
 def convert_zip_image_pairs_to_zxx(roms_path, system):
     img_files = os.scandir(roms_path)
     img_files = list(filter(check_img, img_files))

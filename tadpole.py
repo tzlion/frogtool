@@ -21,6 +21,8 @@ from PIL import Image
 from datetime import datetime
 from pathlib import Path
 import configparser
+import webbrowser
+import zipfile
 
 basedir = os.path.dirname(__file__)
 static_NoDrives = "N/A"
@@ -243,11 +245,29 @@ def viewThumbnail(rom_path):
             return
 
         try:
-            tadpole_functions.changeZXXThumbnail(rom_path, newLogoFileName)
+            #Bugfix: the user may be tryiing to add a thumbnail to a zip
+            if(zipfile.is_zipfile(rom_path)):
+                #copy the image over to its easily handled in frogtool
+                newLogoPath = os.path.dirname(rom_path)
+                newLogoName = os.path.basename(newLogoFileName)
+                newLogoFile = os.path.join(newLogoPath,newLogoName)
+                shutil.copyfile(newLogoFileName, newLogoFile)
+                #Get setup to convert with frogtool
+                system = window.combobox_console.currentText()
+                frogtool.convert_zip_image_pairs_to_zxx(newLogoPath, system)
+                #TODO: if the above doesn't work, the below would IF zip_file 
+                # and img_file were actual files and not strings
+                #sys_zxx_ext = frogtool.zxx_ext[system]
+                # zip_file = (os.path.basename(rom_path))
+                # img_file = (os.path.basename(newLogoFile))              
+                # frogtool.convert_zip_image_to_zxx(rom_path, img_file, zip_file, sys_zxx_ext)
+            else:
+                tadpole_functions.changeZXXThumbnail(rom_path, newLogoFileName)
         except tadpole_functions.Exception_InvalidPath:
             QMessageBox.about(window, "Change ROM Cover", "An error occurred.")
             return
         QMessageBox.about(window, "Change ROM Logo", "ROM cover successfully changed")
+        RunFrogTool(window.combobox_console.currentText())
 
 def deleteROM(rom_path):
     qm = QMessageBox
@@ -783,15 +803,19 @@ class MainWindow (QMainWindow):
             self.menu_os.menu_change_theme.addAction(error_action)
         else:
             for theme in self.theme_options:
-                self.menu_os.menu_change_theme.addAction(QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolume)),
+                self.menu_os.menu_change_theme.addAction(QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)),
                                                 theme,
                                                 self,
                                                 triggered=self.change_theme))
+        self.menu_os.menu_change_theme.addAction(QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)),
+                                        "Check out theme previews and more themes...",
+                                        self,
+                                        triggered=lambda: webbrowser.open(("https://zerter555.github.io/sf2000-collection/"))))
         self.menu_os.menu_change_theme.addSeparator()
         self.menu_os.menu_change_theme.addAction(QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton)),
                                         "Update From Local Zip File...",
                                         self,
-                                        triggered=self.change_theme))   
+                                        triggered=self.change_theme)) 
            # Sub-menu for changing background music
         self.menu_os.menu_change_music = self.menu_os.addMenu("Background Music")
         try:
