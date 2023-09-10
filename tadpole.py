@@ -91,7 +91,6 @@ def reloadDriveList():
     if len(window.combobox_drive) > 0:
         toggle_features(True)
         window.status_bar.showMessage("SF2000 Drive(s) Detected.", 20000)
-        #FirstRun()
     else:
         # disable functions
         window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
@@ -158,25 +157,36 @@ def loadROMsToTable():
             cell_fileSize.setTextAlignment(Qt.AlignCenter)
             cell_fileSize.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
             window.tbl_gamelist.setItem(i, 1, cell_fileSize) 
-            # View Thumbnail Button 
-            cell_viewthumbnail = QTableWidgetItem()
-            cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
-            pathToROM = os.path.join(roms_path, game)
-            with open(pathToROM, "rb") as rom_file:
-                rom_content = bytearray(rom_file.read())
-            with open(os.path.join(basedir, "temp_rom_cover.raw"), "wb") as image_file:
-                image_file.write(rom_content[0:((144*208)*2)])
-                with open(pathToROM, "rb") as f:
-                    img = QImage(f.read(), 144, 208, QImage.Format_RGB16)
-            pimg = QPixmap()
-            icon = QIcon()
-            QPixmap.convertFromImage(pimg, img)
-            QIcon.addPixmap(icon, pimg)
-            cell_viewthumbnail.setIcon(icon)
-            size = QSize(144, 208)
-            window.tbl_gamelist.setIconSize(size)
-            cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
-            window.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)     
+            # View Thumbnail 
+            #Show picture if thumbnails in View is selected
+            config = configparser.ConfigParser()
+            config.read(drive + "/Resources/tadpole.ini")
+            if config.getboolean('thumbnails', 'view'):
+                #with open(drive + "/Resources/tadpole.ini", 'w') as configfile:
+                #    config.write(configfile)
+                cell_viewthumbnail = QTableWidgetItem()
+                cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
+                pathToROM = os.path.join(roms_path, game)
+                with open(pathToROM, "rb") as rom_file:
+                    rom_content = bytearray(rom_file.read())
+                with open(os.path.join(basedir, "temp_rom_cover.raw"), "wb") as image_file:
+                    image_file.write(rom_content[0:((144*208)*2)])
+                    with open(pathToROM, "rb") as f:
+                        img = QImage(f.read(), 144, 208, QImage.Format_RGB16)
+                pimg = QPixmap()
+                icon = QIcon()
+                QPixmap.convertFromImage(pimg, img)
+                QIcon.addPixmap(icon, pimg)
+                cell_viewthumbnail.setIcon(icon)
+                size = QSize(144, 208)
+                window.tbl_gamelist.setIconSize(size)
+                cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
+                window.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)  
+            else:
+                cell_viewthumbnail = QTableWidgetItem(f"View")
+                cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
+                cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
+                window.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)   
             # Add to Shortcuts-
             shortcut_comboBox = QComboBox()
             shortcut_comboBox.addItem("")
@@ -330,7 +340,7 @@ Did the update complete successfully?", qm.Yes | qm.No)
             if ret == qm.Yes:
                 QMessageBox().about(window, "Update complete", "Your SF2000 should now be safe to use with \
 Tadpole. Major thanks to osaka#9664 on RetroHandhelds Discords for this fix!\n\n\
-Tadpole will not ask you again to fix the bootloader. If you want to reset Tadpole, delete the file 'Resources/tadpole.config")
+Tadpole will not ask you again to fix the bootloader. If you want to reset Tadpole, delete the file 'Resources/tadpole.ini")
                 config['bootloader'] = {'patchapplied': True}
             else:
                 QMessageBox().about(window, "Update not successful", "Please try the instructions again.\
@@ -343,12 +353,15 @@ or ask for help on Discord https://discord.gg/retrohandhelds.  The app will now 
     else:
         QMessageBox().about(window, "Bootloader Fix skipped", "Tadpole will not ask to fix the bootloader again.\n\
 If you want to reset Tadpole, delete the file in tadpole.config in the Resources folder")
-        #TODO: Write bootlaoder_fix=true
         config['bootloader'] = {'patchskipped': True}
     configPath = os.path.join(drive,"/Resources/tadpole.ini")
+    #Set other config file defaults
+    config.add_section('thumbnails')
+    config.add_section('versions')
+    config.set('thumbnails', 'view', 'False')
+    config.set('versions', 'tadpole', '0.3.9.7')
     with open(configPath, 'w') as configfile:
         config.write(configfile)
-    RunFrogTool(window.combobox_console.currentText())
 
 class BootLogoViewer(QLabel):
     """
@@ -703,11 +716,10 @@ class MainWindow (QMainWindow):
         # self.btn_update.clicked.connect(RebuildClicked)
 
         # Thumbnails
-        self.btn_update_thumbnails = QPushButton("Download missing thubmnails")
+        self.btn_update_thumbnails = QPushButton("Download missing thubmnails...")
         selector_layout.addWidget(self.btn_update_thumbnails )
         self.btn_update_thumbnails .clicked.connect(self.downloadBoxartForZips)
 
-        # Thumbnails
         self.btn_update = QPushButton("Add ROMs...")
         selector_layout.addWidget(self.btn_update)
         self.btn_update.clicked.connect(self.copyRoms)
@@ -744,10 +756,10 @@ class MainWindow (QMainWindow):
 
     def loadMenus(self):
         self.menu_file = self.menuBar().addMenu("&File")
+        Settings_action = QAction("Settings...", self, triggered=self.Settings)
+        self.menu_file.addAction(Settings_action)
         self.menu_file.addAction(self.exit_action)
-        #self.action_Test = QAction("Test Function", self,triggered=self.testFunction)
-        #self.menu_file.addAction(self.action_Test)
-        
+
         # OS Menu
         self.menu_os = self.menuBar().addMenu("&OS")
             #Sub-menu for updating Firmware
@@ -820,7 +832,7 @@ class MainWindow (QMainWindow):
         self.action_removeShortcutLabels = QAction("Remove Shortcut Labels", self, triggered=self.removeShortcutLabels)
         self.menu_os.addAction(self.action_removeShortcutLabels)
 
-        # ROMS Menu
+        # Consoles Menu
         self.menu_roms = self.menuBar().addMenu("Consoles")
         RebuildAll_action = QAction("Update All Consoles", self, triggered=self.rebuildAll)
         self.menu_roms.addAction(RebuildAll_action)
@@ -842,6 +854,11 @@ class MainWindow (QMainWindow):
         except tadpole_functions.InvalidURLError:
             print("URL did not return a valid file")
     
+    def Settings(self):
+        window_settings = SettingsWindow()
+        window_settings.exec()
+        RunFrogTool(window.combobox_console.currentText())
+
     def detectOSVersion(self):
         print("Tadpole~DetectOSVersion: Trying to read bisrv hash")
         drive = window.combobox_drive.currentText()
@@ -1051,6 +1068,21 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
             msgBox.close()
             QMessageBox.about(self, "Failure", "ERROR: Something went wrong while trying to change the console logos")
 
+    def changeThumbnailView(self, state):
+        drive = window.combobox_drive.currentText()
+        config = configparser.ConfigParser()
+        config.read(drive + "/Resources/tadpole.ini")
+        if not config.has_section('view'):
+            config.add_section('view')
+        if config.has_option('view', 'thumbnails'):
+            config['view']['thumbnails'] = str(state)
+        else:
+            config.set('view', 'thumbnails', str(state))
+
+        with open(drive + "/Resources/tadpole.ini", 'w') as configfile:
+            config.write(configfile)
+        RunFrogTool(self.combobox_console.currentText())
+
     def combobox_drive_change(self):
         RunFrogTool(self.combobox_console.currentText())
 
@@ -1171,6 +1203,70 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
                     comboBox.setCurrentIndex(0)
                     return False
         return True
+
+# Subclass Qidget to create a thumbnail viewing window        
+class SettingsWindow(QDialog):
+    """
+        This window should be called without a parent widget so that it is created in its own window.
+    """
+    def __init__(self):
+        super().__init__()
+        layout = QVBoxLayout()
+        
+        self.setWindowIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)))
+        self.setWindowTitle(f"Tadpole Settings")
+        
+        # Setup Main Layout
+        self.layout_main = QVBoxLayout()
+        self.setLayout(self.layout_main)
+
+        # set up thumbnail options
+        thubmnailViewCheckBox = QCheckBox("View Thumbnails in ROM list")
+        value = self.GetKeyValue('thumbnails', 'view')
+        thubmnailViewCheckBox.setChecked(value == 'True')
+        thubmnailViewCheckBox.toggled.connect(self.thumbnailViewClicked)
+        self.layout_main.addWidget(thubmnailViewCheckBox)
+        self.layout_main.addWidget(QLabel(" "))  # spacer
+        #self.layout_main.addWidget(QLabel("Select Type of ))
+        # Thmbnail Type
+        # self.layout_main.addWidget(QLabel("Type of Thumbnails to use"))
+        # thumbnail_view = QWidget(self)  # central widget
+        # thumbnail_view.setLayout(self.layout_main)
+        # view_group = QButtonGroup(thumbnail_view) # Number group
+        # thumbnailIcons = QRadioButton("0")
+        # number_group.addButton(r0)
+        # r1=QtGui.QRadioButton("1")
+        # number_group.addButton(r1)
+        # layout.addWidget(r0)
+        # layout.addWidget(r1)
+
+        # Main Buttons Layout (Save/Cancel)
+        self.layout_buttons = QHBoxLayout()
+        self.layout_main.addLayout(self.layout_buttons)
+        
+        #Save Existing Cover To File Button
+        self.button_write = QPushButton("Continue")
+        self.button_write.clicked.connect(self.accept)
+        self.layout_buttons.addWidget(self.button_write)     
+
+    def thumbnailViewClicked(self):
+        cbutton = self.sender()
+        self.WriteValueToFile('thumbnails', 'view', str(cbutton.isChecked()))
+
+    def GetKeyValue(self, section, key):
+        drive = window.combobox_drive.currentText()
+        configPath = os.path.join(drive,"/Resources/tadpole.ini")
+        config.read(drive + "/Resources/tadpole.ini")
+        if config.has_option(section, key):
+            return config.get(section, key)
+
+    def WriteValueToFile(self, section, key, value):
+        drive = window.combobox_drive.currentText()
+        configPath = os.path.join(drive,"/Resources/tadpole.ini")
+        if config.has_option(section, key):
+            config[section][key] = str(value)
+            with open(configPath, 'w') as configfile:
+                config.write(configfile)   
 
 # Subclass Qidget to create a thumbnail viewing window        
 class thumbnailWindow(QDialog):
@@ -1478,10 +1574,15 @@ Please insert the SD card and relaunch Tadpole.exe.  The application will now cl
         sys.exit()
     config = configparser.ConfigParser()
     configPath = os.path.join(window.combobox_drive.currentText(),"/Resources/tadpole.ini")
-    config.read(configPath)
-    #If the file doesn't exist (or it has nothing in it), let's go first run
-    if(config.sections() == []):
+    if os.path.isfile(configPath):
+        config.read(configPath)
+        #TODO every release let's be ultra careful for now and delete tadpole settings...
+        #if it has defualt, then it doesn't exist
+        TadpoleVersion = config.get('versions', 'tadpole')
+        if TadpoleVersion != "0.3.9.7":
+            os.remove(configPath)
+            FirstRun(window)         
+    else:
         FirstRun(window)
-    #Otherwise run main tool and go
     RunFrogTool(window.combobox_console.currentText())    
     app.exec()
