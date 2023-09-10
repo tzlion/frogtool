@@ -203,6 +203,7 @@ def loadROMsToTable():
             # get a callback to make sure the user isn't setting the same shortcut twice
             window.tbl_gamelist.setCellWidget(i, 3, shortcut_comboBox)
             shortcut_comboBox.activated.connect(window.validateGameShortcutComboBox)
+
             # View Delete Button 
             cell_delete = QTableWidgetItem(f"Delete")
             cell_delete.setTextAlignment(Qt.AlignCenter)
@@ -211,6 +212,7 @@ def loadROMsToTable():
             # Update progressbar
             msgBox.showProgress(i, False)
         window.tbl_gamelist.resizeRowsToContents()
+
         print("finished loading roms to table")    
     except frogtool.StopExecution:
         # Empty the table
@@ -281,7 +283,6 @@ def deleteROM(rom_path):
             QMessageBox.about(window, "Error","Could not delete file.")
         RunFrogTool(window.combobox_console.currentText())
     return
-
 
 def addToShortcuts(rom_path):
     qm = QMessageBox
