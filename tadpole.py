@@ -450,10 +450,7 @@ class BootLogoViewer(QLabel):
         else:  # otherwise let QImage autodetection do its thing
             img = QImage(path)
             if (img.width(), img.height()) != (512, 200): 
-                maxsize = (144, 208)
-                imag = img.thumbnail(maxsize, Image.ANTIALIAS) 
-                #img = img.scaled(512, 200, Qt.KeepAspectRatio , Qt.SmoothTransformation) #Rescale new boot logo to correct size
-                #img = img.scaled(512, 200, Qt.IgnoreAspectRatio, Qt.SmoothTransformation) #Rescale new boot logo to correct size
+                img = img.scaled(512, 200, Qt.IgnoreAspectRatio, Qt.SmoothTransformation) #Rescale new boot logo to correct size
         self.path = path  # update path
         self.setPixmap(QPixmap().fromImage(img))
 
