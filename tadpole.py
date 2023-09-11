@@ -924,93 +924,119 @@ class MainWindow (QMainWindow):
     def downloadBoxartForZips(self):
         drive = window.combobox_drive.currentText()
         user_selected_console = window.combobox_console.currentText()
+        rom_path = os.path.join(drive,user_selected_console)
+        msgBox = DownloadMessageBox()
+        msgBox.progress.reset()
+        msgBox.setText("Downloading thumbnails...")
 
         config = configparser.ConfigParser()
         config.read(drive + "/Resources/tadpole.ini")
         if config.get('thumbnails', 'download') == "0":
-                QMessageBox.about(self, "Add Thumbnails", "You have Tadpole configured to upload your own thumbnails. \
+            QMessageBox.about(self, "Add Thumbnails", "You have Tadpole configured to upload your own thumbnails. \
 In the open file dialog, select the directory where the images are located.  For this to work, \
 The picture names must be the same as the ROM names. A great tool for this is Skraper combined \
 with the 'Full Height Mix' style here: https://github.com/ebzero/garlic-onion-skraper-mix/tree/main#full-height-mix.")
-                #TODO: add in open directory
-                #TODO: call the frogotool for that directory
+            thumbnailDialog = QFileDialog()
+            thumbnailDialog.setDirectory('')
+            thumbnailDialog.setFileMode(QFileDialog.Directory)
+            thumbnailDialog.setOption(QFileDialog.ShowDirsOnly)
+            if thumbnailDialog.exec_():
+                for dir in thumbnailDialog.selectedFiles():
+                    #In the directory, grab all the imagess and copy them over to our console folder
+                    files = os.listdir(dir)
+                    savedFiles = []
+                    #Setup progress as these can take a while
+                    msgBox.progress.setMaximum(len(files)*2)
+                    progress = 1
+                    msgBox.showProgress(progress, True)
+                    msgBox.show()
+                    for file in files:
+                        #Only copy images over
+                        if file.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
+                            img_path = os.path.join(dir,file)
+                            shutil.copy(img_path,rom_path)
+                            #Save a copy of this file for us to delete later
+                            savedFiles.append(os.path.join(rom_path, file))
+                            progress += 1
+                            msgBox.showProgress(progress, True)
+                    #New run through frogtool to match
+                    frogtool.convert_zip_image_pairs_to_zxx(rom_path, user_selected_console)
+                    msgBox.close()
+                    QMessageBox.about(self, "Downloaded Thumbnails", "Adding thumbnails complete for "
+                        + user_selected_console + "\nCheck out the thumbnails in each ROM to make sure it worked.\n\
+Pro tip: Turn on'View thumbnails in Viewer' in Settings to easily scan the list.  Missing some thumbnails? \
+Check to make sure you selected the right image folder, the names are the same, and you are in the right console in Tadpole.")
+                    #Cleanup all thoes PNG's that didn't get converted
+                    for file in savedFiles:
+                        if os.path.isfile(file):
+                            os.remove(file)
         if config.get('thumbnails', 'download') == "1":
-                QMessageBox.about(self, "Add Thumbnails", "You have Tadpole configured to download thumbnails automatically. \
+            QMessageBox.about(self, "Add Thumbnails", "You have Tadpole configured to download thumbnails automatically. \
 For this to work, your roms must be in ZIP files and the name of that zip must match their common released English US localized \
 name.  Please refer to https://github.com/EricGoldsteinNz/libretro-thumbnails/tree/master if Tadpole isn't finding \
 the thumbnail for you. ")
-                #ARCADE can't get ROM art, so just return
-                if user_selected_console == "ARCADE":
-                    QMessageBox.about(self, "Add Thumbnails", "Custom Arcade ROMs cannot have thumbnails at this time.")
-                    return
-                msgBox = DownloadMessageBox()
-                msgBox.progress.reset()
-                msgBox.setText("Downloading thumbnails...")
-                
-                #TODO hook up a cancel button...but I can't get it to work right now
-                #cancelBtn = msgBox.addButton('Cancel', QMessageBox.RejectRole)
-                #layout.addWidget(cancelBtn,layout.rowCount(), 0, 1, layout.columnCount(), Qt.AlignCenter )
+            #ARCADE can't get ROM art, so just return
+            if user_selected_console == "ARCADE":
+                QMessageBox.about(self, "Add Thumbnails", "Custom Arcade ROMs cannot have thumbnails at this time.")
+                return
+            #Need the url for scraping the png's, which is different
+            ROMART_baseURL_parsing = "https://github.com/EricGoldsteinNz/libretro-thumbnails/tree/master/"
+            
+            ROMArt_console = {  
+                "FC":     "Nintendo - Nintendo Entertainment System",
+                "SFC":    "Nintendo - Super Nintendo Entertainment System",
+                "MD":     "Sega - Mega Drive - Genesis",
+                "GB":     "Nintendo - Game Boy",
+                "GBC":    "Nintendo - Game Boy Color",
+                "GBA":    "Nintendo - Game Boy Advance", 
+                "ARCADE": ""
+            }
+            msgBox.show()
+            #TODO: I shouldn't base this on strings incase it gets localized, should base it on the item clicked with "sender" obj but I can't figure out where that data is in that object 
+            art_Selection = self.sender().text()
+            if('Titles' in art_Selection):
+                art_Type = "/Named_Titles/"
+            elif('Snaps'in art_Selection):
+                art_Type = "/Named_Snaps/"
+            else:
+                art_Type = "/Named_Boxarts/"
+            console = user_selected_console
+            zip_files = os.scandir(os.path.join(drive,console))
+            zip_files = list(filter(frogtool.check_zip, zip_files))
+            msgBox.setText("Trying to find thumbnails for " + str(len(zip_files)) + " ROMs\n" + ROMArt_console[console])
+            #reset progress bar for next console
+            games_total = 0
+            msgBox.progress.reset()
+            msgBox.progress.setMaximum(len(zip_files)+1)
+            msgBox.progress.setValue(0)
+            QApplication.processEvents()
+            #Scrape the url for .png files
+            url_for_scraping = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type
+            response = requests.get(url_for_scraping)
+            # BeautifulSoup magically find ours PNG's and ties them up into a nice bow
+            soup = BeautifulSoup(response.content, 'html.parser')
+            json_response = json.loads(soup.contents[0])
+            png_files = []
+            for value in json_response['payload']['tree']['items']:
+                png_files.append(value['name'])
 
-                msgBox.show()
+            for file in zip_files:
+                game = os.path.splitext(file.name)
+                outFile = os.path.join(os.path.dirname(file.path),f"{game[0]}.png")
 
-                #Need the url for scraping the png's, which is different
-                ROMART_baseURL_parsing = "https://github.com/EricGoldsteinNz/libretro-thumbnails/tree/master/"
-                
-                ROMArt_console = {  
-                    "FC":     "Nintendo - Nintendo Entertainment System",
-                    "SFC":    "Nintendo - Super Nintendo Entertainment System",
-                    "MD":     "Sega - Mega Drive - Genesis",
-                    "GB":     "Nintendo - Game Boy",
-                    "GBC":    "Nintendo - Game Boy Color",
-                    "GBA":    "Nintendo - Game Boy Advance", 
-                    "ARCADE": ""
-                }
-
-                #TODO: I shouldn't base this on strings incase it gets localized, should base it on the item clicked with "sender" obj but I can't figure out where that data is in that object 
-                art_Selection = self.sender().text()
-                if('Titles' in art_Selection):
-                    art_Type = "/Named_Titles/"
-                elif('Snaps'in art_Selection):
-                    art_Type = "/Named_Snaps/"
-                else:
-                    art_Type = "/Named_Boxarts/"
-                console = user_selected_console
-                zip_files = os.scandir(os.path.join(drive,console))
-                zip_files = list(filter(frogtool.check_zip, zip_files))
-                msgBox.setText("Trying to find thumbnails for " + str(len(zip_files)) + " ROMs\n" + ROMArt_console[console])
-                #reset progress bar for next console
-                games_total = 0
-                msgBox.progress.reset()
-                msgBox.progress.setMaximum(len(zip_files)+1)
-                msgBox.progress.setValue(0)
+                msgBox.progress.setValue(games_total)
                 QApplication.processEvents()
-                #Scrape the url for .png files
-                url_for_scraping = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type
-                response = requests.get(url_for_scraping)
-                # BeautifulSoup magically find ours PNG's and ties them up into a nice bow
-                soup = BeautifulSoup(response.content, 'html.parser')
-                json_response = json.loads(soup.contents[0])
-                png_files = []
-                for value in json_response['payload']['tree']['items']:
-                    png_files.append(value['name'])
-
-                for file in zip_files:
-                    game = os.path.splitext(file.name)
-                    outFile = os.path.join(os.path.dirname(file.path),f"{game[0]}.png")
-
-                    msgBox.progress.setValue(games_total)
-                    QApplication.processEvents()
-                    if not os.path.exists(outFile):
-                        url_to_download = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type + game[0]
-                        for x in png_files:
-                            if game[0] in x:
-                                tadpole_functions.downloadROMArt(console,file.path,x,art_Type,game[0])
-                                games_total += 1
-                                break
-                QApplication.processEvents()
-                msgBox.close()
-                QMessageBox.about(self, "Downloaded Thumbnails", "Downloaded " + str(games_total) + " thumbnails")
-                RunFrogTool(window.combobox_console.currentText())
+                if not os.path.exists(outFile):
+                    url_to_download = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type + game[0]
+                    for x in png_files:
+                        if game[0] in x:
+                            tadpole_functions.downloadROMArt(console,file.path,x,art_Type,game[0])
+                            games_total += 1
+                            break
+            QApplication.processEvents()
+            msgBox.close()
+            QMessageBox.about(self, "Downloaded Thumbnails", "Downloaded " + str(games_total) + " thumbnails")
+        RunFrogTool(window.combobox_console.currentText())
 
     def change_background_music(self):
         """event to change background music"""
