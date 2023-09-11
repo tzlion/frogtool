@@ -382,7 +382,8 @@ If you want to reset Tadpole, delete the file in tadpole.config in the Resources
     config.add_section('thumbnails')
     config.add_section('versions')
     config.set('thumbnails', 'view', 'False')
-    config.set('versions', 'tadpole', '0.3.9.7')
+    config.set('thumbnails', 'download', '0') #0 - manual upload, #1 - download from internet
+    config.set('versions', 'tadpole', '0.3.9.8')
     with open(configPath, 'w') as configfile:
         config.write(configfile)
 
@@ -926,18 +927,18 @@ class MainWindow (QMainWindow):
 
         config = configparser.ConfigParser()
         config.read(drive + "/Resources/tadpole.ini")
-        if config.get('thumbnails', 'type') == "automate":
-                QMessageBox.about(self, "Add Thumbnails", "You have Tadpole configured to upload your own thumbnails.\
-                          In the open file dialog, select the directory where the images are located.  For this to work,\
-                                  The picture names must be the same as the ROM names. A great tool for this is Skraper combined\
-                                  with the 'Full Height Mix' style here: https://github.com/ebzero/garlic-onion-skraper-mix/tree/main#full-height-mix.")
+        if config.get('thumbnails', 'download') == "0":
+                QMessageBox.about(self, "Add Thumbnails", "You have Tadpole configured to upload your own thumbnails. \
+In the open file dialog, select the directory where the images are located.  For this to work, \
+The picture names must be the same as the ROM names. A great tool for this is Skraper combined \
+with the 'Full Height Mix' style here: https://github.com/ebzero/garlic-onion-skraper-mix/tree/main#full-height-mix.")
                 #TODO: add in open directory
                 #TODO: call the frogotool for that directory
-        if config.get('thumbnails', 'type') == "automate":
-                QMessageBox.about(self, "Add Thumbnails", "You have Tadpole configured to download thumbnails.\
-                          For this to work, your roms must be in ZIP files and the name of that zip must match their common released U.S.\
-                          Name.  Please refer to https://github.com/EricGoldsteinNz/libretro-thumbnails/tree/master if Tadpole isn't finding\
-                          the thumbnail for you. ")
+        if config.get('thumbnails', 'download') == "1":
+                QMessageBox.about(self, "Add Thumbnails", "You have Tadpole configured to download thumbnails automatically. \
+For this to work, your roms must be in ZIP files and the name of that zip must match their common released English US localized \
+name.  Please refer to https://github.com/EricGoldsteinNz/libretro-thumbnails/tree/master if Tadpole isn't finding \
+the thumbnail for you. ")
                 #ARCADE can't get ROM art, so just return
                 if user_selected_console == "ARCADE":
                     QMessageBox.about(self, "Add Thumbnails", "Custom Arcade ROMs cannot have thumbnails at this time.")
@@ -1260,12 +1261,26 @@ class SettingsWindow(QDialog):
         self.layout_main = QVBoxLayout()
         self.setLayout(self.layout_main)
 
-        # set up thumbnail options
+        #Thumbnail options
+        self.layout_main.addWidget(QLabel("Thumbnail options"))
+        #
         thubmnailViewCheckBox = QCheckBox("View Thumbnails in ROM list")
-        value = self.GetKeyValue('thumbnails', 'view')
-        thubmnailViewCheckBox.setChecked(value == 'True')
+        ViewerCheckValue = self.GetKeyValue('thumbnails', 'view')
+        thubmnailViewCheckBox.setChecked(ViewerCheckValue == 'True')
         thubmnailViewCheckBox.toggled.connect(self.thumbnailViewClicked)
         self.layout_main.addWidget(thubmnailViewCheckBox)
+
+        self.layout_main.addWidget(QLabel("Add thumbnails by: "))
+        thubmnailAddCombo = QComboBox()
+        thubmnailAddCombo.addItems(["uploading a folder from your PC", "automatically downloading over the internet"])
+        if self.GetKeyValue('thumbnails', 'download') == '0':
+            thubmnailAddCombo.setCurrentIndex(0)
+        else:
+            thubmnailAddCombo.setCurrentIndex(1)
+        thubmnailAddCombo.currentTextChanged.connect(self.thumbnailAddChanged)
+
+        self.layout_main.addWidget(thubmnailAddCombo)
+
         self.layout_main.addWidget(QLabel(" "))  # spacer
         #self.layout_main.addWidget(QLabel("Select Type of ))
         # Thmbnail Type
@@ -1288,6 +1303,11 @@ class SettingsWindow(QDialog):
         self.button_write = QPushButton("Continue")
         self.button_write.clicked.connect(self.accept)
         self.layout_buttons.addWidget(self.button_write)     
+
+    def thumbnailAddChanged(self):
+        ccombo = self.sender()
+        index = ccombo.currentIndex()
+        self.WriteValueToFile('thumbnails','download', str(index))
 
     def thumbnailViewClicked(self):
         cbutton = self.sender()
@@ -1619,7 +1639,7 @@ Please insert the SD card and relaunch Tadpole.exe.  The application will now cl
         #TODO every release let's be ultra careful for now and delete tadpole settings...
         #if it has defualt, then it doesn't exist
         TadpoleVersion = config.get('versions', 'tadpole')
-        if TadpoleVersion != "0.3.9.7":
+        if TadpoleVersion != "0.3.9.8":
             os.remove(configPath)
             FirstRun(window)         
     else:
