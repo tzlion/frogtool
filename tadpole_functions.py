@@ -109,13 +109,36 @@ versionDictionary = {
 }
 
 def changeZIPThumbnail(romPath, newImpagePath, system):
-    #copy the image over to its easily handled in frogtool
     newLogoPath = os.path.dirname(romPath)
     newLogoName = os.path.basename(newImpagePath)
+    romFile = os.path.basename(romPath)
+    new_romPath = os.path.dirname(romPath)
     newLogoFile = os.path.join(newLogoPath,newLogoName)
     shutil.copyfile(newImpagePath, newLogoFile)
-    #Get setup to convert with frogtool
-    frogtool.convert_zip_image_pairs_to_zxx(newLogoPath, system)
+    sys_zxx_ext = frogtool.zxx_ext[system]
+    zxx_file_name = f"{frogtool.strip_file_extension(romFile)}.{sys_zxx_ext}"
+    zxx_file_path = os.path.join(new_romPath,zxx_file_name)
+    converted = frogtool.rgb565_convert(newLogoFile, zxx_file_path, (144, 208))
+    if not converted:
+        return False
+    try:
+        zxx_file_handle = open(zxx_file_path, "ab")
+        zip_file_handle = open(romPath, "rb")
+        zxx_file_handle.write(zip_file_handle.read())
+        zxx_file_handle.close()
+        zip_file_handle.close()
+    except (OSError, IOError):
+        print(f"! Failed appending zip file to {zxx_file_name}")
+        return False
+
+    try:
+        os.remove(newLogoFile)
+        os.remove(romPath)
+    except (OSError, IOError):
+        print(f"! Failed deleting source file(s) after creating {zxx_file_name}")
+        return False
+
+    return True
 
 def changeZXXThumbnail(romPath, imagePath):
     tempPath = f"{romPath}.tmp"
