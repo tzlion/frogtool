@@ -10,6 +10,7 @@ import frogtool
 import requests
 import json
 import re
+import configparser
 try:
     from PIL import Image
     image_lib_avail = True
@@ -122,6 +123,14 @@ def getThumbnailFromZXX(filepath):
     return thumbnailQImage"""
     return False
 
+def changeZIPThumbnail(romPath, newImpagePath, system):
+    #copy the image over to its easily handled in frogtool
+    newLogoPath = os.path.dirname(romPath)
+    newLogoName = os.path.basename(newImpagePath)
+    newLogoFile = os.path.join(newLogoPath,newLogoName)
+    shutil.copyfile(newImpagePath, newLogoFile)
+    #Get setup to convert with frogtool
+    frogtool.convert_zip_image_pairs_to_zxx(newLogoPath, system)
 
 def changeZXXThumbnail(romPath, imagePath):
     tempPath = f"{romPath}.tmp"
@@ -480,8 +489,8 @@ def changeTheme(drive_path: str, url: str = "", file: str = "", progressBar: QPr
             with zipfile.ZipFile(zip_file) as zip:
                 progressBar.setMaximum(len(zip.infolist()))
                 progress = 6
-                #TODO: Hacky but assume any zip folder with more than 49 files is not a theme zip
-                if len(zip.infolist()) > 49:
+                #TODO: Hacky but assume any zip folder with more than 55 files is not a theme zip
+                if len(zip.infolist()) > 55:
                     return False
                 for zip_info in zip.infolist():     
                     #print(zip_info)
@@ -723,4 +732,16 @@ def createSaveBackup(drive: str, zip_file_name):
 def check_is_save_file(filename):
     file_regex = ".+\\.(" + "|".join(supported_save_ext) + ")$"
     return re.search(file_regex, filename.lower())
-        
+
+def writeDefaultSettings(drive):
+    config = configparser.ConfigParser()
+    configPath = os.path.join(drive,"/Resources/tadpole.ini")
+    #Set other config file defaults
+    config.add_section('thumbnails')
+    config.add_section('versions')
+    config.set('thumbnails', 'view', 'False')
+    config.set('thumbnails', 'download', '0')
+    config.set('thumbnails', 'ovewrite', 'True') #0 - manual upload, #1 - download from internet
+    config.set('versions', 'tadpole', '0.3.9.9')
+    with open(configPath, 'w') as configfile:
+        config.write(configfile)
