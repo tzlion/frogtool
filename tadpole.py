@@ -920,10 +920,6 @@ class MainWindow (QMainWindow):
         config = configparser.ConfigParser()
         config.read(drive + "/Resources/tadpole.ini")
         if config.get('thumbnails', 'download') == "0":
-            QMessageBox.about(self, "Add Thumbnails", "You have Tadpole configured to upload your own thumbnails. \
-In the open file dialog, select the directory where the images are located.  For this to work, \
-The picture names must be the same as the ROM names. A great tool for this is Skraper combined \
-with the 'Full Height Mix' style here: https://github.com/ebzero/garlic-onion-skraper-mix/tree/main#full-height-mix.")
             thumbnailDialog = QFileDialog()
             thumbnailDialog.setDirectory('')
             thumbnailDialog.setFileMode(QFileDialog.Directory)
@@ -934,7 +930,7 @@ with the 'Full Height Mix' style here: https://github.com/ebzero/garlic-onion-sk
                     files = os.listdir(dir)
                     savedFiles = []
                     #Setup progress as these can take a while
-                    msgBox.progress.setMaximum(len(files))
+                    msgBox.progress.setMaximum(len(files)*2)
                     progress = 0
                     msgBox.setText("Copying thumbnails for zips")
                     msgBox.showProgress(progress, True)
@@ -1329,7 +1325,13 @@ class SettingsWindow(QDialog):
         # number_group.addButton(r1)
         # layout.addWidget(r0)
         # layout.addWidget(r1)
-
+        #TODO add a bunch more help to users
+        """
+        QMessageBox.about(self, "Add Thumbnails", "You have Tadpole configured to upload your own thumbnails. \
+        In the open file dialog, select the directory where the images are located.  For this to work, \
+        The picture names must be the same as the ROM names. A great tool for this is Skraper combined \
+        with the 'Full Height Mix' style here: https://github.com/ebzero/garlic-onion-skraper-mix/tree/main#full-height-mix.")
+        """
         # Main Buttons Layout (Save/Cancel)
         self.layout_buttons = QHBoxLayout()
         self.layout_main.addLayout(self.layout_buttons)

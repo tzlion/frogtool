@@ -159,57 +159,31 @@ def overwriteZXXThumbnail(roms_path, system, progress):
         zxx_rom_file = frogtool.find_matching_file_diff_ext(img_file, rom_files)
         if not zxx_rom_file:
             continue
-        converted = frogtool.rgb565_convert(img_file.path, zxx_rom_file.path, (144, 208))
+        tempPath = f"{zxx_rom_file.path}.tmp"
+        converted = frogtool.rgb565_convert(img_file.path, tempPath, (144, 208))
         if not converted:
             print("! Aborting image processing due to errors")
+            break
+        try:
+            temp_file_handle = open(tempPath, "ab")
+            zxx_file_handle = open(zxx_rom_file.path, "rb")
+            romData = bytearray(zxx_file_handle.read())
+            temp_file_handle.write(romData[59904:])
+            temp_file_handle.close()
+            zxx_file_handle.close()
+        except (OSError, IOError):
+            print(f"! Failed appending zip file to ")
+            break
+        try:
+            shutil.move(tempPath,zxx_rom_file.path)
+        except (OSError, IOError) as error:
+            print(f"! Failed moving temp files. {error}")
             break
         imgs_processed += 1
         progress.setValue(imgs_processed)
         QApplication.processEvents()
     #Third we need to copy the data of the new thumbnail over to the rom file
-    #...Or do we?  Didn't we already feed in teh image and convert function above?
-    #TODO: why are we doing this on changeZXXThumbnail(romPath, imagePath)?
-        #tempPath = f"{romPath}.tmp"
-    #     try:
-    #         temp_file_handle = open(tempPath, "ab")
-    #         zxx_file_handle = open(romPath, "rb")
-    #         romData = bytearray(zxx_file_handle.read())
-    #         temp_file_handle.write(romData[59904:])
-    #         temp_file_handle.close()
-    #         zxx_file_handle.close()
-    #     except (OSError, IOError):
-    #         print(f"! Failed appending zip file to ")
-    #         return False
-    #     try:
-    #         shutil.move(tempPath,romPath)
-    #     except (OSError, IOError) as error:
-    #         print(f"! Failed moving temp files. {error}")
-    #         return False
 
-    # if imgs_processed:
-    #     print(f"Combined {imgs_processed} zip + image pairs into .{sys_zxx_ext} files")
-
-    # tempPath = f"{romPath}.tmp"
-    # converted = frogtool.rgb565_convert(imagePath, tempPath, (144, 208))
-    # if not converted:
-    #     return False
-    # # copy the rom data to the temp
-    # try:
-    #     temp_file_handle = open(tempPath, "ab")
-    #     zxx_file_handle = open(romPath, "rb")
-    #     romData = bytearray(zxx_file_handle.read())
-    #     temp_file_handle.write(romData[59904:])
-    #     temp_file_handle.close()
-    #     zxx_file_handle.close()
-    # except (OSError, IOError):
-    #     print(f"! Failed appending zip file to ")
-    #     return False
-    # try:
-    #     shutil.move(tempPath,romPath)
-    # except (OSError, IOError) as error:
-    #     print(f"! Failed moving temp files. {error}")
-    #     return False
-    # return True
 """
 This is a rewrtite attempt at changing the cover art inplace rather thancopy and replace
 """
