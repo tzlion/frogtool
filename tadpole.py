@@ -1031,7 +1031,7 @@ the thumbnail for you. ")
 
     def change_background_music(self):
         """event to change background music"""
-        if self.sender().text() == "From Local File...":  # handle local file option
+        if self.sender().text() == "Upload from Local File...":  # handle local file option
             d = MusicConfirmDialog()
             local = True
         else:  # handle preset options
@@ -1174,14 +1174,15 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
     def change_theme(self, url):
         drive = window.combobox_drive.currentText()
         #TODO error handling
-        url =  self.theme_options[self.sender().text()]
+        if not self.sender().text() == "Update From Local File...":
+            url =  self.theme_options[self.sender().text()]
         msgBox = DownloadMessageBox()
         msgBox.setText("Updating Theme...")
         msgBox.show()
         progress = 1
         msgBox.showProgress(progress, True)
         """event to change theme"""
-        if self.sender().text() == "Update From Local Zip File...":  # handle local file option
+        if self.sender().text() == "Update From Local File...":  # handle local file option
             theme_zip = filename, _ = QFileDialog.getOpenFileName(self,"Select Theme ZIP File",'',"Theme ZIP file (*.zip)")
             if filename:
                 result = tadpole_functions.changeTheme(drive, "", theme_zip[0], msgBox.progress)

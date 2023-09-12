@@ -545,9 +545,6 @@ def changeTheme(drive_path: str, url: str = "", file: str = "", progressBar: QPr
             with zipfile.ZipFile(file) as zip:
                 progressBar.setMaximum(len(zip.infolist()))
                 progress = 2
-                #TODO: Hacky but assume any zip folder with more than 49 files is not a theme zip
-                if len(zip.infolist()) > 49:
-                    return False
                 for zip_info in zip.infolist():     
                     #print(zip_info)
                     if zip_info.is_dir():
