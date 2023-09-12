@@ -723,9 +723,9 @@ class MainWindow (QMainWindow):
         self.btn_update.clicked.connect(self.copyRoms)
         
         # Add Thumbnails button
-        self.btn_update_thumbnails = QPushButton("Add thubmnails...")
+        self.btn_update_thumbnails = QPushButton("Add Thumbnails...")
         selector_layout.addWidget(self.btn_update_thumbnails )
-        self.btn_update_thumbnails .clicked.connect(self.downloadBoxartForZips)
+        self.btn_update_thumbnails .clicked.connect(self.addBoxart)
 
         # Game Table Widget
         self.tbl_gamelist = QTableWidget()
@@ -910,14 +910,13 @@ class MainWindow (QMainWindow):
             QMessageBox.about("tadpole~detectOSVersion: Error occured while trying to find OS Version" + str(e))
             return
     
-    def downloadBoxartForZips(self):
+    def addBoxart(self):
         drive = window.combobox_drive.currentText()
         user_selected_console = window.combobox_console.currentText()
         rom_path = os.path.join(drive,user_selected_console)
         msgBox = DownloadMessageBox()
         msgBox.progress.reset()
-
-
+        #Check what the user has configured; upload or download
         config = configparser.ConfigParser()
         config.read(drive + "/Resources/tadpole.ini")
         if config.get('thumbnails', 'download') == "0":
@@ -935,13 +934,13 @@ with the 'Full Height Mix' style here: https://github.com/ebzero/garlic-onion-sk
                     files = os.listdir(dir)
                     savedFiles = []
                     #Setup progress as these can take a while
-                    msgBox.progress.setMaximum(len(files)*2)
-                    progress = 1
-                    msgBox.setText("Copying thumbnails...")
+                    msgBox.progress.setMaximum(len(files))
+                    progress = 0
+                    msgBox.setText("Copying thumbnails for zips")
                     msgBox.showProgress(progress, True)
                     msgBox.show()
                     for file in files:
-                        #Only copy images over
+                        #Only copy images over from that folder
                         if file.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
                             img_path = os.path.join(dir,file)
                             shutil.copy(img_path,rom_path)
@@ -949,8 +948,13 @@ with the 'Full Height Mix' style here: https://github.com/ebzero/garlic-onion-sk
                             savedFiles.append(os.path.join(rom_path, file))
                             progress += 1
                             msgBox.showProgress(progress, True)
-                    #New run through frogtool to match
+                    #New run through frogtool to match all zips...
                     frogtool.convert_zip_image_pairs_to_zxx(rom_path, user_selected_console)
+                    #Now run through all .ZBB files IF the user has this setup
+                    if config.get('thumbnails', 'ovewrite') == "True":
+                        msgBox.setText("Copying more thumbnails...")
+                        msgBox.progress.reset()
+                        tadpole_functions.overwriteZXXThumbnail(rom_path, user_selected_console, msgBox.progress)
                     msgBox.close()
                     QMessageBox.about(self, "Downloaded Thumbnails", "Adding thumbnails complete for "
                         + user_selected_console + "\nCheck out the thumbnails in each ROM to make sure it worked.\n\
@@ -1248,7 +1252,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
             ret = qm.question(self,'', f"Added " + str(len(filenames)) + " ROMs to " + drive + console + "\n\nDo you want to add thumbnails?\n\n\
 Note: This uses your setting to either upload via folder or download automatically.", qm.Yes | qm.No)
             if ret == qm.Yes:
-                MainWindow.downloadBoxartForZips(self)
+                MainWindow.addBoxart(self)
         RunFrogTool(window.combobox_console.currentText())
 
             

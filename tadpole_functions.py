@@ -108,21 +108,6 @@ versionDictionary = {
     "3f0ca7fcd47f1202828f6dbc177d8f4e6c9f37111e8189e276d925ffd2988267": "2023.08.03 (V1.6)"
 }
 
-
-def getThumbnailFromZXX(filepath):
-    """
-    file_handle = open(filepath, 'rb') #rb for read bytes
-    zxx_content = bytearray(file_handle.read(os.path.getsize(filepath)))#can probably reduce this to 208*104*2
-    file_handle.close()
-    thumbnailQImage = QImage()
-    for y in range (0, 208):
-        for x in range (0, 104):
-            intColor = 
-            thumbnailQImage.setPixel(x,y,)
-            
-    return thumbnailQImage"""
-    return False
-
 def changeZIPThumbnail(romPath, newImpagePath, system):
     #copy the image over to its easily handled in frogtool
     newLogoPath = os.path.dirname(romPath)
@@ -155,23 +140,93 @@ def changeZXXThumbnail(romPath, imagePath):
         return False
     return True
 
+def overwriteZXXThumbnail(roms_path, system, progress):
+    #First we need to get lists of all the images and ROMS
+    img_files = os.scandir(roms_path)
+    img_files = list(filter(frogtool.check_img, img_files))
+    rom_files = os.scandir(roms_path)
+    rom_files = list(filter(frogtool.check_rom, rom_files))
+    sys_zxx_ext = frogtool.zxx_ext[system]
+    if not img_files or not rom_files:
+        return
+    print(f"Found image and .z** files, looking for matches to combine to {sys_zxx_ext}")
+
+    #SECOND we need to get the RAW copies of each image...if there is a matching Z**
+    imgs_processed = 0
+    progress.setMaximum(len(img_files))
+    progress.setValue(imgs_processed)
+    for img_file in img_files:
+        zxx_rom_file = frogtool.find_matching_file_diff_ext(img_file, rom_files)
+        if not zxx_rom_file:
+            continue
+        converted = frogtool.rgb565_convert(img_file.path, zxx_rom_file.path, (144, 208))
+        if not converted:
+            print("! Aborting image processing due to errors")
+            break
+        imgs_processed += 1
+        progress.setValue(imgs_processed)
+        QApplication.processEvents()
+    #Third we need to copy the data of the new thumbnail over to the rom file
+    #...Or do we?  Didn't we already feed in teh image and convert function above?
+    #TODO: why are we doing this on changeZXXThumbnail(romPath, imagePath)?
+        #tempPath = f"{romPath}.tmp"
+    #     try:
+    #         temp_file_handle = open(tempPath, "ab")
+    #         zxx_file_handle = open(romPath, "rb")
+    #         romData = bytearray(zxx_file_handle.read())
+    #         temp_file_handle.write(romData[59904:])
+    #         temp_file_handle.close()
+    #         zxx_file_handle.close()
+    #     except (OSError, IOError):
+    #         print(f"! Failed appending zip file to ")
+    #         return False
+    #     try:
+    #         shutil.move(tempPath,romPath)
+    #     except (OSError, IOError) as error:
+    #         print(f"! Failed moving temp files. {error}")
+    #         return False
+
+    # if imgs_processed:
+    #     print(f"Combined {imgs_processed} zip + image pairs into .{sys_zxx_ext} files")
+
+    # tempPath = f"{romPath}.tmp"
+    # converted = frogtool.rgb565_convert(imagePath, tempPath, (144, 208))
+    # if not converted:
+    #     return False
+    # # copy the rom data to the temp
+    # try:
+    #     temp_file_handle = open(tempPath, "ab")
+    #     zxx_file_handle = open(romPath, "rb")
+    #     romData = bytearray(zxx_file_handle.read())
+    #     temp_file_handle.write(romData[59904:])
+    #     temp_file_handle.close()
+    #     zxx_file_handle.close()
+    # except (OSError, IOError):
+    #     print(f"! Failed appending zip file to ")
+    #     return False
+    # try:
+    #     shutil.move(tempPath,romPath)
+    # except (OSError, IOError) as error:
+    #     print(f"! Failed moving temp files. {error}")
+    #     return False
+    # return True
 """
 This is a rewrtite attempt at changing the cover art inplace rather thancopy and replace
 """
-def changeZXXThumbnail2(romPath, imagePath):
-    coverData = getImageData565(imagePath, (144, 208))
-    if not coverData:
-        return False
-    # copy the rom data to the temp
-    try:
-        zxx_file_handle = open(romPath, "r+b")
-        zxx_file_handle.seek(0)
-        zxx_file_handle.write(coverData)
-        zxx_file_handle.close()
-    except (OSError, IOError):
-        print(f"! Failed appending zip file to ")
-        return False
-    return True
+# def changeZXXThumbnail2(romPath, imagePath):
+#     coverData = getImageData565(imagePath, (144, 208))
+#     if not coverData:
+#         return False
+#     # copy the rom data to the temp
+#     try:
+#         zxx_file_handle = open(romPath, "r+b")
+#         zxx_file_handle.seek(0)
+#         zxx_file_handle.write(coverData)
+#         zxx_file_handle.close()
+#     except (OSError, IOError):
+#         print(f"! Failed appending zip file to ")
+#         return False
+#     return True
 
 
 def getImageData565(src_filename, dest_size=None):
