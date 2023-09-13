@@ -794,3 +794,120 @@ def writeDefaultSettings(drive):
     config.set('versions', 'tadpole', '0.3.9.9')
     with open(configPath, 'w') as configfile:
         config.write(configfile)
+
+def WriteShortcutImagesToBackground(icon1, icon2, icon3, icon4, drive, system):
+    #Following techniques by Zerter at view-source:https://zerter555.github.io/sf2000-collection/mainMenuIcoEditor.html
+    #get the system because each system has its own image
+    #def WriteShortcutImagesToBackground(icon1, icon2, icon3, icon4, system):
+    if system == "SFC":
+        resourceFile = "drivr.ers"
+        resourceFilePath = drive + "/Resources/" + resourceFile
+        currentBackground = convertRGB565toPNG(resourceFilePath)
+        print(resourceFile + " converted to PNG.")
+    elif system == "FC":
+        resourceFile = "fixas.ctp"
+        resourceFilePath = drive + "/Resources/" + resourceFile
+        currentBackground = convertRGB565toPNG(resourceFilePath)
+        print(resourceFile + " converted to PNG.")
+    elif system == "MD":
+        resourceFile = "icuin.cpl"
+        resourceFilePath = drive + "/Resources/" + resourceFile
+        currentBackground = convertRGB565toPNG(resourceFilePath)
+        print(resourceFile + " converted to PNG.")
+    elif system == "GB":
+        resourceFile = "xajkg.hsp"
+        resourceFilePath = drive + "/Resources/" + resourceFile
+        currentBackground = convertRGB565toPNG(resourceFilePath)
+        print(resourceFile + " converted to PNG.")
+    elif system == "GBC":
+        resourceFile = "qwave.bke"
+        resourceFilePath = drive + "/Resources/" + resourceFile
+        currentBackground = convertRGB565toPNG(resourceFilePath)
+        print(resourceFile + " converted to PNG.")
+    elif system == "GBA":
+        resourceFile = "irftp.ctp"
+        resourceFilePath = drive + "/Resources/" + resourceFile
+        currentBackground = convertRGB565toPNG(resourceFilePath)
+        print(resourceFile + " converted to PNG.")
+    elif system == "ARCADE":
+        resourceFile = "hctml.ers"
+        resourceFilePath = drive + "/Resources/" + resourceFile
+        currentBackground = convertRGB565toPNG(resourceFilePath)
+        print(resourceFile + " converted to PNG.")
+    #only paste on top if the image exists (they may have only selected a few)
+    if os.path.exists(icon1):
+        game1 = Image.open(icon1, 'r')
+        game1 = game1.resize((124,124), Image.Resampling.LANCZOS)
+        currentBackground.paste(game1, (42,290))
+    if os.path.exists(icon2):
+        game2 = Image.open(icon2, 'r')
+        game2 = game2.resize((124,124), Image.Resampling.LANCZOS)
+        currentBackground.paste(game2, (186,290))
+    if os.path.exists(icon3):
+        game3 = Image.open(icon3, 'r')
+        game3 = game3.resize((124,124), Image.Resampling.LANCZOS)
+        currentBackground.paste(game3, (330,290))
+    if os.path.exists(icon4):
+        game4 = Image.open(icon4, 'r')
+        game4 = game4.resize((124,124), Image.Resampling.LANCZOS)
+        currentBackground.paste(game4, (474,290))
+    #save that modfieid PNG to a file for us to copy
+    tempPNGBackground = resourceFile + ".png"
+    currentBackground.save(tempPNGBackground)
+    #Convert that PNG to a raw image file to push back to resources
+    if system == "SFC":
+        resourceFile = "drivr.ers"
+        convertPNGtoResourceRGB565(resourceFile, drive)
+    elif system == "FC":
+        resourceFile = "fixas.ctp"
+        convertPNGtoResourceRGB565(resourceFile, drive)
+    elif system == "MD":
+        resourceFile = "icuin.cpl"
+        convertPNGtoResourceRGB565(resourceFile, drive)
+    elif system == "GB":
+        resourceFile = "xajkg.hsp"
+        convertPNGtoResourceRGB565(resourceFile, drive)
+    elif system == "GBC":
+        resourceFile = "qwave.bke"
+        convertPNGtoResourceRGB565(resourceFile, drive)
+    elif system == "GBA":
+        resourceFile = "irftp.ctp"
+        convertPNGtoResourceRGB565(resourceFile, drive)
+    elif system == "ARCADE":
+        resourceFile = "hctml.ers"
+        convertPNGtoResourceRGB565(resourceFile, drive)
+
+def convertRGB565toPNG(inputFile):
+        # Read the binary data
+        with open(inputFile, 'rb') as file:
+            data = file.read()
+
+        # Unpack the RGB565 data
+        pixels = struct.unpack('<' + ('H' * (len(data) // 2)), data)
+
+        # Convert the RGB565 values to RGB888 format
+        rgb888_pixels = [
+            ((pixel & 0xF800) >> 8, (pixel & 0x07E0) >> 3, (pixel & 0x001F) << 3)
+            for pixel in pixels
+        ]
+
+        # Create an image from the pixels
+        width = 640  # Specify the width of the image
+        height = len(rgb888_pixels) // width
+        image = Image.new('RGB', (width, height))
+        image.putdata(rgb888_pixels)
+
+        # Save the image as PNG
+        image.save('output.png')
+        return image
+
+def convertPNGtoResourceRGB565(resourceFileName, drive):
+    tempPNGBackground = resourceFileName + ".png"
+    tempRawBackground = resourceFileName + ".raw"
+    if frogtool.rgb565_convert(tempPNGBackground, tempRawBackground, dest_size=(640, 480)):
+        shutil.copy(tempRawBackground, drive + "/Resources/" + resourceFileName)
+        os.remove(tempPNGBackground)
+        os.remove(tempRawBackground)
+        print(resourceFileName + " updated.")
+    else:
+        print("Couldn't convert file for gameshortcut")

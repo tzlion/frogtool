@@ -490,6 +490,129 @@ class BootConfirmDialog(QDialog):
         # Load Initial Image
         self.current_viewer.load_from_bios(self.drive)
 
+class GameShortcutIconViewer(QLabel):
+    """
+    Args:
+        parent (BootConfirmDialog): Parent widget. Used to enable/disable controls on parent.
+        changeable (bool): If True, will allow importing new image. If False, will just allow static display.
+    """
+    def __init__(self, parent, changeable=False):
+        super().__init__(parent)
+
+        self.changeable = changeable
+        self.path = ""  # Used to store path to the currently-displayed file
+        self.setStyleSheet("background-color: white;")
+        self.setMinimumSize(124, 124)  # resize to Froggy boot logo dimensions
+
+        if self.changeable:
+            self.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+            self.setText("Click to Select New Image")
+
+    def mousePressEvent(self, ev):
+        """
+        Overrides built-in function to handle mouse click events. Prompts user for image path and loads same.
+        """
+        if self.changeable:  # only do something if image is changeable
+            file_name = QFileDialog.getOpenFileName(self, 'Open file', '',
+                                                    "Images (*.jpg *.png *.webp);;RAW (RGB565 Little Endian) Images (*.raw)")[0]
+            if len(file_name) > 0:  # confirm if user selected a file
+                self.load_image(file_name)
+
+    def load_image(self, path: str) -> str:
+        """
+        Loads an image into the viewer.  If the image is loaded successfully, may enable the parent Save button based
+        on the changeable flag.
+
+        Args:
+            path (str): Path to the image.  Can be .raw or other format.  If .raw, assumed to be in RGB16 (RGB565 Little
+                Endian) format used for Froggy boot logos.  Must be 512x200 pixels or it will not be accepted/displayed.
+
+        Returns:
+            bool: True if image was loaded, False if not.
+        """
+        if os.path.splitext(path)[1] == ".raw":  # if raw image, assume RGB16 (RGB565 Little Endian)
+            with open(path, "rb") as f:
+                img = QImage(f.read(), 124, 124, QImage.Format_RGB16)
+        else:  # otherwise let QImage autodetection do its thing
+            img = QImage(path)
+            if (img.width(), img.height()) != (124, 124): 
+                img = img.scaled(124, 124, Qt.IgnoreAspectRatio, Qt.SmoothTransformation) #Rescale new boot logo to correct size
+        self.path = path  # update path
+        self.setPixmap(QPixmap().fromImage(img))
+
+        if self.changeable:  # only enable saving for changeable dialogs; prevents enabling with load from bios
+            self.parent().button_save.setDisabled(False)
+        return path
+
+
+class GameShortcutIconsDialog(QDialog):
+    """
+    Dialog used to upload game shortcut with the ability to view existing selection and replacement.
+
+    Args:
+        drive (str): Path to root of froggy drive.
+    """
+    def __init__(self, drive):
+        super().__init__()
+
+        self.drive = drive
+        self.iconShortcutPaths = []
+        self.setWindowTitle("Game Shortcut Icon Selection")
+        self.setWindowIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)))
+
+        # Setup Main Layout
+        self.layout_horizontal = QHBoxLayout()
+        self.layout_vertical = QVBoxLayout()
+        self.layout_vertical2 = QVBoxLayout()
+        self.layout_vertical3 = QVBoxLayout()
+        self.layout_vertical4 = QVBoxLayout()
+        self.layout_horizontal.addLayout(self.layout_vertical)
+        self.layout_horizontal.addLayout(self.layout_vertical2)
+        self.layout_horizontal.addLayout(self.layout_vertical3)
+        self.layout_horizontal.addLayout(self.layout_vertical4)
+        self.setLayout(self.layout_horizontal)
+
+        # set up new image viewers
+        self.new_viewer1 = GameShortcutIconViewer(self, changeable=True)
+        self.layout_vertical.addWidget(self.new_viewer1)
+        self.layout_vertical.addWidget(QLabel("Icon 1"))
+
+        # set up new image viewers
+        self.new_viewer2 = GameShortcutIconViewer(self, changeable=True)
+        self.layout_vertical2.addWidget(self.new_viewer2)
+        self.layout_vertical2.addWidget(QLabel("Icon 2"))
+
+        # # set up new image viewers
+        self.new_viewer3 = GameShortcutIconViewer(self, changeable=True)
+        self.layout_vertical3.addWidget(self.new_viewer3)
+        self.layout_vertical3.addWidget(QLabel("Icon 3"))
+
+        # # set up new image viewers
+        self.new_viewer4 = GameShortcutIconViewer(self, changeable=True)
+        self.layout_vertical4.addWidget(self.new_viewer4)
+        self.layout_vertical4.addWidget(QLabel("Icon 4"))
+
+        # Main Buttons Layout (Save/Cancel)
+        self.layout_buttons = QHBoxLayout()
+        self.layout_horizontal.addLayout(self.layout_buttons)
+
+        # Save Button
+        self.button_save = QPushButton("Save")
+        self.button_save.setDefault(True)
+        self.button_save.setDisabled(True)  # set disabled by default; need to wait for user to select new image
+        self.button_save.clicked.connect(self.Finish)
+        self.layout_buttons.addWidget(self.button_save)
+
+        # Cancel Button
+        self.button_cancel = QPushButton("Cancel")
+        self.button_cancel.clicked.connect(self.reject)
+        self.layout_buttons.addWidget(self.button_cancel)
+
+    def Finish(self):
+        #Get the paths of all the viewers
+        self.iconShortcutPaths = [self.new_viewer1.path, self.new_viewer2.path, self.new_viewer3.path, self.new_viewer4.path]
+        self.accept()
+
 class PleaseWaitDialog(QMainWindow):
     """
     Dialog used to stop interaction while something is happening from program root.
@@ -726,6 +849,12 @@ class MainWindow (QMainWindow):
         self.btn_update_thumbnails = QPushButton("Add Thumbnails...")
         selector_layout.addWidget(self.btn_update_thumbnails )
         self.btn_update_thumbnails .clicked.connect(self.addBoxart)
+
+        # Add Shortcut button
+        self.btn_update_shortcuts_images = QPushButton("Change Game Shortcut Icons...")
+        selector_layout.addWidget(self.btn_update_shortcuts_images )
+        self.btn_update_shortcuts_images.clicked.connect(self.addShortcutImages)
+
 
         # Game Table Widget
         self.tbl_gamelist = QTableWidget()
@@ -1265,7 +1394,18 @@ Note: This uses your setting to either upload via folder or download automatical
                     comboBox.setCurrentIndex(0)
         processGameShortcuts()
         return
-
+    
+    def addShortcutImages(self):
+        gameIcons = []
+        dialog = GameShortcutIconsDialog(window.combobox_drive.currentText())
+        status = dialog.exec()
+        if status:
+            gameIcons = dialog.iconShortcutPaths
+            tadpole_functions.WriteShortcutImagesToBackground(gameIcons[0], gameIcons[1], gameIcons[2], gameIcons[3], window.combobox_drive.currentText(), window.combobox_console.currentText())
+            print("Completed icon changes")
+            QMessageBox.about(self, "Completed icon changes",f"Updated Game Shortcut Icons.  Check them out on your SF2000.")
+        else:
+            print("user cancelled")
 # Subclass Qidget to create a thumbnail viewing window        
 class SettingsWindow(QDialog):
     """
