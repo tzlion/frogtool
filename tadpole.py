@@ -198,6 +198,9 @@ def loadROMsToTable():
             # set previously saved shortcuts
             position = tadpole_functions.getGameShortcutPosition(drive, system, game)
             shortcut_comboBox.setCurrentIndex(position)
+            # update game table
+            #if position != 0:
+            #    tadpole_functions.game_shortcut_list[position-1] = game.rsplit( ".", 1 )[ 0 ] 
             # get a callback to make sure the user isn't setting the same shortcut twice
             window.tbl_gamelist.setCellWidget(i, 3, shortcut_comboBox)
             shortcut_comboBox.activated.connect(window.validateGameShortcutComboBox)
@@ -499,12 +502,39 @@ class GameShortcutIconsDialog(QDialog):
         #set some common variables used in the class
         self.drive = window.combobox_drive.currentText()
         self.console = window.combobox_console.currentText()
+        self.roms_path = os.path.join(self.drive, self.console)
         #This is the file we will use while modifying the existing resource file
         self.workingPNGPath = 'currentBackground.temp.png'
+        #Setup a variable to access the current game shortcuts on the system
+        self.game_shortcut_list = ["No Game", "No Game", "No Game", "No Game"]
         #Set UI on dialog
         self.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
         self.setWindowTitle("Game Shortcut Icon Selection")
         self.setWindowIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)))
+        # Load game shortcuts
+        files = frogtool.getROMList(self.roms_path)
+        # need a temp list for us to work while iterating
+        temp_game_shortcut_list = [''] * 4
+        #found = False
+        window.tbl_gamelist.setRowCount(len(files))
+        files.sort()
+        for i, shortcut in enumerate(self.game_shortcut_list): 
+            for j, game in enumerate(files):
+                # set previously saved shortcuts
+                position = tadpole_functions.getGameShortcutPosition(self.drive, self.console, game)
+                # save this list globally beacuse we want to use it in other places
+                if position != 0:
+                    temp_game_shortcut_list[position-1] = game.rsplit( ".", 1 )[ 0 ]
+                    #found = True
+                    #break
+        #Just scan through and replace  
+            for i, shortcut in enumerate(temp_game_shortcut_list):
+                if shortcut == '':
+                    temp_game_shortcut_list[i] = "No Game Shortcut"
+            #if it didn't find a current game, it must be blank
+        #save temp to final list
+        self.game_shortcut_list = temp_game_shortcut_list.copy()
+
         # Setup Main Layout
         # TODO...I should have used Grid but here we are
         self.layout_main_vertical = QVBoxLayout()
@@ -514,29 +544,53 @@ class GameShortcutIconsDialog(QDialog):
         # set up the main preview
         self.backgroundImage = QLabel(self)
         self.layout_current_viewer.addWidget(self.backgroundImage)
+        # Setup Game Shortcut Name Labels
+        self.shortcut_game_labels = QHBoxLayout()
+        self.layout_main_vertical.addLayout(self.shortcut_game_labels)
         # Setup buttons to change the icons
         self.shortcut_buttons = QHBoxLayout()
         self.layout_main_vertical.addLayout(self.shortcut_buttons)
         #Gameshortcut Icons 1
-        self.button_icon1 = QPushButton("Change Icon 1")
+        self.button_icon1 = QPushButton("Change icon 1")
         self.button_icon1.setFixedSize(100,100)
         self.button_icon1.clicked.connect(self.addShortcut)
         self.shortcut_buttons.addWidget(self.button_icon1)
+
+        self.label1 = QLabel((self.game_shortcut_list[0]), self)
+        self.label1.setWordWrap(True)  
+        self.label1.setAlignment(Qt.AlignCenter)
+        self.shortcut_game_labels.addWidget(self.label1, Qt.AlignCenter)
         #Gameshortcut Icons 2
-        self.button_icon2 = QPushButton("Change Icon 2")
+        self.button_icon2 = QPushButton("Change icon 2")
         self.button_icon2.setFixedSize(100,100)
         self.button_icon2.clicked.connect(self.addShortcut)
         self.shortcut_buttons.addWidget(self.button_icon2)
+
+        self.label2 = QLabel((self.game_shortcut_list[1]), self)
+        self.label2.setWordWrap(True)  
+        self.label2.setAlignment(Qt.AlignCenter)
+        self.shortcut_game_labels.addWidget(self.label2, Qt.AlignCenter)
         #Gameshortcut Icons 3
-        self.button_icon3 = QPushButton("Change Icon 3")
+        self.button_icon3 = QPushButton("Change icon 3")
         self.button_icon3.setFixedSize(100,100)
         self.button_icon3.clicked.connect(self.addShortcut)
         self.shortcut_buttons.addWidget(self.button_icon3)
+
+        self.label3 = QLabel((self.game_shortcut_list[2]), self)
+        self.label3.setWordWrap(True)  
+        self.label3.setAlignment(Qt.AlignCenter)
+        self.shortcut_game_labels.addWidget(self.label3, Qt.AlignCenter)
+        
         #Gameshortcut Icons 4
-        self.button_icon4 = QPushButton("Change Icon 4")
+        self.button_icon4 = QPushButton("Change icon 4")
         self.button_icon4.setFixedSize(100,100)
         self.button_icon4.clicked.connect(self.addShortcut)
         self.shortcut_buttons.addWidget(self.button_icon4)
+
+        self.label4 = QLabel((self.game_shortcut_list[3]), self)
+        self.label4.setWordWrap(True)  
+        self.label4.setAlignment(Qt.AlignCenter)
+        self.shortcut_game_labels.addWidget(self.label4, Qt.AlignCenter)
         # Main Buttons Layout (Save/Cancel)
         self.layout_buttons = QHBoxLayout()
         self.layout_main_vertical.addLayout(self.layout_buttons)
@@ -552,6 +606,17 @@ class GameShortcutIconsDialog(QDialog):
         self.layout_buttons.addWidget(self.button_cancel)
         # Now load Current Preview image
         self.load_from_Resources()
+        # roms_path = os.path.join(self.drive, self.console)
+        # files = frogtool.getROMList(roms_path)
+        # QApplication.processEvents()
+        # window.tbl_gamelist.setRowCount(len(files))
+        # print(f"found {len(files)} ROMs")
+        # #sort the list aphabetically before we go through it
+        # files = sorted(files)
+        # for i,f in enumerate(files):
+        #     game = f
+        #     position = tadpole_functions.getGameShortcutPosition(drive, system, game)
+        #     shortcut_comboBox.setCurrentIndex(position)
 
     def ovewrite_background_and_reload(self, path, icon):
         #Following techniques by Zerter at view-source:https://zerter555.github.io/sf2000-collection/mainMenuIcoEditor.html
@@ -926,9 +991,11 @@ class MainWindow (QMainWindow):
         self.menu_os.menu_update = self.menu_os.addMenu("Firmware")
         action_detectOSVersion = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Detect and update firmware", self, triggered=self.detectOSVersion)
         self.menu_os.menu_update.addAction(action_detectOSVersion)
+        action_battery_fix  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Battery Meter Fix - Built by commnity (Improves battery life & shows low power warning)", self, triggered=self.Battery_fix)                                                                              
+        self.menu_os.menu_update.addAction(action_battery_fix)   
         action_updateTo20230803  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Manually change to 2023.08.03 (V1.6)", self, triggered=self.Updateto20230803)                                                                              
         self.menu_os.menu_update.addAction(action_updateTo20230803)   
-        self.action_updateToV1_5  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Manually change to 2023.04.20 (V1.5)", self, triggered=self.UpdatetoV1_5)                                                                              
+        self.action_updateToV1_5  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Manually change to 2023.04.20 (V1.5)  - Not suggested", self, triggered=self.UpdatetoV1_5)                                                                              
         self.menu_os.menu_update.addAction(self.action_updateToV1_5)
             #Sub-menu for updating themes
         self.menu_os.menu_change_theme = self.menu_os.addMenu("Theme")
@@ -1327,6 +1394,9 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         url = "https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/20230803"
         self.UpdateDevice(url)
 
+    def Battery_fix(self):
+        print("Let's fix battery")
+
     def UpdateDevice(self, url):
         drive = window.combobox_drive.currentText()
         msgBox = DownloadMessageBox()
@@ -1424,6 +1494,8 @@ Note: This uses your setting to either upload via folder or download automatical
             
     def validateGameShortcutComboBox(self):
         currentComboBox = self.sender() 
+        if currentComboBox.currentText() == '':
+            QMessageBox.about(window, "Game Shortcut","You can't really remove a game shortcut slot on SF2000.\n\nIf you don't pick another game, this game will stay as a shortcut when you switch systems or make other changes.")
         if currentComboBox.currentText() != '':
             for i in range(self.tbl_gamelist.rowCount()):
                 comboBox = window.tbl_gamelist.cellWidget(i, 3)
@@ -1743,89 +1815,43 @@ class DownloadMessageBox(QMessageBox):
         #TODO: This really is tough on long calls on performance, let's only do it when needed
         if refreshBoolean:
             QApplication.processEvents()
-        
-        #qt_msgbox_label = self.findChild(QLabel, "qt_msgbox_label")
-        #print(f"Width: {qt_msgbox_label.width()}")
-        #self.setFixedWidth(qt_msgbox_label.width()+100)
-
-
-# Subclass Qidget to create a change shortcut window        
-# class changeGameShortcutsWindow(QWidget):
-#     """
-#         This window should be called without a parent widget so that it is created in its own window.
-#     """
-#     drive = ""
-   
-#     def __init__(self):
-#         super().__init__()
-
-#         layout = QHBoxLayout()
-#         # Console select
-#         self.combobox_console = QComboBox()
-        
-#         layout.addWidget(QLabel("Console:"))
-#         layout.addWidget(self.combobox_console)
-
-#         # Position select
-#         self.combobox_shortcut = QComboBox()
-#         layout.addWidget(QLabel("Shortcut:"))
-#         layout.addWidget(self.combobox_shortcut)
-
-#         # Game Select
-#         self.combobox_games = QComboBox()
-#         layout.addWidget(QLabel("Game:"))
-#         layout.addWidget(self.combobox_games, stretch=1)
-
-#         # Update Button Widget
-#         self.btn_update = QPushButton("Update!")
-#         layout.addWidget(self.btn_update)
-#         self.btn_update.clicked.connect(self.changeShortcut) 
-
-#         self.setLayout(layout)
-#         self.setWindowTitle(f"Change System Shortcuts") 
-#         for console in frogtool.systems.keys():
-#             self.combobox_console.addItem(QIcon(), console, console)
-        
-#         for i in range(1, 5):
-#             self.combobox_shortcut.addItem(QIcon(), f"{i}", i)
-#         self.combobox_console.currentIndexChanged.connect(self.loadROMsToGameShortcutList) 
 
     def setDrive(self,drive):
         self.drive = drive
         self.setWindowTitle(f"Change System Shortcuts - {drive}") 
     
-    def loadROMsToGameShortcutList(self,index):
-        print("reloading shortcut game table")
-        if self.drive == "":
-            print("ERROR: tried to load games for shortcuts on a blank drive")
-            return
-        system = self.combobox_console.currentText()
-        if system == "" or system == "???":
-            print("ERROR: tried to load games for shortcuts on an incorrect system")
-            return
-        roms_path = os.path.join(self.drive, system)
-        try:
-            files = frogtool.getROMList(roms_path)
-            self.combobox_games.clear()
-            for file in files:
-                self.combobox_games.addItem(QIcon(),file,file)
-            # window.window_shortcuts.combobox_games.adjustSize()
-        except frogtool.StopExecution:
-            # Empty the table
-            window.tbl_gamelist.setRowCount(0)
+    # def loadROMsToGameShortcutList(self,index):
+    #     print("reloading shortcut game table")
+    #     if self.drive == "":
+    #         print("ERROR: tried to load games for shortcuts on a blank drive")
+    #         return
+    #     system = self.combobox_console.currentText()
+    #     if system == "" or system == "???":
+    #         print("ERROR: tried to load games for shortcuts on an incorrect system")
+    #         return
+    #     roms_path = os.path.join(self.drive, system)
+    #     try:
+    #         files = frogtool.getROMList(roms_path)
+    #         self.combobox_games.clear()
+    #         for file in files:
+    #             self.combobox_games.addItem(QIcon(),file,file)
+    #         # window.window_shortcuts.combobox_games.adjustSize()
+    #     except frogtool.StopExecution:
+    #         # Empty the table
+    #         window.tbl_gamelist.setRowCount(0)
             
-    def changeShortcut(self):
-        console = self.combobox_console.currentText()
-        position = int(self.combobox_shortcut.currentText()) - 1 
-        game = self.combobox_games.currentText()
-        if console == "" or position == "" or game == "":
-            print("ERROR: There was an error due to one of the shortcut parameters being blank!")
-            QMessageBox.about(self, "ERROR", "One of the shortcut parameters was blank. That's not allowed for your \
-            safety.")
-            return
-        tadpole_functions.changeGameShortcut(f"{self.drive}", console, position,game)
-        print(f"changed {console} shortcut {position} to {game} successfully")
-        QMessageBox.about(window, "Success", f"changed {console} shortcut {position} to {game} successfully")
+    # def changeShortcut(self):
+    #     console = self.combobox_console.currentText()
+    #     position = int(self.combobox_shortcut.currentText()) - 1 
+    #     game = self.combobox_games.currentText()
+    #     if console == "" or position == "" or game == "":
+    #         print("ERROR: There was an error due to one of the shortcut parameters being blank!")
+    #         QMessageBox.about(self, "ERROR", "One of the shortcut parameters was blank. That's not allowed for your \
+    #         safety.")
+    #         return
+    #     tadpole_functions.changeGameShortcut(f"{self.drive}", console, position,game)
+    #     print(f"changed {console} shortcut {position} to {game} successfully")
+    #     QMessageBox.about(window, "Success", f"changed {console} shortcut {position} to {game} successfully")
         
 
 if __name__ == "__main__":

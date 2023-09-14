@@ -33,7 +33,6 @@ supported_save_ext = [
     "sav", "sa0", "sa1", "sa2", "sa3"
 ] 
 
-
 class Exception_InvalidPath(Exception):
     pass    
 
@@ -429,6 +428,38 @@ def changeGameShortcut(index_path, console, position, game):
         xfgle_file_handle = open(xfgle_filepath, "w")
         for line in lines:
             xfgle_file_handle.write(line)
+        xfgle_file_handle.close()       
+    except (OSError, IOError):
+        print(f"! Failed changing the shortcut file")
+        return False
+  
+    return -1
+
+def deleteGameShortcut(index_path, console, position, game):
+    # Check the passed variables for validity
+    if not(0 <= position <= 3):
+        raise Exception_InvalidPath
+    if not (console in systems.keys()):
+        raise Exception_InvalidConsole
+        
+    try:
+        trimmedGameName = frogtool.strip_file_extension(game)
+        #print(f"Filename trimmed to: {trimmedGameName}")
+        #Read in all the existing shortcuts from file
+        xfgle_filepath = os.path.join(index_path, "Resources", "xfgle.hgp")
+        xfgle_file_handle = open(xfgle_filepath, "r")
+        lines = xfgle_file_handle.readlines()
+        xfgle_file_handle.close()
+        prefix = 9
+        if console == "ARCADE":  # Arcade lines must be prefixed with "6", all others can be anything.
+            prefix = 6
+        # Overwrite the one line we want to change
+        lines[4*systems[console][3]+position] = f"{prefix} {game}*\n"
+        # Save the changes out to file
+        xfgle_file_handle = open(xfgle_filepath, "w")
+        for line in lines:
+            if line.strip("\n") != f"{prefix} {game}*":
+                xfgle_file_handle.write(line)
         xfgle_file_handle.close()       
     except (OSError, IOError):
         print(f"! Failed changing the shortcut file")
