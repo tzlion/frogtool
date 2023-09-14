@@ -44,17 +44,24 @@ class Exception_StopExecution(Exception):
 class InvalidURLError(Exception):
     pass
    
-def changeBootLogo(index_path, newLogoFileName):
+def changeBootLogo(index_path, newLogoFileName, msgBox):
     # Confirm we arent going to brick the firmware by finding a known version
     sfVersion = bisrv_getFirmwareVersion(index_path)
     print(f"Found Version: {sfVersion}")
     if sfVersion == None:
         return False  
-    # Load the new Logo    
+    # Load the new Logo
+    msgBox.setText("Uploading new boot logo...")
+    msgBox.showProgress(25, True)
+    QApplication.processEvents  
     newLogo = QImage(newLogoFileName)
     # Convert to RGB565
+    msgBox.setText("Converting boot logo...")
+    msgBox.showProgress(40, True)
     rgb565Data = QImageToRGB565Logo(newLogo)
     # Change the boot logo
+    msgBox.setText("Uploading boot logo...")
+    msgBox.showProgress(60, True)
     file_handle = open(index_path, 'rb')  # rb for read, wb for write
     bisrv_content = bytearray(file_handle.read(os.path.getsize(index_path)))
     file_handle.close()
@@ -65,12 +72,18 @@ def changeBootLogo(index_path, newLogoFileName):
         data = rgb565Data[i].to_bytes(2, 'little')
         bisrv_content[bootLogoStart+i*2] = data[0]
         bisrv_content[bootLogoStart+i*2+1] = data[1]
+    msgBox.setText("Updating BIOS file...")
+    msgBox.showProgress(80, True)
     print("Patching CRC")    
     bisrv_content = patchCRC32(bisrv_content)
+    msgBox.setText("Uploading BIOS file...")
+    msgBox.showProgress(90, True)
     print("Writing bisrv to file")
     file_handle = open(index_path, 'wb')  # rb for read, wb for write
     file_handle.write(bisrv_content)    
     file_handle.close()
+    msgBox.showProgress(99, True)
+    return True
 
 def patchCRC32(bisrv_content):
     x = crc32mpeg2(bisrv_content[512:len(bisrv_content):1])    
@@ -105,7 +118,7 @@ def QImageToRGB565Logo(inputQImage):
 # hash, versionName
 versionDictionary = {
     "6aebab0e4da39e0a997df255ad6a1bd12fdd356cdf51a85c614d47109a0d7d07": "2023.04.20 (V1.5)",
-    "3f0ca7fcd47f1202828f6dbc177d8f4e6c9f37111e8189e276d925ffd2988267": "2023.08.03 (V1.6)"
+    "334c8f0a8584db07078d7dfc940e540e6538dde948cb6fdbf50754e4e113d6bc": "2023.08.03 (V1.6)"
 }
 
 def changeZIPThumbnail(romPath, newImpagePath, system):
@@ -309,7 +322,57 @@ def bisrv_getFirmwareVersion(index_path):
                 return False
         else:
             return False
+        
+        # Next we'll look for (and zero out) the five bytes that the power
+        # monitoring functions of the SF2000 use for switching the UI's battery
+        # level indicator. These unfortunately can't be searched for - they're just
+        # in specific known locations for specific firmware versions...
+        prePowerCurve = findSequence([0x11, 0x05, 0x00, 0x02, 0x24], bisrv_content)
+        if prePowerCurve > -1:
+            powerCurveFirstByteLocation = prePowerCurve + 5
+            if powerCurveFirstByteLocation == 0x35A8F8:
+                # Seems to match mid-March layout...
+                bisrv_content[0x35A8F8] = 0x00
+                bisrv_content[0x35A900] = 0x00
+                bisrv_content[0x35A9B0] = 0x00
+                bisrv_content[0x35A9B8] = 0x00
+                bisrv_content[0x35A9D4] = 0x00
 
+            elif powerCurveFirstByteLocation == 0x35A954:
+                # Seems to match April 20th layout...
+                bisrv_content[0x35A954] = 0x00
+                bisrv_content[0x35A95C] = 0x00
+                bisrv_content[0x35AA0C] = 0x00
+                bisrv_content[0x35AA14] = 0x00
+                bisrv_content[0x35AA30] = 0x00
+
+            elif powerCurveFirstByteLocation == 0x35C78C:
+                # Seems to match May 15th layout...
+                bisrv_content[0x35C78C] = 0x00
+                bisrv_content[0x35C794] = 0x00
+                bisrv_content[0x35C844] = 0x00
+                bisrv_content[0x35C84C] = 0x00
+                bisrv_content[0x35C868] = 0x00
+
+            elif powerCurveFirstByteLocation == 0x35C790:
+                # Seems to match May 22nd layout...
+                bisrv_content[0x35C790] = 0x00
+                bisrv_content[0x35C798] = 0x00
+                bisrv_content[0x35C848] = 0x00
+                bisrv_content[0x35C850] = 0x00
+                bisrv_content[0x35C86C] = 0x00
+
+            elif powerCurveFirstByteLocation == 0x3564EC:
+                # Seems to match August 3rd layout...
+                bisrv_content[0x3564EC] = 0x00
+                bisrv_content[0x3564F4] = 0x00
+                bisrv_content[0x35658C] = 0x00
+                bisrv_content[0x356594] = 0x00
+                bisrv_content[0x3565B0] = 0x00
+            else:
+                return False
+        else:
+            return False
         # If we're here, we've zeroed-out all of the bits of the firmware that are
         # semi-user modifiable (boot logo, button mappings and the CRC32 bits); now
         # we can generate a hash of what's left and compare it against some known
@@ -321,9 +384,6 @@ def bisrv_getFirmwareVersion(index_path):
         print(f"Hash: {bisrvHash}")
         version = versionDictionary.get(bisrvHash)
         return version
-   
-        # else:
-        #      return False
         
     except (IOError, OSError):
         print("! Failed reading bisrv.")
@@ -795,88 +855,7 @@ def writeDefaultSettings(drive):
     with open(configPath, 'w') as configfile:
         config.write(configfile)
 
-def WriteShortcutImagesToBackground(icon1, icon2, icon3, icon4, drive, system):
-    #Following techniques by Zerter at view-source:https://zerter555.github.io/sf2000-collection/mainMenuIcoEditor.html
-    #get the system because each system has its own image
-    #def WriteShortcutImagesToBackground(icon1, icon2, icon3, icon4, system):
-    if system == "SFC":
-        resourceFile = "drivr.ers"
-        resourceFilePath = drive + "/Resources/" + resourceFile
-        currentBackground = convertRGB565toPNG(resourceFilePath)
-        print(resourceFile + " converted to PNG.")
-    elif system == "FC":
-        resourceFile = "fixas.ctp"
-        resourceFilePath = drive + "/Resources/" + resourceFile
-        currentBackground = convertRGB565toPNG(resourceFilePath)
-        print(resourceFile + " converted to PNG.")
-    elif system == "MD":
-        resourceFile = "icuin.cpl"
-        resourceFilePath = drive + "/Resources/" + resourceFile
-        currentBackground = convertRGB565toPNG(resourceFilePath)
-        print(resourceFile + " converted to PNG.")
-    elif system == "GB":
-        resourceFile = "xajkg.hsp"
-        resourceFilePath = drive + "/Resources/" + resourceFile
-        currentBackground = convertRGB565toPNG(resourceFilePath)
-        print(resourceFile + " converted to PNG.")
-    elif system == "GBC":
-        resourceFile = "qwave.bke"
-        resourceFilePath = drive + "/Resources/" + resourceFile
-        currentBackground = convertRGB565toPNG(resourceFilePath)
-        print(resourceFile + " converted to PNG.")
-    elif system == "GBA":
-        resourceFile = "irftp.ctp"
-        resourceFilePath = drive + "/Resources/" + resourceFile
-        currentBackground = convertRGB565toPNG(resourceFilePath)
-        print(resourceFile + " converted to PNG.")
-    elif system == "ARCADE":
-        resourceFile = "hctml.ers"
-        resourceFilePath = drive + "/Resources/" + resourceFile
-        currentBackground = convertRGB565toPNG(resourceFilePath)
-        print(resourceFile + " converted to PNG.")
-    #only paste on top if the image exists (they may have only selected a few)
-    if os.path.exists(icon1):
-        game1 = Image.open(icon1, 'r')
-        game1 = game1.resize((124,124), Image.Resampling.LANCZOS)
-        currentBackground.paste(game1, (42,290))
-    if os.path.exists(icon2):
-        game2 = Image.open(icon2, 'r')
-        game2 = game2.resize((124,124), Image.Resampling.LANCZOS)
-        currentBackground.paste(game2, (186,290))
-    if os.path.exists(icon3):
-        game3 = Image.open(icon3, 'r')
-        game3 = game3.resize((124,124), Image.Resampling.LANCZOS)
-        currentBackground.paste(game3, (330,290))
-    if os.path.exists(icon4):
-        game4 = Image.open(icon4, 'r')
-        game4 = game4.resize((124,124), Image.Resampling.LANCZOS)
-        currentBackground.paste(game4, (474,290))
-    #save that modfieid PNG to a file for us to copy
-    tempPNGBackground = resourceFile + ".png"
-    currentBackground.save(tempPNGBackground)
-    #Convert that PNG to a raw image file to push back to resources
-    if system == "SFC":
-        resourceFile = "drivr.ers"
-        convertPNGtoResourceRGB565(resourceFile, drive)
-    elif system == "FC":
-        resourceFile = "fixas.ctp"
-        convertPNGtoResourceRGB565(resourceFile, drive)
-    elif system == "MD":
-        resourceFile = "icuin.cpl"
-        convertPNGtoResourceRGB565(resourceFile, drive)
-    elif system == "GB":
-        resourceFile = "xajkg.hsp"
-        convertPNGtoResourceRGB565(resourceFile, drive)
-    elif system == "GBC":
-        resourceFile = "qwave.bke"
-        convertPNGtoResourceRGB565(resourceFile, drive)
-    elif system == "GBA":
-        resourceFile = "irftp.ctp"
-        convertPNGtoResourceRGB565(resourceFile, drive)
-    elif system == "ARCADE":
-        resourceFile = "hctml.ers"
-        convertPNGtoResourceRGB565(resourceFile, drive)
-
+#Credit to OpenAI "Give me sample code to convert little endian RGB565 binary images to PNG's in python"
 def convertRGB565toPNG(inputFile):
         # Read the binary data
         with open(inputFile, 'rb') as file:
@@ -898,16 +877,39 @@ def convertRGB565toPNG(inputFile):
         image.putdata(rgb888_pixels)
 
         # Save the image as PNG
-        image.save('output.png')
+        image.save('currentBackground.temp.png')
         return image
 
-def convertPNGtoResourceRGB565(resourceFileName, drive):
-    tempPNGBackground = resourceFileName + ".png"
+def convertPNGtoResourceRGB565(srcPNG, resourceFileName, drive):
     tempRawBackground = resourceFileName + ".raw"
-    if frogtool.rgb565_convert(tempPNGBackground, tempRawBackground, dest_size=(640, 480)):
+    if frogtool.rgb565_convert(srcPNG, tempRawBackground, dest_size=(640, 480)):
         shutil.copy(tempRawBackground, drive + "/Resources/" + resourceFileName)
-        os.remove(tempPNGBackground)
+        os.remove(srcPNG)
         os.remove(tempRawBackground)
         print(resourceFileName + " updated.")
     else:
         print("Couldn't convert file for gameshortcut")
+
+#returns a string to the current resource file for each system
+def getBackgroundResourceFileforConsole(drive, system):
+    if system == "SFC":
+        resourceFile = "drivr.ers"
+        return (drive + "/Resources/" + resourceFile)
+    elif system == "FC":
+        resourceFile = "fixas.ctp"
+        return (drive + "/Resources/" + resourceFile)
+    elif system == "MD":
+        resourceFile = "icuin.cpl"
+        return (drive + "/Resources/" + resourceFile)
+    elif system == "GB":
+        resourceFile = "xajkg.hsp"
+        return (drive + "/Resources/" + resourceFile)
+    elif system == "GBC":
+        resourceFile = "qwave.bke"
+        return (drive + "/Resources/" + resourceFile)
+    elif system == "GBA":
+        resourceFile = "irftp.ctp"
+        return (drive + "/Resources/" + resourceFile)
+    elif system == "ARCADE":
+        resourceFile = "hctml.ers"
+        return (drive + "/Resources/" + resourceFile)

@@ -55,9 +55,6 @@ def RunFrogTool(console):
             QMessageBox.about(window, "Result", "Rebuilt all ROMS for all systems")
         else:
             result = frogtool.process_sys(drive, console, False)
-            #TODO: its late, but I don't think I need this anymore after fixing the bug
-            #processGameShortcuts()       
-            #QMessageBox.about(window, "Result", result)
             print("Result " + result)      
         #Always reload the table now that the folders are all cleaned up
         loadROMsToTable()
@@ -490,61 +487,6 @@ class BootConfirmDialog(QDialog):
         # Load Initial Image
         self.current_viewer.load_from_bios(self.drive)
 
-class GameShortcutIconViewer(QLabel):
-    """
-    Args:
-        parent (BootConfirmDialog): Parent widget. Used to enable/disable controls on parent.
-        changeable (bool): If True, will allow importing new image. If False, will just allow static display.
-    """
-    def __init__(self, parent, changeable=False):
-        super().__init__(parent)
-
-        self.changeable = changeable
-        self.path = ""  # Used to store path to the currently-displayed file
-        self.setStyleSheet("background-color: white;")
-        self.setMinimumSize(124, 124)  # resize to Froggy boot logo dimensions
-
-        if self.changeable:
-            self.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-            self.setText("Click to Select New Image")
-
-    def mousePressEvent(self, ev):
-        """
-        Overrides built-in function to handle mouse click events. Prompts user for image path and loads same.
-        """
-        if self.changeable:  # only do something if image is changeable
-            file_name = QFileDialog.getOpenFileName(self, 'Open file', '',
-                                                    "Images (*.jpg *.png *.webp);;RAW (RGB565 Little Endian) Images (*.raw)")[0]
-            if len(file_name) > 0:  # confirm if user selected a file
-                self.load_image(file_name)
-
-    def load_image(self, path: str) -> str:
-        """
-        Loads an image into the viewer.  If the image is loaded successfully, may enable the parent Save button based
-        on the changeable flag.
-
-        Args:
-            path (str): Path to the image.  Can be .raw or other format.  If .raw, assumed to be in RGB16 (RGB565 Little
-                Endian) format used for Froggy boot logos.  Must be 512x200 pixels or it will not be accepted/displayed.
-
-        Returns:
-            bool: True if image was loaded, False if not.
-        """
-        if os.path.splitext(path)[1] == ".raw":  # if raw image, assume RGB16 (RGB565 Little Endian)
-            with open(path, "rb") as f:
-                img = QImage(f.read(), 124, 124, QImage.Format_RGB16)
-        else:  # otherwise let QImage autodetection do its thing
-            img = QImage(path)
-            if (img.width(), img.height()) != (124, 124): 
-                img = img.scaled(124, 124, Qt.IgnoreAspectRatio, Qt.SmoothTransformation) #Rescale new boot logo to correct size
-        self.path = path  # update path
-        self.setPixmap(QPixmap().fromImage(img))
-
-        if self.changeable:  # only enable saving for changeable dialogs; prevents enabling with load from bios
-            self.parent().button_save.setDisabled(False)
-        return path
-
-
 class GameShortcutIconsDialog(QDialog):
     """
     Dialog used to upload game shortcut with the ability to view existing selection and replacement.
@@ -552,65 +494,152 @@ class GameShortcutIconsDialog(QDialog):
     Args:
         drive (str): Path to root of froggy drive.
     """
-    def __init__(self, drive):
+    def __init__(self):
         super().__init__()
-
-        self.drive = drive
-        self.iconShortcutPaths = []
+        #set some common variables used in the class
+        self.drive = window.combobox_drive.currentText()
+        self.console = window.combobox_console.currentText()
+        #This is the file we will use while modifying the existing resource file
+        self.workingPNGPath = 'currentBackground.temp.png'
+        #Set UI on dialog
+        self.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
         self.setWindowTitle("Game Shortcut Icon Selection")
         self.setWindowIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)))
-
         # Setup Main Layout
-        self.layout_horizontal = QHBoxLayout()
-        self.layout_vertical = QVBoxLayout()
-        self.layout_vertical2 = QVBoxLayout()
-        self.layout_vertical3 = QVBoxLayout()
-        self.layout_vertical4 = QVBoxLayout()
-        self.layout_horizontal.addLayout(self.layout_vertical)
-        self.layout_horizontal.addLayout(self.layout_vertical2)
-        self.layout_horizontal.addLayout(self.layout_vertical3)
-        self.layout_horizontal.addLayout(self.layout_vertical4)
-        self.setLayout(self.layout_horizontal)
-
-        # set up new image viewers
-        self.new_viewer1 = GameShortcutIconViewer(self, changeable=True)
-        self.layout_vertical.addWidget(self.new_viewer1)
-        self.layout_vertical.addWidget(QLabel("Icon 1"))
-
-        # set up new image viewers
-        self.new_viewer2 = GameShortcutIconViewer(self, changeable=True)
-        self.layout_vertical2.addWidget(self.new_viewer2)
-        self.layout_vertical2.addWidget(QLabel("Icon 2"))
-
-        # # set up new image viewers
-        self.new_viewer3 = GameShortcutIconViewer(self, changeable=True)
-        self.layout_vertical3.addWidget(self.new_viewer3)
-        self.layout_vertical3.addWidget(QLabel("Icon 3"))
-
-        # # set up new image viewers
-        self.new_viewer4 = GameShortcutIconViewer(self, changeable=True)
-        self.layout_vertical4.addWidget(self.new_viewer4)
-        self.layout_vertical4.addWidget(QLabel("Icon 4"))
-
+        # TODO...I should have used Grid but here we are
+        self.layout_main_vertical = QVBoxLayout()
+        self.layout_current_viewer = QVBoxLayout()
+        self.setLayout(self.layout_main_vertical)
+        self.layout_main_vertical.addLayout(self.layout_current_viewer)
+        # set up the main preview
+        self.backgroundImage = QLabel(self)
+        self.layout_current_viewer.addWidget(self.backgroundImage)
+        # Setup buttons to change the icons
+        self.shortcut_buttons = QHBoxLayout()
+        self.layout_main_vertical.addLayout(self.shortcut_buttons)
+        #Gameshortcut Icons 1
+        self.button_icon1 = QPushButton("Change Icon 1")
+        self.button_icon1.setFixedSize(100,100)
+        self.button_icon1.clicked.connect(self.addShortcut)
+        self.shortcut_buttons.addWidget(self.button_icon1)
+        #Gameshortcut Icons 2
+        self.button_icon2 = QPushButton("Change Icon 2")
+        self.button_icon2.setFixedSize(100,100)
+        self.button_icon2.clicked.connect(self.addShortcut)
+        self.shortcut_buttons.addWidget(self.button_icon2)
+        #Gameshortcut Icons 3
+        self.button_icon3 = QPushButton("Change Icon 3")
+        self.button_icon3.setFixedSize(100,100)
+        self.button_icon3.clicked.connect(self.addShortcut)
+        self.shortcut_buttons.addWidget(self.button_icon3)
+        #Gameshortcut Icons 4
+        self.button_icon4 = QPushButton("Change Icon 4")
+        self.button_icon4.setFixedSize(100,100)
+        self.button_icon4.clicked.connect(self.addShortcut)
+        self.shortcut_buttons.addWidget(self.button_icon4)
         # Main Buttons Layout (Save/Cancel)
         self.layout_buttons = QHBoxLayout()
-        self.layout_horizontal.addLayout(self.layout_buttons)
-
+        self.layout_main_vertical.addLayout(self.layout_buttons)
         # Save Button
         self.button_save = QPushButton("Save")
         self.button_save.setDefault(True)
-        self.button_save.setDisabled(True)  # set disabled by default; need to wait for user to select new image
+        self.button_save.setDisabled(True)  # set disabled by default; need to wait for user to select at least new image
         self.button_save.clicked.connect(self.Finish)
         self.layout_buttons.addWidget(self.button_save)
-
         # Cancel Button
         self.button_cancel = QPushButton("Cancel")
         self.button_cancel.clicked.connect(self.reject)
         self.layout_buttons.addWidget(self.button_cancel)
+        # Now load Current Preview image
+        self.load_from_Resources()
 
+    def ovewrite_background_and_reload(self, path, icon):
+        #Following techniques by Zerter at view-source:https://zerter555.github.io/sf2000-collection/mainMenuIcoEditor.html
+        #Add this to the temporary PNG
+        game1 = Image.open(path, 'r')
+        game1 = game1.resize((124,124), Image.Resampling.LANCZOS)
+        workingPNG = Image.open(self.workingPNGPath)
+        if icon == 1:
+            workingPNG.paste(game1, (42,290))
+        if icon == 2:
+            workingPNG.paste(game1, (186,290))
+        if icon == 3:
+            workingPNG.paste(game1, (330,290))
+        if icon == 4:
+            workingPNG.paste(game1, (474,290))
+        #Add to preview and save it
+        workingPNG.save(self.workingPNGPath)
+        img = QImage(self.workingPNGPath)
+        #Update image
+        self.backgroundImage.setPixmap(QPixmap().fromImage(img))
+        return True
+
+    def load_from_Resources(self):
+        ResourcePath = tadpole_functions.getBackgroundResourceFileforConsole(self.drive, self.console)
+        tadpole_functions.convertRGB565toPNG(ResourcePath)
+        self.workingPNGPath
+        img = QImage(self.workingPNGPath)
+        if (img.width(), img.height()) != (640, 480): 
+            img = img.scaled(640, 480, Qt.IgnoreAspectRatio, Qt.SmoothTransformation) #Rescale new boot logo to correct size
+        #Update image
+        self.backgroundImage.setPixmap(QPixmap().fromImage(img))
+        return True
+    
+    def addShortcut(self):
+        sending_button = self.sender()
+        #get the icon number
+        file_path = QFileDialog.getOpenFileName(self, 'Open file', '',
+                                            "Images (*.jpg *.png *.webp);;RAW (RGB565 Little Endian) Images (*.raw)")[0]
+        if len(file_path) > 0:  # confirm if user selected a file
+            #set save state to true so user can save this
+            self.button_save.setEnabled(True)
+            #Add it to be processed
+            if sending_button.text() == "Change Icon 1":
+                #load into preview image
+                self.ovewrite_background_and_reload(file_path, 1)
+            elif sending_button.text() == "Change Icon 2":
+                #load into preview image
+                self.ovewrite_background_and_reload(file_path, 2)
+            elif sending_button.text() == "Change Icon 3":
+                #load into preview image
+                self.ovewrite_background_and_reload(file_path, 3)           
+            elif sending_button.text() == "Change Icon 4":
+                #load into preview image
+                self.ovewrite_background_and_reload(file_path, 4)   
+            else:
+                print(sending_button.text() + ": icon not found")
+            return True #it completed
+        return False #User cancelled
+                
     def Finish(self):
-        #Get the paths of all the viewers
-        self.iconShortcutPaths = [self.new_viewer1.path, self.new_viewer2.path, self.new_viewer3.path, self.new_viewer4.path]
+        #Save this working TMP PNG to the right resource file
+        if self.console == "SFC":
+            resourceFile = "drivr.ers"
+            tadpole_functions.convertPNGtoResourceRGB565(self.workingPNGPath, resourceFile, self.drive)
+        elif self.console == "FC":
+            resourceFile = "fixas.ctp"
+            tadpole_functions.convertPNGtoResourceRGB565(self.workingPNGPath, resourceFile, self.drive)
+        elif self.console == "MD":
+            resourceFile = "icuin.cpl"
+            tadpole_functions.convertPNGtoResourceRGB565(self.workingPNGPath, resourceFile, self.drive)
+        elif self.console == "GB":
+            resourceFile = "xajkg.hsp"
+            tadpole_functions.convertPNGtoResourceRGB565(self.workingPNGPath, resourceFile, self.drive)
+        elif self.console == "GBC":
+            resourceFile = "qwave.bke"
+            tadpole_functions.convertPNGtoResourceRGB565(self.workingPNGPath, resourceFile, self.drive)
+        elif self.console == "GBA":
+            resourceFile = "irftp.ctp"
+            tadpole_functions.convertPNGtoResourceRGB565(self.workingPNGPath, resourceFile, self.drive)
+        elif self.console == "ARCADE":
+            resourceFile = "hctml.ers"
+            tadpole_functions.convertPNGtoResourceRGB565(self.workingPNGPath, resourceFile, self.drive)
+        #Last thing, let's get rid of the text under the icons.
+        #The user has confirmed they want these and now they aren't the same
+        #TODO: Confirm users are happy removing shortcut labels some beta testing
+        #If so, just leave this
+        tadpole_functions.stripShortcutText(self.drive)
+        #Close dialog as we're all done
         self.accept()
 
 class PleaseWaitDialog(QMainWindow):
@@ -622,7 +651,6 @@ class PleaseWaitDialog(QMainWindow):
 
         self.setWindowTitle("Please Wait")
         self.setWindowIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation))
-        
         
         self.lbl = QLabel(self)
         #self.text_edit.setFixedSize(500, 500)
@@ -920,7 +948,7 @@ class MainWindow (QMainWindow):
                                                 self,
                                                 triggered=self.change_theme))
         self.menu_os.menu_change_theme.addAction(QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)),
-                                        "Check out theme previews and more themes...",
+                                        "Check out theme previews and download more themes...",
                                         self,
                                         triggered=lambda: webbrowser.open(("https://zerter555.github.io/sf2000-collection/"))))
         self.menu_os.menu_change_theme.addSeparator()
@@ -945,6 +973,10 @@ class MainWindow (QMainWindow):
                                                 music,
                                                 self,
                                                 triggered=self.change_background_music))
+        self.menu_os.menu_change_music.addAction(QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)),
+                                        "Check out more background music to download...",
+                                        self,
+                                        triggered=lambda: webbrowser.open(("https://zerter555.github.io/sf2000-collection/"))))
         self.menu_os.menu_change_music.addSeparator()
         self.menu_os.menu_change_music.addAction(QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton)),
                                         "Upload from Local File...",
@@ -1188,7 +1220,12 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         QMessageBox.about(self, "GBA BIOS Fix", "BIOS successfully copied")
         
     def changeBootLogo(self):
+        msgBox = DownloadMessageBox()
+        msgBox.setText(" Loading current boot logo...")
+        msgBox.show()
+        msgBox.showProgress(50, True)
         dialog = BootConfirmDialog(window.combobox_drive.currentText())
+        msgBox.close()
         change = dialog.exec()
         if change:
             newLogoFileName = dialog.new_viewer.path
@@ -1198,27 +1235,30 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
                 return
             try:
                 msgBox = DownloadMessageBox()
-                msgBox.setText("Updating Boot Logo...")
+                msgBox.setText("Updating boot logo...")
                 msgBox.show()
-                progress = 25
-                msgBox.showProgress(progress, True)
-                tadpole_functions.changeBootLogo(os.path.join(window.combobox_drive.currentText(),
+                msgBox.showProgress(10, True)
+                success = tadpole_functions.changeBootLogo(os.path.join(window.combobox_drive.currentText(),
                                                               "bios",
                                                               "bisrv.asd"),
-                                                 newLogoFileName)
+                                                 newLogoFileName, msgBox)
                 msgBox.close()
             except tadpole_functions.Exception_InvalidPath:
                 QMessageBox.about(self, "Change Boot Logo", "An error occurred. Please ensure that you have the right \
                 drive selected and <i>bisrv.asd</i> exists in the <i>bios</i> folder")
                 return
-            QMessageBox.about(self, "Change Boot Logo", "Boot logo successfully changed")
+            if success:
+                QMessageBox.about(self, "Change Boot Logo", "Boot logo successfully changed")
+            else:
+                QMessageBox.about(self, "Change Boot Logo", "Could not update boot logo.  Have you changed the firmware with another tool?  Tadpole only supports stock firmware files")
+
       
-    def changeGameShortcuts(self):
-        drive = window.combobox_drive.currentText()
-        # Open a new modal to change the shortcuts for a specific gamename
-        window.window_shortcuts = changeGameShortcutsWindow()
-        window.window_shortcuts.setDrive(drive)
-        window.window_shortcuts.show()
+    # def changeGameShortcuts(self):
+    #     drive = window.combobox_drive.currentText()
+    #     # Open a new modal to change the shortcuts for a specific gamename
+    #     window.window_shortcuts = changeGameShortcutsWindow()
+    #     window.window_shortcuts.setDrive(drive)
+    #     window.window_shortcuts.show()
     
     # def removeShortcutLabels(self):
     #     drive = window.combobox_drive.currentText()
@@ -1396,16 +1436,15 @@ Note: This uses your setting to either upload via folder or download automatical
         return
     
     def addShortcutImages(self):
-        gameIcons = []
-        dialog = GameShortcutIconsDialog(window.combobox_drive.currentText())
+        dialog = GameShortcutIconsDialog()
         status = dialog.exec()
         if status:
-            gameIcons = dialog.iconShortcutPaths
-            tadpole_functions.WriteShortcutImagesToBackground(gameIcons[0], gameIcons[1], gameIcons[2], gameIcons[3], window.combobox_drive.currentText(), window.combobox_console.currentText())
-            print("Completed icon changes")
-            QMessageBox.about(self, "Completed icon changes",f"Updated Game Shortcut Icons.  Check them out on your SF2000.")
+            QMessageBox.about(self, "Game Shortcuts",f"Updated your game shortcut icons.")
         else:
             print("user cancelled")
+        #let's get the temp PNG out if for some reason it didn't get cleaned up
+        if os.path.exists('currentBackground.temp.png'):
+            os.remove('currentBackground.temp.png')
 # Subclass Qidget to create a thumbnail viewing window        
 class SettingsWindow(QDialog):
     """
@@ -1711,45 +1750,45 @@ class DownloadMessageBox(QMessageBox):
 
 
 # Subclass Qidget to create a change shortcut window        
-class changeGameShortcutsWindow(QWidget):
-    """
-        This window should be called without a parent widget so that it is created in its own window.
-    """
-    drive = ""
+# class changeGameShortcutsWindow(QWidget):
+#     """
+#         This window should be called without a parent widget so that it is created in its own window.
+#     """
+#     drive = ""
    
-    def __init__(self):
-        super().__init__()
+#     def __init__(self):
+#         super().__init__()
 
-        layout = QHBoxLayout()
-        # Console select
-        self.combobox_console = QComboBox()
+#         layout = QHBoxLayout()
+#         # Console select
+#         self.combobox_console = QComboBox()
         
-        layout.addWidget(QLabel("Console:"))
-        layout.addWidget(self.combobox_console)
+#         layout.addWidget(QLabel("Console:"))
+#         layout.addWidget(self.combobox_console)
 
-        # Position select
-        self.combobox_shortcut = QComboBox()
-        layout.addWidget(QLabel("Shortcut:"))
-        layout.addWidget(self.combobox_shortcut)
+#         # Position select
+#         self.combobox_shortcut = QComboBox()
+#         layout.addWidget(QLabel("Shortcut:"))
+#         layout.addWidget(self.combobox_shortcut)
 
-        # Game Select
-        self.combobox_games = QComboBox()
-        layout.addWidget(QLabel("Game:"))
-        layout.addWidget(self.combobox_games, stretch=1)
+#         # Game Select
+#         self.combobox_games = QComboBox()
+#         layout.addWidget(QLabel("Game:"))
+#         layout.addWidget(self.combobox_games, stretch=1)
 
-        # Update Button Widget
-        self.btn_update = QPushButton("Update!")
-        layout.addWidget(self.btn_update)
-        self.btn_update.clicked.connect(self.changeShortcut) 
+#         # Update Button Widget
+#         self.btn_update = QPushButton("Update!")
+#         layout.addWidget(self.btn_update)
+#         self.btn_update.clicked.connect(self.changeShortcut) 
 
-        self.setLayout(layout)
-        self.setWindowTitle(f"Change System Shortcuts") 
-        for console in frogtool.systems.keys():
-            self.combobox_console.addItem(QIcon(), console, console)
+#         self.setLayout(layout)
+#         self.setWindowTitle(f"Change System Shortcuts") 
+#         for console in frogtool.systems.keys():
+#             self.combobox_console.addItem(QIcon(), console, console)
         
-        for i in range(1, 5):
-            self.combobox_shortcut.addItem(QIcon(), f"{i}", i)
-        self.combobox_console.currentIndexChanged.connect(self.loadROMsToGameShortcutList) 
+#         for i in range(1, 5):
+#             self.combobox_shortcut.addItem(QIcon(), f"{i}", i)
+#         self.combobox_console.currentIndexChanged.connect(self.loadROMsToGameShortcutList) 
 
     def setDrive(self,drive):
         self.drive = drive
