@@ -102,6 +102,7 @@ def toggle_features(enable: bool):
     """Toggles program features on or off"""
     features = [window.btn_update_thumbnails,
                 window.btn_update,
+                window.btn_update_shortcuts_images,
                 window.combobox_console,
                 window.combobox_drive,
                 window.menu_os,
@@ -110,7 +111,6 @@ def toggle_features(enable: bool):
                 #window.menu_boxart,
                 window.menu_roms,
                 window.tbl_gamelist]
-
     for feature in features:
         feature.setEnabled(enable)
 
@@ -196,9 +196,6 @@ def loadROMsToTable():
             # set previously saved shortcuts
             position = tadpole_functions.getGameShortcutPosition(drive, system, game)
             shortcut_comboBox.setCurrentIndex(position)
-            # update game table
-            #if position != 0:
-            #    tadpole_functions.game_shortcut_list[position-1] = game.rsplit( ".", 1 )[ 0 ] 
             # get a callback to make sure the user isn't setting the same shortcut twice
             window.tbl_gamelist.setCellWidget(i, 3, shortcut_comboBox)
             shortcut_comboBox.activated.connect(window.validateGameShortcutComboBox)
@@ -230,12 +227,35 @@ def catchTableCellClicked(clickedRow, clickedColumn):
     print(f"clicked view thumbnail for {clickedRow},{clickedColumn}")
     drive = window.combobox_drive.currentText()
     system = window.combobox_console.currentText()
+    gamename = window.tbl_gamelist.item(clickedRow, 0)
+
     if window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Thumbnail":  
-        gamename = window.tbl_gamelist.item(clickedRow, 0).text()
-        viewThumbnail(os.path.join(drive, system, gamename))
+        #gamename = window.tbl_gamelist.item(clickedRow, 0).text()
+        viewThumbnail(os.path.join(drive, system, gamename.text))
     elif window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Delete ROM": 
-        gamename = window.tbl_gamelist.item(clickedRow, 0).text()
+        #gamename = window.tbl_gamelist.item(clickedRow, 0).text()
         deleteROM(os.path.join(drive, system, gamename))
+    #Only enable deleting when selcted
+    if clickedColumn == 0:
+        selected = window.tbl_gamelist.selectedItems()
+        if selected:
+            window.btn_delete_roms.setEnabled(True)
+        else:
+            window.btn_delete_roms.setEnabled(False)
+    else:
+        window.btn_delete_roms.setEnabled(False)
+
+
+def headerClicked(column):
+    #Only enable deleting when selcted
+    if column == 0:
+        selected = window.tbl_gamelist.selectedItems()
+        if selected:
+            window.btn_delete_roms.setEnabled(True)
+        else:
+            window.btn_delete_roms.setEnabled(False)
+    else:
+        window.btn_delete_roms.setEnabled(False)
 
 def viewThumbnail(rom_path):
     window.window_thumbnail = thumbnailWindow(rom_path)  
@@ -946,6 +966,11 @@ class MainWindow (QMainWindow):
         selector_layout.addWidget(self.btn_update_shortcuts_images )
         self.btn_update_shortcuts_images.clicked.connect(self.addShortcutImages)
 
+        # Delete selected roms
+        self.btn_delete_roms = QPushButton("Delete selcted ROMs...")
+        self.btn_delete_roms.setEnabled(False)
+        selector_layout.addWidget(self.btn_delete_roms)
+        self.btn_delete_roms.clicked.connect(self.deleteROMs)
 
         # Game Table Widget
         self.tbl_gamelist = QTableWidget()
@@ -958,6 +983,8 @@ class MainWindow (QMainWindow):
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
         self.tbl_gamelist.cellClicked.connect(catchTableCellClicked)
+        self.tbl_gamelist.horizontalHeader().sectionClicked.connect(headerClicked)
+
         layout.addWidget(self.tbl_gamelist)
 
         self.readme_dialog = ReadmeDialog()
@@ -989,12 +1016,13 @@ class MainWindow (QMainWindow):
         self.menu_os.menu_update = self.menu_os.addMenu("Firmware")
         action_detectOSVersion = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Detect and update firmware", self, triggered=self.detectOSVersion)
         self.menu_os.menu_update.addAction(action_detectOSVersion)
-        action_battery_fix  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Battery Meter Fix - Built by commnity (Improves battery life & shows low power warning)", self, triggered=self.Battery_fix)                                                                              
-        self.menu_os.menu_update.addAction(action_battery_fix)   
         action_updateTo20230803  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Manually change to 2023.08.03 (V1.6)", self, triggered=self.Updateto20230803)                                                                              
         self.menu_os.menu_update.addAction(action_updateTo20230803)   
         self.action_updateToV1_5  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Manually change to 2023.04.20 (V1.5)  - Not recommended", self, triggered=self.UpdatetoV1_5)                                                                              
         self.menu_os.menu_update.addAction(self.action_updateToV1_5)
+        self.menu_os.menu_update.addSeparator()
+        action_battery_fix  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Battery Fix - Built by commnity (Improves battery life & shows low power warning)", self, triggered=self.Battery_fix)                                                                              
+        self.menu_os.menu_update.addAction(action_battery_fix)   
             #Sub-menu for updating themes
         self.menu_os.menu_change_theme = self.menu_os.addMenu("Theme")
         try:
@@ -1113,6 +1141,7 @@ class MainWindow (QMainWindow):
             detectedVersion = tadpole_functions.bisrv_getFirmwareVersion(os.path.join(drive,"bios","bisrv.asd"))
             if not detectedVersion:
                 detectedVersion = "Version Not Found"
+                return False
             #TODO: move this from string base to something else...or at lesat make sure this gets updated when/if new firmware gets out there
             if detectedVersion == "2023.04.20 (V1.5)":
                 msg_box.close()
@@ -1121,15 +1150,15 @@ class MainWindow (QMainWindow):
                 if ret == qm.Yes:
                     MainWindow.Updateto20230803(self)
                 else:
-                    return
+                    return False
             elif detectedVersion == "2023.08.03 (V1.6)":
                 msg_box.close()
                 QMessageBox.about(self, "Detected OS Version", f"You are already on the latest firmware: {detectedVersion}")
-                return
+                return True
             else:
                 msg_box.close()
                 QMessageBox.about(self, "Detected OS Version", f"Cannot update from: {detectedVersion}")
-                return
+                return True
 
         except Exception as e:
             msg_box.close()
@@ -1393,12 +1422,33 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         self.UpdateDevice(url)
 
     def Battery_fix(self):
+        qm = QMessageBox()
+        ret = qm.question(window,'Patch Firmware?', "Are you sure you want to patch the firmware? The system will also check if the latest firmware is on the SD card, so make sure you are up to date." , qm.Yes | qm.No)
+        if ret == qm.No:
+            return
         Drive = window.combobox_drive.currentText()
-        battery_patcher = tadpole_functions.BatteryPatcher(Drive + "/bios/bisrv.asd", Drive + "/bios/bisrv.asd")
-        if battery_patcher.patch_firmware():
-            QMessageBox.about(self, "Success","Firmware patched with the battery improvements")
+        BisrvLocation = Drive + "/bios/bisrv.asd"
+        battery_patcher = tadpole_functions.BatteryPatcher(BisrvLocation, BisrvLocation)
+
+        with open(BisrvLocation, 'rb') as f:
+                bisrv_data = bytearray(f.read())
+                print("File '%s' opened successfully." % BisrvLocation)
+        if battery_patcher.check_patch_applied(bisrv_data):
+            QMessageBox.about(self, "Status","You already have the battery patch applied")
+            return
+        #Order matters, if they are on patch, they will fail so do this second
+        elif not battery_patcher.check_latest_firmware(bisrv_data):
+            QMessageBox.about(self, "Status","Please update to the latest firmware (v1.6)")
+            return
+        #get some progress for the user
+        UpdateMsgBox = DownloadMessageBox()
+        UpdateMsgBox.setText("Patching firmware...")
+        UpdateMsgBox.showProgress(1, True)
+        UpdateMsgBox.show()
+        if battery_patcher.patch_firmware(UpdateMsgBox.progress):
+            QMessageBox.about(self, "Status","Firmware patched with the battery improvements")
         else:
-            QMessageBox.about(self, "Failre","Firmware was not patched with the battery improvements")
+            QMessageBox.about(self, "Failure","Firmware was not patched with the battery improvements.  Are you already up to date?")
 
 
     def UpdateDevice(self, url):
@@ -1525,6 +1575,20 @@ Note: You can change in settings to either pick your own or try to downlad autom
         #let's get the temp PNG out if for some reason it didn't get cleaned up
         if os.path.exists('currentBackground.temp.png'):
             os.remove('currentBackground.temp.png')
+
+    def deleteROMs(self):
+        qm = QMessageBox
+        ret = qm.question(window,'Delete ROMs?', "Are you sure you want to delete all selected ROMs?" , qm.Yes | qm.No)
+        if ret == qm.No:
+            return
+        for item in window.tbl_gamelist.selectedItems():
+            try:
+                os.remove(self.combobox_drive.currentText() + self.combobox_console.currentText() + "/" + item.text())
+            except Exception:
+                QMessageBox.about(window, "Error","Could not delete ROM.")
+        QMessageBox.about(self, "Success",f"Successfully deleted selected ROMs.")
+        RunFrogTool(self.combobox_console.currentText())
+
 # Subclass Qidget to create a thumbnail viewing window        
 class SettingsWindow(QDialog):
     """

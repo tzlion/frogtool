@@ -986,25 +986,15 @@ class BatteryPatcher:
             0xA1
         ]
 
-        # New  values for sanity check
-        self.BATTERY_FIX_ADDRESSES = [
-            0x18c,
-            0x18d,
-            0x18e,
-            0x18f
+        # New values for sanity check
+        self.BATTERY_FIX_VALUES = [
+             0x3564EC,
+             0x3564F4,
+             0x35658C,
+             0x356594,
+             0x3565B0
         ]
 
-        # # New  values for sanity check
-        # self.BATTERY_FIX_VALUES = [
-        #     crc & 0xFF,
-        #     (crc >> 8) & 0xFF,
-        #     (crc >> 16) & 0xFF,
-        #     (crc >> 24) & 0xFF
-        # ]
-            # bisrv_data[0x18c] = crc & 0xFF
-            # bisrv_data[0x18d] = (crc >> 8) & 0xFF
-            # bisrv_data[0x18e] = (crc >> 16) & 0xFF
-            # bisrv_data[0x18f] = (crc >> 24) & 0xFF
 
     def voltage_to_value(self, voltage):
         """Convert voltage to the appropriate firmware value using the 50x multiplier."""
@@ -1030,40 +1020,54 @@ class BatteryPatcher:
 
         return c
 
-    def sanity_check(self, bisrv_data):
+    def check_patch_applied(self, bisrv_data):
+        for addr, expected_value in zip(self.STOCK_VALUES, self.BATTERY_FIX_VALUES):
+            if bisrv_data[addr] != expected_value:
+                print("The firmware does not match the expected battery patched versions at offset %X. "
+                            "Please check the offsets." %addr)
+                return False
+        return True
+
+
+    def check_latest_firmware(self, bisrv_data):
         """
-        Check if the firmware matches the expected "08.03" version.
+        Check if the firmware matches the patched values
         """
         for addr, expected_value in zip(self.ADDRESSES, self.STOCK_VALUES):
             if bisrv_data[addr] != expected_value:
                 print("The firmware does not match the expected '08.03' version at offset %X. "
-                              "Please check the offsets." % addr)
+                              "Please check the offsets." %addr)
                 return False
         return True
 
-    def patch_firmware(self):
+    def patch_firmware(self, progressIndicator):
         """
         Patch the firmware file with new battery values and update its CRC32.
         """
         try:
+            progressIndicator.setValue(1)
+            QApplication.processEvents()
             with open(self.firmware_file, 'rb') as f:
                 bisrv_data = bytearray(f.read())
             print("File '%s' opened successfully." % self.firmware_file)
 
             # Perform sanity check
-            if not self.sanity_check(bisrv_data):
+            if not self.check_latest_firmware(bisrv_data):
                 return
 
             # Patch the battery values
             for addr, value in self.BATTERY_VALUES.items():
                 bisrv_data[addr] = value
             print("File patched with new battery values.")
+            progressIndicator.setValue(10)
+            QApplication.processEvents()
 
             # Calculate new CRC32
             print("Calculating new CRC32...")
             crc = self.calculate_crc32(bisrv_data)
             print("New CRC32 value: %X" % crc)
-
+            progressIndicator.setValue(80)
+            QApplication.processEvents()
             # Update CRC32 in the bisrv_data
             bisrv_data[0x18c] = crc & 0xFF
             bisrv_data[0x18d] = (crc >> 8) & 0xFF
