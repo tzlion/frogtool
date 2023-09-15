@@ -988,11 +988,11 @@ class BatteryPatcher:
 
         # New values for sanity check
         self.BATTERY_FIX_VALUES = [
-             0x3564EC,
-             0x3564F4,
-             0x35658C,
-             0x356594,
-             0x3565B0
+             0xC8,
+             0xC2,
+             0xBE,
+             0xBA,
+             0xB7
         ]
 
 
@@ -1021,11 +1021,12 @@ class BatteryPatcher:
         return c
 
     def check_patch_applied(self, bisrv_data):
-        for addr, expected_value in zip(self.STOCK_VALUES, self.BATTERY_FIX_VALUES):
+        for addr, expected_value in zip(self.ADDRESSES, self.BATTERY_FIX_VALUES):
             if bisrv_data[addr] != expected_value:
                 print("The firmware does not match the expected battery patched versions at offset %X. "
                             "Please check the offsets." %addr)
                 return False
+        print("The firmware matched the expected battery patched versions at offset %X." %addr)
         return True
 
 
@@ -1038,6 +1039,7 @@ class BatteryPatcher:
                 print("The firmware does not match the expected '08.03' version at offset %X. "
                               "Please check the offsets." %addr)
                 return False
+        print("The firmware matched the expected firmware versions at offset %X." %addr)
         return True
 
     def patch_firmware(self, progressIndicator):

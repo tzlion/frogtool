@@ -1438,8 +1438,12 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
             return
         #Order matters, if they are on patch, they will fail so do this second
         elif not battery_patcher.check_latest_firmware(bisrv_data):
-            QMessageBox.about(self, "Status","Please update to the latest firmware (v1.6)")
-            return
+            qm = QMessageBox()
+            ret = qm.question(window,'Status', "You need to be on the latest released firmware for the patched battery.  Do you want to downlaod it now?" , qm.Yes | qm.No)
+            if ret == qm.No:
+                return
+            else:
+                window.Updateto20230803()
         #get some progress for the user
         UpdateMsgBox = DownloadMessageBox()
         UpdateMsgBox.setText("Patching firmware...")
@@ -1449,7 +1453,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
             QMessageBox.about(self, "Status","Firmware patched with the battery improvements")
         else:
             QMessageBox.about(self, "Failure","Firmware was not patched with the battery improvements.  Are you already up to date?")
-
+        UpdateMsgBox.close()
 
     def UpdateDevice(self, url):
         drive = window.combobox_drive.currentText()
@@ -1459,7 +1463,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         msgBox.showProgress(0, True)
         if tadpole_functions.downloadDirectoryFromGithub(drive, url, msgBox.progress):
             msgBox.close()
-            QMessageBox.about(self, "Success","Update successfully Downloaded")
+            QMessageBox.about(self, "Success","Update successfully downloaded")
         else:
             msgBox.close()
             QMessageBox.about(self, "Failure","ERROR: Something went wrong while trying to download the update")
