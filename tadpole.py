@@ -163,8 +163,6 @@ def loadROMsToTable():
             config = configparser.ConfigParser()
             config.read(drive + "/Resources/tadpole.ini")
             if config.getboolean('thumbnails', 'view'):
-                #with open(drive + "/Resources/tadpole.ini", 'w') as configfile:
-                #    config.write(configfile)
                 cell_viewthumbnail = QTableWidgetItem()
                 cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
                 pathToROM = os.path.join(roms_path, game)
@@ -262,7 +260,7 @@ def viewThumbnail(rom_path):
 
 def deleteROM(rom_path):
     qm = QMessageBox
-    ret = qm.question(window,'', "Are you sure you want to delete " + rom_path +" and rebuild the ROM list? " , qm.Yes | qm.No)
+    ret = qm.question(window,'Delete ROM?', "Are you sure you want to delete " + rom_path +" and rebuild the ROM list? " , qm.Yes | qm.No)
     if ret == qm.Yes:
         try:
             os.remove(rom_path)
@@ -313,9 +311,9 @@ Please insert the SD card and relaunch Tadpole.exe.  The application will now cl
         sys.exit()
     qm = QMessageBox()
     ret = qm.warning(window,'Welcome', "Welcome to Tadpole!\n\n\
-We detected you are using an older Beta version of Tadpole, so we are deleting your old settings.  Sorry about that.\n\n \
+Since you are on a beta, we are going to delete the settings and start with a first run.\n\n \
 It is advised to update the bootloader to avoid bricking the SF2000 when changing anything on the SD card.\n\n\
-Do you want to download and apply the bootloader fix?" , qm.Yes | qm.No)
+Do you want to download and apply the bootloader fix? (Select No if you have already applied the fix previously.)", qm.Yes | qm.No)
     if ret == qm.Yes:
         #Let's delete old stuff if it exits incase they tried this before and failed
         if Path(bootloaderPatchDir).is_dir():
@@ -995,7 +993,7 @@ class MainWindow (QMainWindow):
         self.menu_os.menu_update.addAction(action_battery_fix)   
         action_updateTo20230803  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Manually change to 2023.08.03 (V1.6)", self, triggered=self.Updateto20230803)                                                                              
         self.menu_os.menu_update.addAction(action_updateTo20230803)   
-        self.action_updateToV1_5  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Manually change to 2023.04.20 (V1.5)  - Not suggested", self, triggered=self.UpdatetoV1_5)                                                                              
+        self.action_updateToV1_5  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Manually change to 2023.04.20 (V1.5)  - Not recommended", self, triggered=self.UpdatetoV1_5)                                                                              
         self.menu_os.menu_update.addAction(self.action_updateToV1_5)
             #Sub-menu for updating themes
         self.menu_os.menu_change_theme = self.menu_os.addMenu("Theme")
@@ -1126,7 +1124,7 @@ class MainWindow (QMainWindow):
                     return
             elif detectedVersion == "2023.08.03 (V1.6)":
                 msg_box.close()
-                QMessageBox.about(self, "Detected OS Version", f"You are on the latest firmware: {detectedVersion}")
+                QMessageBox.about(self, "Detected OS Version", f"You are already on the latest firmware: {detectedVersion}")
                 return
             else:
                 msg_box.close()
@@ -1395,7 +1393,13 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         self.UpdateDevice(url)
 
     def Battery_fix(self):
-        print("Let's fix battery")
+        Drive = window.combobox_drive.currentText()
+        battery_patcher = tadpole_functions.BatteryPatcher(Drive + "/bios/bisrv.asd", Drive + "/bios/bisrv.asd")
+        if battery_patcher.patch_firmware():
+            QMessageBox.about(self, "Success","Firmware patched with the battery improvements")
+        else:
+            QMessageBox.about(self, "Failre","Firmware was not patched with the battery improvements")
+
 
     def UpdateDevice(self, url):
         drive = window.combobox_drive.currentText()
@@ -1411,6 +1415,10 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
             QMessageBox.about(self, "Failure","ERROR: Something went wrong while trying to download the update")
 
     def change_theme(self, url):
+        qm = QMessageBox()
+        ret = qm.question(window,'Heads up', "Changing themes will ovewrite your game shortcut icons.  You can change them again after the theme is applied.  Are you suer you want to change your theme?" , qm.Yes | qm.No)
+        if ret == qm.No:
+            return
         drive = window.combobox_drive.currentText()
         #TODO error handling
         if not self.sender().text() == "Update From Local File...":
@@ -1485,8 +1493,8 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
                 print (filename + " added to " + drive + console)
             msgBox.close()
             qm = QMessageBox
-            ret = qm.question(self,'', f"Added " + str(len(filenames)) + " ROMs to " + drive + console + "\n\nDo you want to add thumbnails?\n\n\
-Note: This uses your setting to either upload via folder or download automatically.", qm.Yes | qm.No)
+            ret = qm.question(self,'Add Thumbnails?', f"Added " + str(len(filenames)) + " ROMs to " + drive + console + "\n\nDo you want to add thumbnails?\n\n\
+Note: You can change in settings to either pick your own or try to downlad automatically.", qm.Yes | qm.No)
             if ret == qm.Yes:
                 MainWindow.addBoxart(self)
         RunFrogTool(window.combobox_console.currentText())
