@@ -231,10 +231,10 @@ def catchTableCellClicked(clickedRow, clickedColumn):
 
     if window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Thumbnail":  
         #gamename = window.tbl_gamelist.item(clickedRow, 0).text()
-        viewThumbnail(os.path.join(drive, system, gamename.text))
+        viewThumbnail(os.path.join(drive + system, gamename.text()))
     elif window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Delete ROM": 
         #gamename = window.tbl_gamelist.item(clickedRow, 0).text()
-        deleteROM(os.path.join(drive, system, gamename))
+        deleteROM(os.path.join(drive + system, gamename.text()))
     #Only enable deleting when selcted
     if clickedColumn == 0:
         selected = window.tbl_gamelist.selectedItems()
@@ -569,7 +569,7 @@ class GameShortcutIconsDialog(QDialog):
         self.shortcut_buttons = QHBoxLayout()
         self.layout_main_vertical.addLayout(self.shortcut_buttons)
         #Gameshortcut Icons 1
-        self.button_icon1 = QPushButton("Change icon 1")
+        self.button_icon1 = QPushButton("Change Icon 1")
         self.button_icon1.setFixedSize(100,100)
         self.button_icon1.clicked.connect(self.addShortcut)
         self.shortcut_buttons.addWidget(self.button_icon1)
@@ -579,7 +579,7 @@ class GameShortcutIconsDialog(QDialog):
         self.label1.setAlignment(Qt.AlignCenter)
         self.shortcut_game_labels.addWidget(self.label1, Qt.AlignCenter)
         #Gameshortcut Icons 2
-        self.button_icon2 = QPushButton("Change icon 2")
+        self.button_icon2 = QPushButton("Change Icon 2")
         self.button_icon2.setFixedSize(100,100)
         self.button_icon2.clicked.connect(self.addShortcut)
         self.shortcut_buttons.addWidget(self.button_icon2)
@@ -589,7 +589,7 @@ class GameShortcutIconsDialog(QDialog):
         self.label2.setAlignment(Qt.AlignCenter)
         self.shortcut_game_labels.addWidget(self.label2, Qt.AlignCenter)
         #Gameshortcut Icons 3
-        self.button_icon3 = QPushButton("Change icon 3")
+        self.button_icon3 = QPushButton("Change Icon 3")
         self.button_icon3.setFixedSize(100,100)
         self.button_icon3.clicked.connect(self.addShortcut)
         self.shortcut_buttons.addWidget(self.button_icon3)
@@ -600,7 +600,7 @@ class GameShortcutIconsDialog(QDialog):
         self.shortcut_game_labels.addWidget(self.label3, Qt.AlignCenter)
         
         #Gameshortcut Icons 4
-        self.button_icon4 = QPushButton("Change icon 4")
+        self.button_icon4 = QPushButton("Change Icon 4")
         self.button_icon4.setFixedSize(100,100)
         self.button_icon4.clicked.connect(self.addShortcut)
         self.shortcut_buttons.addWidget(self.button_icon4)
@@ -1208,9 +1208,8 @@ class MainWindow (QMainWindow):
                         tadpole_functions.overwriteZXXThumbnail(rom_path, user_selected_console, msgBox.progress)
                     msgBox.close()
                     QMessageBox.about(self, "Downloaded Thumbnails", "Adding thumbnails complete for "
-                        + user_selected_console + "\nCheck out the thumbnails in each ROM to make sure it worked.\n\
-Pro tip: Turn on'View thumbnails in Viewer' in Settings to easily scan the list.  Missing some thumbnails? \
-Check to make sure you selected the right image folder, the names are the same, and you are in the right console in Tadpole.")
+                        + user_selected_console + "\n\nPro tip: Turn on 'View thumbnails in Viewer' in Settings to scroll through all ROMs the thumbanils shown in the viewer.\n\n\
+Missing some thumbnails? Check to make sure you selected the right image folder, the names are the same, and you are in the right console in Tadpole.")
                     #Cleanup all thoes PNG's that didn't get converted
                     for file in savedFiles:
                         if os.path.isfile(file):
