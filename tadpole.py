@@ -1119,7 +1119,9 @@ class MainWindow (QMainWindow):
         self.menu_os.menu_update.addAction(self.action_updateToV1_5)
         self.menu_os.menu_update.addSeparator()
         action_battery_fix  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Battery Fix - Built by commnity (Improves battery life & shows low power warning)", self, triggered=self.Battery_fix)                                                                              
-        self.menu_os.menu_update.addAction(action_battery_fix)   
+        self.menu_os.menu_update.addAction(action_battery_fix)
+        action_bootloader_fix  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Bootloader Fix - Built by commnity (Prevents device from not booting and corrupting SD card when changing files on SD card)", self, triggered=bootlaoderFix)                                                                              
+        self.menu_os.menu_update.addAction(action_bootloader_fix)   
             #Sub-menu for updating themes
         self.menu_os.menu_change_theme = self.menu_os.addMenu("Theme")
         try:
@@ -2041,15 +2043,6 @@ class DownloadMessageBox(QMessageBox):
 
 if __name__ == "__main__":
     try:
-        LoggingPath = static_TadpoleLogFile
-        # Per logger documentation, create logging as soon as possible before other hreads    
-        logging.basicConfig(filename=LoggingPath,
-                        filemode='a',
-                        format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
-                        datefmt='%H:%M:%S',
-                        level=logging.DEBUG)
-        logging.info("Logging started for current session")
-        print("Started logger")
         #Setup config
         config = configparser.ConfigParser()
         # Initialise the Application
@@ -2059,9 +2052,6 @@ if __name__ == "__main__":
         window = MainWindow()
         # Update list of drives
         window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
-
-        
-        
 
         # Update list of consoles
         # available_consoles_placeholder = "???"
@@ -2079,6 +2069,17 @@ if __name__ == "__main__":
         window.show()
         
         drive = window.combobox_drive.currentText()
+
+        #Setup logging since we know the drive we want to use
+        LoggingPath =  os.path.join(drive, static_TadpoleLogFile)
+        # Per logger documentation, create logging as soon as possible before other hreads    
+        logging.basicConfig(filename=LoggingPath,
+                        filemode='a',
+                        format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                        datefmt='%H:%M:%S',
+                        level=logging.DEBUG)
+        logging.info("Logging started for current session")
+        print("Started logger")
         #if tadpole.ini already exists, skip over first run, otherwise create it
         #Run First Run to create config, check bootloader, etc.
         """
