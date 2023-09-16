@@ -30,8 +30,8 @@ import logging
 basedir = os.path.dirname(__file__)
 static_NoDrives = "N/A"
 static_AllSystems = "ALL"
-static_TadpoleConfigFile = "Tadpole/tapdole.ini"
-static_TadpoleLogFile = "Tadpole/tadpole.log"
+static_TadpoleConfigFile = os.path.join("Tadpole","tapdole.ini")
+static_TadpoleLogFile = os.path.join("Tadpole","tadpole.log")
 
 def RunFrogTool(console):
     drive = window.combobox_drive.currentText()
@@ -1261,7 +1261,7 @@ class MainWindow (QMainWindow):
         #Check what the user has configured; upload or download
         config = configparser.ConfigParser()
         config.read(drive + "/Resources/tadpole.ini")
-        if config.get('thumbnails', 'download') == "0":
+        if config.get('thumbnails', 'download',fallback="0") == "0":
             thumbnailDialog = QFileDialog()
             thumbnailDialog.setDirectory('')
             thumbnailDialog.setFileMode(QFileDialog.Directory)
@@ -1289,7 +1289,7 @@ class MainWindow (QMainWindow):
                     #New run through frogtool to match all zips...
                     frogtool.convert_zip_image_pairs_to_zxx(rom_path, user_selected_console)
                     #Now run through all .ZBB files IF the user has this setup
-                    if config.get('thumbnails', 'ovewrite') == "True":
+                    if config.get('thumbnails', 'ovewrite',fallback="0") == "True":
                         msgBox.setText("Copying more thumbnails...")
                         msgBox.progress.reset()
                         tadpole_functions.overwriteZXXThumbnail(rom_path, user_selected_console, msgBox.progress)
@@ -1301,7 +1301,7 @@ Missing some thumbnails? Check to make sure you selected the right image folder,
                     for file in savedFiles:
                         if os.path.isfile(file):
                             os.remove(file)
-        if config.get('thumbnails', 'download') == "1":
+        if config.get('thumbnails', 'download',fallback="0") == "1":
             QMessageBox.about(self, "Add Thumbnails", "You have Tadpole configured to download thumbnails automatically. \
 For this to work, your roms must be in ZIP files and the name of that zip must match their common released English US localized \
 name.  Please refer to https://github.com/EricGoldsteinNz/libretro-thumbnails/tree/master if Tadpole isn't finding \
@@ -2035,12 +2035,12 @@ if __name__ == "__main__":
 
         drive = window.combobox_drive.currentText()
         configPath = os.path.join(drive, static_TadpoleConfigFile)
+        # ERIC: We should move this to the localhost rather than logging to the SD card. 
         LoggingPath = os.path.join(drive, static_TadpoleLogFile)
 
         # Per logger documentation, create logging as soon as possible before other hreads
         if not os.path.exists(LoggingPath):
-            Path(drive + "Tadpole").mkdir()
-            Path(LoggingPath).touch()
+            os.makedirs(os.path.join(drive, "Tadpole"), exist_ok=True)
 
         logging.basicConfig(filename = LoggingPath,
                         filemode='a',
