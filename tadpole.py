@@ -36,6 +36,7 @@ static_TadpoleLogFile = os.path.join("Tadpole","tadpole.log")
 def RunFrogTool(console):
     drive = window.combobox_drive.currentText()
     print(f"Running frogtool with drive ({drive}) and console ({console})")
+    logging.info(f"Running frogtool with drive ({drive}) and console ({console})")
     try:
         #TODO: should probably replace this with rebuilding the favourites list at some point
         #NOTE: Eric, I think its a better experience to not nuke these.  
@@ -96,9 +97,10 @@ def reloadDriveList():
         toggle_features(True)
         window.status_bar.showMessage("SF2000 Drive(s) Detected.", 20000)
         #Eric: Need to check in with Jason on why this was removed.
-        #if(current_drive == static_NoDrives):
-        #    print("New drive detected")
-        #    loadROMsToTable()
+        if(current_drive == static_NoDrives):
+            print("New drive detected")
+            logging.info(f"Automatically triggering drive change because a new drive connected")
+            window.combobox_drive_change()
     else:
         # disable functions
         window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
@@ -126,9 +128,10 @@ def toggle_features(enable: bool):
 #NOTE: this function refreshes the ROM table.  If you run this AND NOT FROG_TOOL, you can get your window out of sync
 #NOTE: So don't run loadROMsToTable, instead run FrogTool
 def loadROMsToTable():
-    print("loading roms to table")
     drive = window.combobox_drive.currentText()
     system = window.combobox_console.currentText()
+    print(f"loading roms to table for ({drive}) ({system})")
+    logging.info(f"loading roms to table for ({drive}) ({system})")
     msgBox = DownloadMessageBox()
     msgBox.setText(" Loading "+ system + " ROMS...")
     if drive == static_NoDrives or system == "???" or system == static_AllSystems:
@@ -1473,10 +1476,31 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         RunFrogTool(self.combobox_console.currentText())
 
     def combobox_drive_change(self):
-        RunFrogTool(self.combobox_console.currentText())
+        newDrive = self.combobox_drive.currentText()
+        console = self.combobox_console.currentText()
+        logging.info(f"Dialog for drive changed to ({newDrive})")
+        # ERIC: We shouldnt run frogtool as soon as the drive is opened. This is a lot of unnecessary processing.  
+        #RunFrogTool(console)
+        configPath = os.path.join(newDrive, static_TadpoleConfigFile)
+        config = configparser.ConfigParser()
+        if os.path.isfile(configPath):
+            config.read(configPath)
+            #TODO every release let's be ultra careful for now and delete tadpole settings...
+            #if it has defualt, then it doesn't exist
+            TadpoleVersion = config.get('versions', 'tadpole')
+            if TadpoleVersion != "0.3.9.15":
+                os.remove(configPath)
+                FirstRun(window)         
+        else:
+            FirstRun(window)
+        
+        loadROMsToTable()
 
     def combobox_console_change(self):
-        RunFrogTool(self.combobox_console.currentText())
+        console = self.combobox_console.currentText()
+        logging.info(f"Dialog for console changed to ({console})")
+        # ERIC: We shouldnt run frogtool as soon as the drive is opened. This is a lot of unnecessary processing.  
+        RunFrogTool(console)
 
     def show_readme(self):
         self.readme_dialog.show()
@@ -1768,14 +1792,14 @@ class SettingsWindow(QDialog):
 
     def GetKeyValue(self, section, key):
         drive = window.combobox_drive.currentText()
-        configPath = os.path.join(drive,"/Resources/tadpole.ini")
-        config.read(drive + "/Resources/tadpole.ini")
+        configPath = os.path.join(drive,"Resources","tadpole.ini")
+        config.read(configPath)
         if config.has_option(section, key):
             return config.get(section, key)
 
     def WriteValueToFile(self, section, key, value):
         drive = window.combobox_drive.currentText()
-        configPath = os.path.join(drive,"/Resources/tadpole.ini")
+        configPath = os.path.join(drive,"Resources","tadpole.ini")
         if config.has_option(section, key):
             config[section][key] = str(value)
             with open(configPath, 'w') as configfile:
@@ -2011,14 +2035,26 @@ class DownloadMessageBox(QMessageBox):
 
 if __name__ == "__main__":
     try:
+        LoggingPath = "tadpole.log"
+        # Per logger documentation, create logging as soon as possible before other hreads    
+        logging.basicConfig(filename=LoggingPath,
+                        filemode='a',
+                        format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                        datefmt='%H:%M:%S',
+                        level=logging.DEBUG)
+        logging.info("Logging started for current session")
+        print("Started logger")
+        
         # Initialise the Application
         app = QApplication(sys.argv)
-
+        
         # Build the Window
         window = MainWindow()
         # Update list of drives
         window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
-        reloadDriveList()
+
+        
+        
 
         # Update list of consoles
         # available_consoles_placeholder = "???"
@@ -2031,43 +2067,23 @@ if __name__ == "__main__":
         for console in tadpole_functions.systems.keys():
             window.combobox_console.addItem(QIcon(), console, console)
 
+        reloadDriveList()
+    
         window.show()
-
+        
         drive = window.combobox_drive.currentText()
-        configPath = os.path.join(drive, static_TadpoleConfigFile)
-        # ERIC: We should move this to the localhost rather than logging to the SD card. 
-        LoggingPath = os.path.join(drive, static_TadpoleLogFile)
-
-        # Per logger documentation, create logging as soon as possible before other hreads
-        if not os.path.exists(LoggingPath):
-            os.makedirs(os.path.join(drive, "Tadpole"), exist_ok=True)
-
-        logging.basicConfig(filename = LoggingPath,
-                        filemode='a',
-                        format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
-                        datefmt='%H:%M:%S',
-                        level=logging.DEBUG)
-        logging.info("Logging started for current session")
-
         #if tadpole.ini already exists, skip over first run, otherwise create it
         #Run First Run to create config, check bootloader, etc.
+        """
         if window.combobox_drive.currentText() == "N/A":
             QMessageBox().about(window, "Insert SD Card", "Your SD card must be plugged into the computer on launch of Tadpole.\n\n\
     Please insert the SD card and relaunch Tadpole.exe.  The application will now close.")
             logging.info("SD card was not detected")
-            sys.exit()
-        config = configparser.ConfigParser()
-        if os.path.isfile(configPath):
-            config.read(configPath)
-            #TODO every release let's be ultra careful for now and delete tadpole settings...
-            #if it has defualt, then it doesn't exist
-            TadpoleVersion = config.get('versions', 'tadpole')
-            if TadpoleVersion != "0.3.9.15":
-                os.remove(configPath)
-                FirstRun(window)         
-        else:
-            FirstRun(window)
-        RunFrogTool(window.combobox_console.currentText())    
+            sys.exit
+        """
+        
+        #RunFrogTool(window.combobox_console.currentText())    
         app.exec()
     except Exception as e:
+        print(f"ERROR: An Exception occurred. {e}")
         logging.exception("main crashed. Error: %s", e)
