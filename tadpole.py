@@ -146,10 +146,16 @@ def loadROMsToTable():
         print(f"found {len(files)} ROMs")
         #sort the list aphabetically before we go through it
         files = sorted(files)
-        for i,game in enumerate(files):
-            filesize = os.path.getsize(os.path.join(roms_path, game)) 
-            humanReadableFileSize = tadpole_functions.getHumanReadableFileSize(filesize)
-            
+        for i,f in enumerate(files):
+            game = f
+            humanReadableFileSize = "ERROR"
+            filesize = os.path.getsize(os.path.join(roms_path, game))           
+            if filesize > 1024*1024:  # More than 1 Megabyte
+                humanReadableFileSize = f"{round(filesize/(1024*1024),2)} MB"
+            elif filesize > 1024:  # More than 1 Kilobyte
+                humanReadableFileSize = f"{round(filesize/1024,2)} KB"
+            else:  # Less than 1 Kilobyte
+                humanReadableFileSize = f"filesize Bytes"
             # Filename
             cell_filename = QTableWidgetItem(f"{game}")
             cell_filename.setTextAlignment(Qt.AlignVCenter)
@@ -1058,6 +1064,8 @@ class MainWindow (QMainWindow):
         self.tbl_gamelist.horizontalHeader().resizeSection(0, 300) 
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.tbl_gamelist.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        self.tbl_gamelist.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
         self.tbl_gamelist.cellClicked.connect(catchTableCellClicked)
         self.tbl_gamelist.horizontalHeader().sectionClicked.connect(headerClicked)
 
@@ -1081,10 +1089,6 @@ class MainWindow (QMainWindow):
                                     self,
                                     triggered=self.about)
         self.exit_action = QAction("E&xit", self, shortcut="Ctrl+Q",triggered=self.close)
-
-
-
-
 
     def loadMenus(self):
         self.menu_file = self.menuBar().addMenu("&File")
@@ -1215,6 +1219,9 @@ class MainWindow (QMainWindow):
     def detectOSVersion(self):
         print("Tadpole~DetectOSVersion: Trying to read bisrv hash")
         drive = window.combobox_drive.currentText()
+        msg_box = DownloadMessageBox()
+        msg_box.setText("Detecting firmware version")
+        msg_box.show()
         try:
             msg_box.showProgress(50, True)
             detectedVersion = tadpole_functions.bisrv_getFirmwareVersion(os.path.join(drive,"bios","bisrv.asd"))
@@ -1516,13 +1523,13 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         UpdateMsgBox.close()
 
     def UpdateDevice(self, url):
-        drive = window.combobox_drive.currentText()       
+        drive = window.combobox_drive.currentText()
         msgBox = QMessageBox()
-        msgBox.setWindowTitle("Downloading Console Update")
-        msgBox.setText("Now downloading Console Update. Depending on your internet connection speed this may take some time, please wait patiently.")
+
+        msgBox = DownloadMessageBox()
+        msgBox.setText("Downloading Firmware Update.")
         msgBox.show()
-        if tadpole_functions.downloadDirectoryFromGithub(drive, url):
-            msgBox.showProgress(0, True)
+        msgBox.showProgress(0, True)
         if tadpole_functions.downloadDirectoryFromGithub(drive, url, msgBox.progress):
             msgBox.close()
             QMessageBox.about(self, "Success","Update successfully downloaded")
@@ -1773,7 +1780,6 @@ class SettingsWindow(QDialog):
             with open(configPath, 'w') as configfile:
                 config.write(configfile)   
 
-
 # Subclass Qidget to create a thumbnail viewing window        
 class thumbnailWindow(QDialog):
     """
@@ -2023,6 +2029,7 @@ if __name__ == "__main__":
         #window.combobox_console.addItem(QIcon(), static_AllSystems, static_AllSystems)
         for console in tadpole_functions.systems.keys():
             window.combobox_console.addItem(QIcon(), console, console)
+
         window.show()
 
         drive = window.combobox_drive.currentText()
