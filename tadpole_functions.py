@@ -10,6 +10,7 @@ import frogtool
 import requests
 import json
 import re
+import configparser
 try:
     from PIL import Image
     image_lib_avail = True
@@ -32,6 +33,9 @@ supported_save_ext = [
     "sav", "sa0", "sa1", "sa2", "sa3"
 ] 
 
+static_TadpoleConfigFile = "Tadpole/tapdole.ini"
+static_TadpoleLogFile = "Tadpole/tadpole.log"
+
 
 class Exception_InvalidPath(Exception):
     pass    
@@ -43,17 +47,24 @@ class Exception_StopExecution(Exception):
 class InvalidURLError(Exception):
     pass
    
-def changeBootLogo(index_path, newLogoFileName):
+def changeBootLogo(index_path, newLogoFileName, msgBox):
     # Confirm we arent going to brick the firmware by finding a known version
     sfVersion = bisrv_getFirmwareVersion(index_path)
     print(f"Found Version: {sfVersion}")
     if sfVersion == None:
         return False  
-    # Load the new Logo    
+    # Load the new Logo
+    msgBox.setText("Uploading new boot logo...")
+    msgBox.showProgress(25, True)
+    QApplication.processEvents  
     newLogo = QImage(newLogoFileName)
     # Convert to RGB565
+    msgBox.setText("Converting boot logo...")
+    msgBox.showProgress(40, True)
     rgb565Data = QImageToRGB565Logo(newLogo)
     # Change the boot logo
+    msgBox.setText("Uploading boot logo...")
+    msgBox.showProgress(60, True)
     file_handle = open(index_path, 'rb')  # rb for read, wb for write
     bisrv_content = bytearray(file_handle.read(os.path.getsize(index_path)))
     file_handle.close()
@@ -64,12 +75,18 @@ def changeBootLogo(index_path, newLogoFileName):
         data = rgb565Data[i].to_bytes(2, 'little')
         bisrv_content[bootLogoStart+i*2] = data[0]
         bisrv_content[bootLogoStart+i*2+1] = data[1]
+    msgBox.setText("Updating BIOS file...")
+    msgBox.showProgress(80, True)
     print("Patching CRC")    
     bisrv_content = patchCRC32(bisrv_content)
+    msgBox.setText("Uploading BIOS file...")
+    msgBox.showProgress(90, True)
     print("Writing bisrv to file")
     file_handle = open(index_path, 'wb')  # rb for read, wb for write
     file_handle.write(bisrv_content)    
     file_handle.close()
+    msgBox.showProgress(99, True)
+    return True
 
 def patchCRC32(bisrv_content):
     x = crc32mpeg2(bisrv_content[512:len(bisrv_content):1])    
@@ -104,24 +121,40 @@ def QImageToRGB565Logo(inputQImage):
 # hash, versionName
 versionDictionary = {
     "6aebab0e4da39e0a997df255ad6a1bd12fdd356cdf51a85c614d47109a0d7d07": "2023.04.20 (V1.5)",
-    "3f0ca7fcd47f1202828f6dbc177d8f4e6c9f37111e8189e276d925ffd2988267": "2023.08.03 (V1.6)"
+    "334c8f0a8584db07078d7dfc940e540e6538dde948cb6fdbf50754e4e113d6bc": "2023.08.03 (V1.6)"
 }
 
+def changeZIPThumbnail(romPath, newImpagePath, system):
+    newLogoPath = os.path.dirname(romPath)
+    newLogoName = os.path.basename(newImpagePath)
+    romFile = os.path.basename(romPath)
+    new_romPath = os.path.dirname(romPath)
+    newLogoFile = os.path.join(newLogoPath,newLogoName)
+    shutil.copyfile(newImpagePath, newLogoFile)
+    sys_zxx_ext = frogtool.zxx_ext[system]
+    zxx_file_name = f"{frogtool.strip_file_extension(romFile)}.{sys_zxx_ext}"
+    zxx_file_path = os.path.join(new_romPath,zxx_file_name)
+    converted = frogtool.rgb565_convert(newLogoFile, zxx_file_path, (144, 208))
+    if not converted:
+        return False
+    try:
+        zxx_file_handle = open(zxx_file_path, "ab")
+        zip_file_handle = open(romPath, "rb")
+        zxx_file_handle.write(zip_file_handle.read())
+        zxx_file_handle.close()
+        zip_file_handle.close()
+    except (OSError, IOError):
+        print(f"! Failed appending zip file to {zxx_file_name}")
+        return False
 
-def getThumbnailFromZXX(filepath):
-    """
-    file_handle = open(filepath, 'rb') #rb for read bytes
-    zxx_content = bytearray(file_handle.read(os.path.getsize(filepath)))#can probably reduce this to 208*104*2
-    file_handle.close()
-    thumbnailQImage = QImage()
-    for y in range (0, 208):
-        for x in range (0, 104):
-            intColor = 
-            thumbnailQImage.setPixel(x,y,)
-            
-    return thumbnailQImage"""
-    return False
+    try:
+        os.remove(newLogoFile)
+        os.remove(romPath)
+    except (OSError, IOError):
+        print(f"! Failed deleting source file(s) after creating {zxx_file_name}")
+        return False
 
+    return True
 
 def changeZXXThumbnail(romPath, imagePath):
     tempPath = f"{romPath}.tmp"
@@ -146,23 +179,67 @@ def changeZXXThumbnail(romPath, imagePath):
         return False
     return True
 
+def overwriteZXXThumbnail(roms_path, system, progress):
+    #First we need to get lists of all the images and ROMS
+    img_files = os.scandir(roms_path)
+    img_files = list(filter(frogtool.check_img, img_files))
+    rom_files = os.scandir(roms_path)
+    rom_files = list(filter(frogtool.check_rom, rom_files))
+    sys_zxx_ext = frogtool.zxx_ext[system]
+    if not img_files or not rom_files:
+        return
+    print(f"Found image and .z** files, looking for matches to combine to {sys_zxx_ext}")
+
+    #SECOND we need to get the RAW copies of each image...if there is a matching Z**
+    imgs_processed = 0
+    progress.setMaximum(len(img_files))
+    progress.setValue(imgs_processed)
+    for img_file in img_files:
+        zxx_rom_file = frogtool.find_matching_file_diff_ext(img_file, rom_files)
+        if not zxx_rom_file:
+            continue
+        tempPath = f"{zxx_rom_file.path}.tmp"
+        converted = frogtool.rgb565_convert(img_file.path, tempPath, (144, 208))
+        if not converted:
+            print("! Aborting image processing due to errors")
+            break
+        try:
+            temp_file_handle = open(tempPath, "ab")
+            zxx_file_handle = open(zxx_rom_file.path, "rb")
+            romData = bytearray(zxx_file_handle.read())
+            temp_file_handle.write(romData[59904:])
+            temp_file_handle.close()
+            zxx_file_handle.close()
+        except (OSError, IOError):
+            print(f"! Failed appending zip file to ")
+            break
+        try:
+            shutil.move(tempPath,zxx_rom_file.path)
+        except (OSError, IOError) as error:
+            print(f"! Failed moving temp files. {error}")
+            break
+        imgs_processed += 1
+        progress.setValue(imgs_processed)
+        QApplication.processEvents()
+    #Third we need to copy the data of the new thumbnail over to the rom file
+
 """
 This is a rewrtite attempt at changing the cover art inplace rather thancopy and replace
 """
-def changeZXXThumbnail2(romPath, imagePath):
-    coverData = getImageData565(imagePath, (144, 208))
-    if not coverData:
-        return False
-    # copy the rom data to the temp
-    try:
-        zxx_file_handle = open(romPath, "r+b")
-        zxx_file_handle.seek(0)
-        zxx_file_handle.write(coverData)
-        zxx_file_handle.close()
-    except (OSError, IOError):
-        print(f"! Failed appending zip file to ")
-        return False
-    return True
+# def changeZXXThumbnail2(romPath, imagePath):
+#     coverData = getImageData565(imagePath, (144, 208))
+#     if not coverData:
+#         return False
+#     # copy the rom data to the temp
+#     try:
+#         zxx_file_handle = open(romPath, "r+b")
+#         zxx_file_handle.seek(0)
+#         zxx_file_handle.write(coverData)
+#         zxx_file_handle.close()
+#     except (OSError, IOError):
+#         print(f"! Failed appending zip file to ")
+#         return False
+#     return True
 
 
 def getImageData565(src_filename, dest_size=None):
@@ -248,7 +325,57 @@ def bisrv_getFirmwareVersion(index_path):
                 return False
         else:
             return False
+        
+        # Next we'll look for (and zero out) the five bytes that the power
+        # monitoring functions of the SF2000 use for switching the UI's battery
+        # level indicator. These unfortunately can't be searched for - they're just
+        # in specific known locations for specific firmware versions...
+        prePowerCurve = findSequence([0x11, 0x05, 0x00, 0x02, 0x24], bisrv_content)
+        if prePowerCurve > -1:
+            powerCurveFirstByteLocation = prePowerCurve + 5
+            if powerCurveFirstByteLocation == 0x35A8F8:
+                # Seems to match mid-March layout...
+                bisrv_content[0x35A8F8] = 0x00
+                bisrv_content[0x35A900] = 0x00
+                bisrv_content[0x35A9B0] = 0x00
+                bisrv_content[0x35A9B8] = 0x00
+                bisrv_content[0x35A9D4] = 0x00
 
+            elif powerCurveFirstByteLocation == 0x35A954:
+                # Seems to match April 20th layout...
+                bisrv_content[0x35A954] = 0x00
+                bisrv_content[0x35A95C] = 0x00
+                bisrv_content[0x35AA0C] = 0x00
+                bisrv_content[0x35AA14] = 0x00
+                bisrv_content[0x35AA30] = 0x00
+
+            elif powerCurveFirstByteLocation == 0x35C78C:
+                # Seems to match May 15th layout...
+                bisrv_content[0x35C78C] = 0x00
+                bisrv_content[0x35C794] = 0x00
+                bisrv_content[0x35C844] = 0x00
+                bisrv_content[0x35C84C] = 0x00
+                bisrv_content[0x35C868] = 0x00
+
+            elif powerCurveFirstByteLocation == 0x35C790:
+                # Seems to match May 22nd layout...
+                bisrv_content[0x35C790] = 0x00
+                bisrv_content[0x35C798] = 0x00
+                bisrv_content[0x35C848] = 0x00
+                bisrv_content[0x35C850] = 0x00
+                bisrv_content[0x35C86C] = 0x00
+
+            elif powerCurveFirstByteLocation == 0x3564EC:
+                # Seems to match August 3rd layout...
+                bisrv_content[0x3564EC] = 0x00
+                bisrv_content[0x3564F4] = 0x00
+                bisrv_content[0x35658C] = 0x00
+                bisrv_content[0x356594] = 0x00
+                bisrv_content[0x3565B0] = 0x00
+            else:
+                return False
+        else:
+            return False
         # If we're here, we've zeroed-out all of the bits of the firmware that are
         # semi-user modifiable (boot logo, button mappings and the CRC32 bits); now
         # we can generate a hash of what's left and compare it against some known
@@ -260,9 +387,6 @@ def bisrv_getFirmwareVersion(index_path):
         print(f"Hash: {bisrvHash}")
         version = versionDictionary.get(bisrvHash)
         return version
-   
-        # else:
-        #      return False
         
     except (IOError, OSError):
         print("! Failed reading bisrv.")
@@ -308,6 +432,38 @@ def changeGameShortcut(index_path, console, position, game):
         xfgle_file_handle = open(xfgle_filepath, "w")
         for line in lines:
             xfgle_file_handle.write(line)
+        xfgle_file_handle.close()       
+    except (OSError, IOError):
+        print(f"! Failed changing the shortcut file")
+        return False
+  
+    return -1
+
+def deleteGameShortcut(index_path, console, position, game):
+    # Check the passed variables for validity
+    if not(0 <= position <= 3):
+        raise Exception_InvalidPath
+    if not (console in systems.keys()):
+        raise Exception_InvalidConsole
+        
+    try:
+        trimmedGameName = frogtool.strip_file_extension(game)
+        #print(f"Filename trimmed to: {trimmedGameName}")
+        #Read in all the existing shortcuts from file
+        xfgle_filepath = os.path.join(index_path, "Resources", "xfgle.hgp")
+        xfgle_file_handle = open(xfgle_filepath, "r")
+        lines = xfgle_file_handle.readlines()
+        xfgle_file_handle.close()
+        prefix = 9
+        if console == "ARCADE":  # Arcade lines must be prefixed with "6", all others can be anything.
+            prefix = 6
+        # Overwrite the one line we want to change
+        lines[4*systems[console][3]+position] = f"{prefix} {game}*\n"
+        # Save the changes out to file
+        xfgle_file_handle = open(xfgle_filepath, "w")
+        for line in lines:
+            if line.strip("\n") != f"{prefix} {game}*":
+                xfgle_file_handle.write(line)
         xfgle_file_handle.close()       
     except (OSError, IOError):
         print(f"! Failed changing the shortcut file")
@@ -412,7 +568,7 @@ def get_background_music(url="https://api.github.com/repos/EricGoldsteinNz/SF200
         return music
     raise ConnectionError("Unable to obtain music resources. (Status Code: {})".format(response.status_code))
 
-def get_themes(url="https://api.github.com/repos/jasongrieves/SF2000_Resources/contents/Themes") -> bool:
+def get_themes(url="https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/Themes") -> bool:
     """gets index of theme from provided GitHub API URL"""
     theme = {}
     response = requests.get(url)
@@ -480,8 +636,8 @@ def changeTheme(drive_path: str, url: str = "", file: str = "", progressBar: QPr
             with zipfile.ZipFile(zip_file) as zip:
                 progressBar.setMaximum(len(zip.infolist()))
                 progress = 6
-                #TODO: Hacky but assume any zip folder with more than 49 files is not a theme zip
-                if len(zip.infolist()) > 49:
+                #TODO: Hacky but assume any zip folder with more than 55 files is not a theme zip
+                if len(zip.infolist()) > 55:
                     return False
                 for zip_info in zip.infolist():     
                     #print(zip_info)
@@ -507,9 +663,6 @@ def changeTheme(drive_path: str, url: str = "", file: str = "", progressBar: QPr
             with zipfile.ZipFile(file) as zip:
                 progressBar.setMaximum(len(zip.infolist()))
                 progress = 2
-                #TODO: Hacky but assume any zip folder with more than 49 files is not a theme zip
-                if len(zip.infolist()) > 49:
-                    return False
                 for zip_info in zip.infolist():     
                     #print(zip_info)
                     if zip_info.is_dir():
@@ -722,8 +875,7 @@ def createSaveBackup(drive: str, zip_file_name):
                      
 def check_is_save_file(filename):
     file_regex = ".+\\.(" + "|".join(supported_save_ext) + ")$"
-    return re.search(file_regex, filename.lower())
-        
+    return re.search(file_regex, filename.lower())    
         
 def getHumanReadableFileSize(filesize):
     humanReadableFileSize = "ERROR"          
@@ -734,3 +886,223 @@ def getHumanReadableFileSize(filesize):
     else:  # Less than 1 Kilobyte
         humanReadableFileSize = f"filesize Bytes"
     return humanReadableFileSize
+
+def writeDefaultSettings(drive):
+    config = configparser.ConfigParser()
+    configPath = os.path.join(drive, static_TadpoleConfigFile)
+    #Set other config file defaults
+    config.add_section('thumbnails')
+    config.add_section('versions')
+    config.set('thumbnails', 'view', 'False')
+    config.set('thumbnails', 'download', '0')
+    config.set('thumbnails', 'ovewrite', 'True') #0 - manual upload, #1 - download from internet
+    config.set('versions', 'tadpole', '0.3.9.15') #TODO: this is where you change the version to force settings to delete for breaking change
+    with open(configPath, 'w') as configfile:
+        config.write(configfile)
+
+#Credit to OpenAI "Give me sample code to convert little endian RGB565 binary images to PNG's in python"
+def convertRGB565toPNG(inputFile):
+        # Read the binary data
+        with open(inputFile, 'rb') as file:
+            data = file.read()
+
+        # Unpack the RGB565 data
+        pixels = struct.unpack('<' + ('H' * (len(data) // 2)), data)
+
+        # Convert the RGB565 values to RGB888 format
+        rgb888_pixels = [
+            ((pixel & 0xF800) >> 8, (pixel & 0x07E0) >> 3, (pixel & 0x001F) << 3)
+            for pixel in pixels
+        ]
+
+        # Create an image from the pixels
+        width = 640  # Specify the width of the image
+        height = len(rgb888_pixels) // width
+        image = Image.new('RGB', (width, height))
+        image.putdata(rgb888_pixels)
+
+        # Save the image as PNG
+        image.save('currentBackground.temp.png')
+        return image
+
+def convertPNGtoResourceRGB565(srcPNG, resourceFileName, drive):
+    tempRawBackground = resourceFileName + ".raw"
+    if frogtool.rgb565_convert(srcPNG, tempRawBackground, dest_size=(640, 480)):
+        shutil.copy(tempRawBackground, drive + "/Resources/" + resourceFileName)
+        os.remove(srcPNG)
+        os.remove(tempRawBackground)
+        print(resourceFileName + " updated.")
+    else:
+        print("Couldn't convert file for gameshortcut")
+
+#returns a string to the current resource file for each system
+def getBackgroundResourceFileforConsole(drive, system):
+    if system == "SFC":
+        resourceFile = "drivr.ers"
+        return (drive + "/Resources/" + resourceFile)
+    elif system == "FC":
+        resourceFile = "fixas.ctp"
+        return (drive + "/Resources/" + resourceFile)
+    elif system == "MD":
+        resourceFile = "icuin.cpl"
+        return (drive + "/Resources/" + resourceFile)
+    elif system == "GB":
+        resourceFile = "xajkg.hsp"
+        return (drive + "/Resources/" + resourceFile)
+    elif system == "GBC":
+        resourceFile = "qwave.bke"
+        return (drive + "/Resources/" + resourceFile)
+    elif system == "GBA":
+        resourceFile = "irftp.ctp"
+        return (drive + "/Resources/" + resourceFile)
+    elif system == "ARCADE":
+        resourceFile = "hctml.ers"
+        return (drive + "/Resources/" + resourceFile)
+
+#Thanks to Dteyn for putting the python together from here: https://github.com/Dteyn/SF2000_Battery_Level_Patcher/blob/master/main.py
+#Thanks to OpenAI for writing the class and converting logging to prints
+class BatteryPatcher:
+    def __init__(self, firmware_file, patched_file):
+
+        # Filename of original firmware file to open
+        self.firmware_file = firmware_file
+        # Filename of patched firmware file to save
+        self.patched_file = patched_file
+
+        # Define voltage values for each battery level (user can modify these)
+        self.VOLTAGE_LEVELS = {
+            "5 bars": 4.0,  # Full charge
+            "4 bars": 3.88,
+            "3 bars": 3.80,
+            "2 bars": 3.72,
+            "1 bar (red)": 3.66  # Near empty
+        }
+
+        # Offset addresses for each battery level - firmware 08.03
+        self.ADDRESSES = [
+            0x3564ec,  # 5 bars (full charge)
+            0x3564f4,  # 4 bars
+            0x35658c,  # 3 bars
+            0x356594,  # 2 bars (yellow)
+            0x3565b0  # 1 bar (red)
+        ]
+
+        # Convert voltage levels to firmware values
+        self.BATTERY_VALUES = {addr: self.voltage_to_value(self.VOLTAGE_LEVELS[bar])
+                               for addr, bar in zip(self.ADDRESSES, self.VOLTAGE_LEVELS)}
+
+        # Stock values for sanity check
+        self.STOCK_VALUES = [
+            0xBF,
+            0xB7,
+            0xAF,
+            0xA9,
+            0xA1
+        ]
+
+        # New values for sanity check
+        self.BATTERY_FIX_VALUES = [
+             0xC8,
+             0xC2,
+             0xBE,
+             0xBA,
+             0xB7
+        ]
+
+
+    def voltage_to_value(self, voltage):
+        """Convert voltage to the appropriate firmware value using the 50x multiplier."""
+        return int(voltage * 50)
+
+    def calculate_crc32(self, data):
+        """
+        Calculate the CRC32 value for the given data. 
+        Credit to @bnister for the C version of this code (translated to Python by GPT-4)
+        """
+        tab_crc32 = [(i << 24) & 0xFFFFFFFF for i in range(256)]
+        for i in range(256):
+            c = tab_crc32[i]
+            for _ in range(8):
+                c = (c << 1) ^ 0x4c11db7 if (c & (1 << 31)) else c << 1
+                c &= 0xFFFFFFFF
+            tab_crc32[i] = c
+
+        c = ~0 & 0xFFFFFFFF
+        for i in range(512, len(data)):
+            c = (c << 8) ^ tab_crc32[((c >> 24) ^ data[i]) & 0xFF]
+            c &= 0xFFFFFFFF
+
+        return c
+
+    def check_patch_applied(self, bisrv_data):
+        for addr, expected_value in zip(self.ADDRESSES, self.BATTERY_FIX_VALUES):
+            if bisrv_data[addr] != expected_value:
+                print("The firmware does not match the expected battery patched versions at offset %X. "
+                            "Please check the offsets." %addr)
+                return False
+        print("The firmware matched the expected battery patched versions at offset %X." %addr)
+        return True
+
+
+    def check_latest_firmware(self, bisrv_data):
+        """
+        Check if the firmware matches the patched values
+        """
+        for addr, expected_value in zip(self.ADDRESSES, self.STOCK_VALUES):
+            if bisrv_data[addr] != expected_value:
+                print("The firmware does not match the expected '08.03' version at offset %X. "
+                              "Please check the offsets." %addr)
+                return False
+        print("The firmware matched the expected firmware versions at offset %X." %addr)
+        return True
+
+    def patch_firmware(self, progressIndicator):
+        """
+        Patch the firmware file with new battery values and update its CRC32.
+        """
+        try:
+            progressIndicator.setValue(1)
+            QApplication.processEvents()
+            with open(self.firmware_file, 'rb') as f:
+                bisrv_data = bytearray(f.read())
+            print("File '%s' opened successfully." % self.firmware_file)
+
+            # Perform sanity check
+            if not self.check_latest_firmware(bisrv_data):
+                return
+
+            # Patch the battery values
+            for addr, value in self.BATTERY_VALUES.items():
+                bisrv_data[addr] = value
+            print("File patched with new battery values.")
+            progressIndicator.setValue(10)
+            QApplication.processEvents()
+
+            # Calculate new CRC32
+            print("Calculating new CRC32...")
+            crc = self.calculate_crc32(bisrv_data)
+            print("New CRC32 value: %X" % crc)
+            progressIndicator.setValue(80)
+            QApplication.processEvents()
+            # Update CRC32 in the bisrv_data
+            bisrv_data[0x18c] = crc & 0xFF
+            bisrv_data[0x18d] = (crc >> 8) & 0xFF
+            bisrv_data[0x18e] = (crc >> 16) & 0xFF
+            bisrv_data[0x18f] = (crc >> 24) & 0xFF
+
+            # Write the patched data back to the file
+            with open(self.patched_file, 'wb') as f:
+                f.write(bisrv_data)
+            print("Patched data written back to '%s'." % self.patched_file)
+            return True
+        except FileNotFoundError:
+            print("File '%s' not found." % self.firmware_file)
+            return False
+        except Exception as e:
+            print("An error occurred: %s" % str(e))
+            return False
+
+
+# if __name__ == "__main__":
+#     battery_patcher = BatteryPatcher("bisrv-08_03.asd", "bisrv.asd")
+#     firmware_patcher.patch_firmware()
