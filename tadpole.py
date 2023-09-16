@@ -761,8 +761,10 @@ class MainWindow (QMainWindow):
 
         self.readme_dialog = ReadmeDialog()
 
-        #TODO: Are we sure we want to be doing this every second?
         # Reload Drives Timer
+        # This is run once per second to check if any new SD cards have been inserted.
+        # Ideally we would hook this into a trigger rather than polling for changes.
+        # The resource cost of polling seems to be quite low though
         self.timer = QTimer()
         self.timer.timeout.connect(reloadDriveList)
         self.timer.start(1000)
@@ -1604,7 +1606,7 @@ if __name__ == "__main__":
 Please insert the SD card and relaunch Tadpole.exe.  The application will now close.")
         sys.exit()
     config = configparser.ConfigParser()
-    configPath = os.path.join(window.combobox_drive.currentText(),"/Resources/tadpole.ini")
+    configPath = os.path.join(window.combobox_drive.currentText(),"Resources","tadpole.ini")
     if os.path.isfile(configPath):
         config.read(configPath)
         #TODO every release let's be ultra careful for now and delete tadpole settings...
