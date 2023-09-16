@@ -174,24 +174,32 @@ def loadROMsToTable():
                 cell_viewthumbnail = QTableWidgetItem()
                 cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
                 pathToROM = os.path.join(roms_path, game)
-                try:
+                extension = Path(pathToROM).suffix
+                #only show thumbnails of the .z** files 
+                sys_zxx_ext = '.' + frogtool.zxx_ext[system]
+                if(extension == sys_zxx_ext):
                     with open(pathToROM, "rb") as rom_file:
                         rom_content = bytearray(rom_file.read())
                     with open(os.path.join(basedir, "temp_rom_cover.raw"), "wb") as image_file:
                         image_file.write(rom_content[0:((144*208)*2)])
                         with open(pathToROM, "rb") as f:
                             img = QImage(f.read(), 144, 208, QImage.Format_RGB16)
-                except OSError:
-                    logging.exception("main crashed. Error: %s", OSError)
-                pimg = QPixmap()
-                icon = QIcon()
-                QPixmap.convertFromImage(pimg, img)
-                QIcon.addPixmap(icon, pimg)
-                cell_viewthumbnail.setIcon(icon)
-                size = QSize(144, 208)
-                window.tbl_gamelist.setIconSize(size)
-                cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
-                window.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)  
+                    pimg = QPixmap()
+                    icon = QIcon()
+                    QPixmap.convertFromImage(pimg, img)
+                    QIcon.addPixmap(icon, pimg)
+                    cell_viewthumbnail.setIcon(icon)
+                    size = QSize(144, 208)
+                    window.tbl_gamelist.setIconSize(size)
+                    cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
+                    window.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)
+                else:
+                    cell_viewthumbnail = QTableWidgetItem(f"\nNo thumbnail\n Click to edit\n")
+                    cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
+                    cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
+                    window.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)   
+                    #except OSError:
+                    #logging.exception("main crashed. Error: %s", OSError)
             else:
                 cell_viewthumbnail = QTableWidgetItem(f"View")
                 cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
