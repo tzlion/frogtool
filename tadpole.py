@@ -147,12 +147,12 @@ def loadROMsToTable():
         QApplication.processEvents()
         window.tbl_gamelist.setRowCount(len(files))
         print(f"found {len(files)} ROMs")
-        for i,f in enumerate(files):
-            filesize = os.path.getsize(os.path.join(roms_path, f)) 
+        for i,game in enumerate(files):
+            filesize = os.path.getsize(os.path.join(roms_path, game)) 
             humanReadableFileSize = tadpole_functions.getHumanReadableFileSize(filesize)
             
             # Filename
-            cell_filename = QTableWidgetItem(f"{f}")
+            cell_filename = QTableWidgetItem(f"{game}")
             cell_filename.setTextAlignment(Qt.AlignVCenter)
             cell_filename.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
             window.tbl_gamelist.setItem(i, 0, cell_filename)  
@@ -1135,7 +1135,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         msgBox.setText("Now downloading Console Update. Depending on your internet connection speed this may take some time, please wait patiently.")
         msgBox.show()
         if tadpole_functions.downloadDirectoryFromGithub(drive, url):
-        msgBox.showProgress(0, True)
+            msgBox.showProgress(0, True)
         if tadpole_functions.downloadDirectoryFromGithub(drive, url, msgBox.progress):
             msgBox.close()
             QMessageBox.about(self, "Success","Update successfully Downloaded")
