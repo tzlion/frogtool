@@ -878,14 +878,14 @@ def check_is_save_file(filename):
     return re.search(file_regex, filename.lower())    
         
 def getHumanReadableFileSize(filesize):
-     humanReadableFileSize = "ERROR"          
-     if filesize > 1024*1024:  # More than 1 Megabyte
-         humanReadableFileSize = f"{round(filesize/(1024*1024),2)} MB"
-     elif filesize > 1024:  # More than 1 Kilobyte
-         humanReadableFileSize = f"{round(filesize/1024,2)} KB"
-     else:  # Less than 1 Kilobyte
-         humanReadableFileSize = f"filesize Bytes"
-     return humanReadableFileSize
+    humanReadableFileSize = "ERROR"          
+    if filesize > 1024*1024:  # More than 1 Megabyte
+        humanReadableFileSize = f"{round(filesize/(1024*1024),2)} MB"
+    elif filesize > 1024:  # More than 1 Kilobyte
+        humanReadableFileSize = f"{round(filesize/1024,2)} KB"
+    else:  # Less than 1 Kilobyte
+        humanReadableFileSize = f"filesize Bytes"
+    return humanReadableFileSize
 
 def writeDefaultSettings(drive):
     config = configparser.ConfigParser()
