@@ -1,21 +1,17 @@
 import os
-import sys
 import shutil
 import hashlib
 import zipfile
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
 import struct
-import zlib
 import frogtool
 import requests
 import json
-import logging
 import re
-
 try:
     from PIL import Image
-    from PIL import ImageDraw
     image_lib_avail = True
 except ImportError:
     Image = None
@@ -120,7 +116,6 @@ def getThumbnailFromZXX(filepath):
     thumbnailQImage = QImage()
     for y in range (0, 208):
         for x in range (0, 104):
-            #TODO
             intColor = 
             thumbnailQImage.setPixel(x,y,)
             
@@ -185,7 +180,9 @@ def getImageData565(src_filename, dest_size=None):
     image.paste(srcimage, None)
 
     if dest_size and image.size != dest_size:
-        image = image.resize(dest_size)
+        #TODO: let user decide to stretch or not
+        maxsize = (144, 208)
+        image = image.thumbnail(maxsize, Image.ANTIALIAS) 
 
     image_height = image.size[1]
     image_width = image.size[0]
@@ -207,7 +204,6 @@ def getImageData565(src_filename, dest_size=None):
             rgb = (r << 11) | (g << 5) | b
             rgb565Data.append(struct.pack('H', rgb))
     return rgb565Data
-
 
 offset_logo_presequence = [0x62, 0x61, 0x64, 0x5F, 0x65, 0x78, 0x63, 0x65, 0x70, 0x74, 0x69, 0x6F, 0x6E, 0x00, 0x00, 0x00]
 offset_buttonMap_presequence = [0x00, 0x00, 0x00, 0x71, 0xDB, 0x8E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
@@ -297,7 +293,7 @@ def changeGameShortcut(index_path, console, position, game):
         
     try:
         trimmedGameName = frogtool.strip_file_extension(game)
-        print(f"Filename trimmed to: {trimmedGameName}")
+        #print(f"Filename trimmed to: {trimmedGameName}")
         #Read in all the existing shortcuts from file
         xfgle_filepath = os.path.join(index_path, "Resources", "xfgle.hgp")
         xfgle_file_handle = open(xfgle_filepath, "r")
@@ -324,7 +320,7 @@ def getGameShortcutPosition(index_path, console, game):
         
     try:
         trimmedGameName = frogtool.strip_file_extension(game)
-        print(f"Filename trimmed to: {trimmedGameName}")
+        #print(f"Filename trimmed to: {trimmedGameName}")
         #Read in all the existing shortcuts from file
         xfgle_filepath = os.path.join(index_path, "Resources", "xfgle.hgp")
         xfgle_file_handle = open(xfgle_filepath, "r")
@@ -337,7 +333,7 @@ def getGameShortcutPosition(index_path, console, game):
         savedShortcut = f"{prefix} {game}*\n"
         for i, gameShortcutLine in enumerate(lines):
             if gameShortcutLine == savedShortcut:
-                print("Found " + savedShortcut + " on line " + str(i))
+                print("Found " + savedShortcut + "as shortcut")
                 #now we found the match of the raw location, now we need to return the position from console
                 #from xfgle, the positions start with 3 random lines, and then go down in order from FC -> SNES -> ... -> Arcade
                 if(console == "FC" ):
@@ -416,6 +412,17 @@ def get_background_music(url="https://api.github.com/repos/EricGoldsteinNz/SF200
         return music
     raise ConnectionError("Unable to obtain music resources. (Status Code: {})".format(response.status_code))
 
+def get_themes(url="https://api.github.com/repos/jasongrieves/SF2000_Resources/contents/Themes") -> bool:
+    """gets index of theme from provided GitHub API URL"""
+    theme = {}
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        data = json.loads(response.content)
+        for item in data:
+            theme[item['name'].replace(".zip", "")] = item['download_url']
+        return theme
+    raise ConnectionError("Unable to obtain theme resources. (Status Code: {})".format(response.status_code))
 
 """
 This function downloads a file from the internet and renames it to pagefile.sys to replace the background music.
@@ -447,6 +454,77 @@ def changeBackgroundMusic(drive_path: str, url: str = "", file: str = "") -> boo
     else:
         raise ValueError("Provide only url or path, not both")
 
+"""
+This function downloads a file from the internet and downloads it to resources.
+"""
+
+
+def changeTheme(drive_path: str, url: str = "", file: str = "", progressBar: QProgressBar = "") -> bool:
+    """
+    Changes background theme from the provided URL or file
+
+    Params:
+        url (str):  URL to theme files to use for replacement.
+        file (str):  Full path to a zip file to use for replacement.
+        ProgressBar: address of the progressbar to update on screen
+    Returns:
+        bool: True if successful, False if not.
+
+    Raises:
+        ValueError: When both url and file params are provided.
+    """
+    if url and not file:
+        zip_file = "theme.zip"
+        downloadFileFromGithub(zip_file, url)
+        try:
+            with zipfile.ZipFile(zip_file) as zip:
+                progressBar.setMaximum(len(zip.infolist()))
+                progress = 6
+                #TODO: Hacky but assume any zip folder with more than 49 files is not a theme zip
+                if len(zip.infolist()) > 49:
+                    return False
+                for zip_info in zip.infolist():     
+                    #print(zip_info)
+                    if zip_info.is_dir():
+                        continue
+                    zip_info.filename = os.path.basename(zip_info.filename)
+                    progress += 1
+                    progressBar.setValue(progress)
+                    QApplication.processEvents()
+                    zip.extract(zip_info, drive_path + "Resources")
+                    #Cleanup temp zip file
+            if os.path.exists(zip_file):
+                    os.remove(zip_file)   
+            return True
+        except:
+            if os.path.exists(zip_file):
+                os.remove(zip_file)   
+            return False
+
+        return True
+    elif file and not url:
+        try:
+            with zipfile.ZipFile(file) as zip:
+                progressBar.setMaximum(len(zip.infolist()))
+                progress = 2
+                #TODO: Hacky but assume any zip folder with more than 49 files is not a theme zip
+                if len(zip.infolist()) > 49:
+                    return False
+                for zip_info in zip.infolist():     
+                    #print(zip_info)
+                    if zip_info.is_dir():
+                        continue
+                    zip_info.filename = os.path.basename(zip_info.filename)
+                    progress += 1
+                    progressBar.setValue(progress)
+                    QApplication.processEvents()
+                    #TODO validate this is a real theme...maybe just check a set of files?
+                    zip.extract(zip_info, drive_path + "Resources")
+            return True
+        except:
+            return False
+    else:
+        raise ValueError("Error updating theme")
 
 def changeConsoleLogos(drivePath, url=""):
     return downloadAndReplace(drivePath, "/Resources/sfcdr.cpl", url)    
@@ -472,20 +550,26 @@ def downloadAndReplace(drivePath, fileToReplace, url=""):
         print("An error occured while trying to download and replace a file.")
         return False
       
-def downloadDirectoryFromGithub(location, url):
+def downloadDirectoryFromGithub(location, url, progressBar):
     response = requests.get(url) 
     if response.status_code == 200:
         data = json.loads(response.content)
+        #progressBar.reset()
+        downloadTotal = 0
+        progressBar.setMaximum(len(data)+1)
         for item in data:
             if item["type"] == "dir":
                 #create folder then recursively download
                 foldername = item["name"]
                 print(f"creating directory {location}/{foldername}")
                 os.makedirs(os.path.dirname(f"{location}/{foldername}/"), exist_ok=True)
-                downloadDirectoryFromGithub(f"{location}/{foldername}", item["url"])
+                downloadDirectoryFromGithub(f"{location}/{foldername}", item["url"], progressBar)
             else:# all other cases should be files
                 filename = item["name"]
                 downloadFileFromGithub(f"{location}/{filename}", item["download_url"])
+                downloadTotal += 1
+                progressBar.setValue(downloadTotal)
+                QApplication.processEvents()
                 
         return True
     raise ConnectionError("Unable to V1.5 Update. (Status Code: {})".format(response.status_code))

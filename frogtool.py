@@ -1,5 +1,4 @@
 import os
-import sys
 import re
 import binascii
 import shutil
@@ -94,7 +93,6 @@ def getROMList(roms_path):
     files = list(filter(check_rom, files))
     filenames = list(map(file_entry_to_name, files))
     return filenames
-#TODO
 
 def process_sys(drive, system, test_mode):
     print(f"Processing {system}")
@@ -145,7 +143,6 @@ def find_matching_file_diff_ext(target, files):
         file_no_ext = strip_file_extension(file.name)
         if file_no_ext == target_no_ext:
             return file
-
 
 def convert_zip_image_pairs_to_zxx(roms_path, system):
     img_files = os.scandir(roms_path)
@@ -218,13 +215,27 @@ def rgb565_convert(src_filename, dest_filename, dest_size=None):
     except (OSError, IOError):
         print(f"! Failed opening destination file {dest_filename} for conversion")
         return False
+    
+
 
     # convert the image to RGB if it was not already
     image = Image.new('RGB', srcimage.size, (0, 0, 0))
     image.paste(srcimage, None)
 
     if dest_size and image.size != dest_size:
+        # x, y = image.size
+        # new_size=(144, 208)
+        # fill_color=(0, 0, 0, 0)
+        # size_x = max(dest_size[0], x)
+        # size_y = max(dest_size[1], y)
+        # new_im = Image.new('RGB', (new_size[0], new_size[1]), fill_color)
+        # new_im.paste(image, (int((size_x - x) / 2), int((size_y - y) / 2)))
+        # image = new_im
+        # TODO Let user pick if they want to stretch or not
+        #image = image.scaled(144, 208, Qt.KeepAspectRatio, Qt.SmoothTransformation) #Rescale new boot logo to correct size
         image = image.resize(dest_size)
+        #maxsize = (144, 208)
+        #image = image.thumbnail(maxsize) 
 
     image_height = image.size[1]
     image_width = image.size[0]
