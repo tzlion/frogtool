@@ -568,7 +568,7 @@ def get_background_music(url="https://api.github.com/repos/EricGoldsteinNz/SF200
         return music
     raise ConnectionError("Unable to obtain music resources. (Status Code: {})".format(response.status_code))
 
-def get_themes(url="https://api.github.com/repos/jasongrieves/SF2000_Resources/contents/Themes") -> bool:
+def get_themes(url="https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/Themes") -> bool:
     """gets index of theme from provided GitHub API URL"""
     theme = {}
     response = requests.get(url)

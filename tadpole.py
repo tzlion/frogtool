@@ -348,7 +348,7 @@ Do you want to download and apply the bootloader fix? (Select No if you have alr
             shutil.rmtree(bootloaderPatchDir)
         os.mkdir(bootloaderPatchDir)
         #Download file, and continue if its successful
-        if tadpole_functions.downloadFileFromGithub(bootloaderPatchPathFile, "https://github.com/jasongrieves/SF2000_Resources/blob/60659cc783263614c20a60f6e2dd689d319c04f6/OS/Firmware.upk?raw=true"):
+        if tadpole_functions.downloadFileFromGithub(bootloaderPatchPathFile, "https://github.com/EricGoldsteinNz/SF2000_Resources/blob/60659cc783263614c20a60f6e2dd689d319c04f6/OS/Firmware.upk?raw=true"):
             #check file correctly download
             with open(bootloaderPatchPathFile, 'rb', buffering=0) as f:
                 downloadedchecksum = hashlib.file_digest(f, 'sha256').hexdigest()
