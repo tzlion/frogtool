@@ -17,16 +17,18 @@ from io import BytesIO
 import psutil
 import json
 from bs4 import BeautifulSoup
-from PIL import Image
+from PIL import Image, ImageDraw
 from datetime import datetime
 from pathlib import Path
 import configparser
 import webbrowser
+import logging
 
 basedir = os.path.dirname(__file__)
 static_NoDrives = "N/A"
 static_AllSystems = "ALL"
-static_TadpoleConfigFile = "Resources/tapdole.ini"
+static_TadpoleConfigFile = "Tadpole/tapdole.ini"
+static_TadpoleLogFile = "Tadpole/tadpole.log"
 
 def RunFrogTool(console):
     drive = window.combobox_drive.currentText()
@@ -89,7 +91,7 @@ def reloadDriveList():
 
     if len(window.combobox_drive) > 0:
         toggle_features(True)
-        window.status_bar.showMessage("SF2000 Drive(s) Detected.", 20000)
+        window.status_bar.showMessage("SF2000 Drive Detected.", 20000)
     else:
         # disable functions
         window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
@@ -166,12 +168,15 @@ def loadROMsToTable():
                 cell_viewthumbnail = QTableWidgetItem()
                 cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
                 pathToROM = os.path.join(roms_path, game)
-                with open(pathToROM, "rb") as rom_file:
-                    rom_content = bytearray(rom_file.read())
-                with open(os.path.join(basedir, "temp_rom_cover.raw"), "wb") as image_file:
-                    image_file.write(rom_content[0:((144*208)*2)])
-                    with open(pathToROM, "rb") as f:
-                        img = QImage(f.read(), 144, 208, QImage.Format_RGB16)
+                try:
+                    with open(pathToROM, "rb") as rom_file:
+                        rom_content = bytearray(rom_file.read())
+                    with open(os.path.join(basedir, "temp_rom_cover.raw"), "wb") as image_file:
+                        image_file.write(rom_content[0:((144*208)*2)])
+                        with open(pathToROM, "rb") as f:
+                            img = QImage(f.read(), 144, 208, QImage.Format_RGB16)
+                except OSError:
+                    logging.exception("main crashed. Error: %s", OSError)
                 pimg = QPixmap()
                 icon = QIcon()
                 QPixmap.convertFromImage(pimg, img)
@@ -320,8 +325,11 @@ def BGM_change(source=""):
         QMessageBox.about(window, "Failure", "Something went wrong while trying to change the background music")
 
 def FirstRun(self):
+
+    #Setup settings
     config = configparser.ConfigParser()
     drive = window.combobox_drive.currentText()
+    logging.info("First Run started.  This means its either brand new, deleted ini file, or something else")
     bootloaderPatchDir = os.path.join(drive,"/UpdateFirmware/")
     bootloaderPatchPathFile = os.path.join(drive,"/UpdateFirmware/Firmware.upk")
     bootloaderChecksum = "eb7a4e9c8aba9f133696d4ea31c1efa50abd85edc1321ce8917becdc98a66927"
@@ -330,8 +338,8 @@ def FirstRun(self):
 Please insert the SD card and relaunch Tadpole.exe.  The application will now close.")
         sys.exit()
     qm = QMessageBox()
-    ret = qm.warning(window,'Welcome', "Welcome to Tadpole!\n\n\
-Since you are on a beta, we are going to delete the settings and start with a first run.\n\n \
+    ret = qm.information(window,'Welcome', "Welcome to Tadpole!\n\n\
+Either this is your first time or this is a new version of Tadpole.  Either way, we are glad you are here!\n\n\
 It is advised to update the bootloader to avoid bricking the SF2000 when changing anything on the SD card.\n\n\
 Do you want to download and apply the bootloader fix? (Select No if you have already applied the fix previously.)", qm.Yes | qm.No)
     if ret == qm.Yes:
@@ -370,19 +378,21 @@ Did the update complete successfully?", qm.Yes | qm.No)
                 QMessageBox().about(window, "Update complete", "Your SF2000 should now be safe to use with \
 Tadpole. Major thanks to osaka#9664 on RetroHandhelds Discords for this fix!\n\n\
 Tadpole will not ask you again to fix the bootloader. If you want to reset Tadpole, delete the file 'Resources/tadpole.ini")
+                logging.info("Bootloader installed correctly...or so the user says")
                 config['bootloader'] = {'patchapplied': True}
             else:
                 QMessageBox().about(window, "Update not successful", "Please try the instructions again.\
 Consult https://github.com/vonmillhausen/sf2000#bootloader-bug\n\
 or ask for help on Discord https://discord.gg/retrohandhelds.  The app will now close.")
+                logging.error("Bootloader failed to install...or so the user says")
                 sys.exit()
         else:
             QMessageBox().about(window, "Download did not complete", "Please ensure you have internet and re-open the app")
+            logging.error("Bootloader failed to download")
             sys.exit()
     else:
-        QMessageBox().about(window, "Bootloader Fix skipped", "Tadpole will not ask to fix the bootloader again.\n\
-If you want to reset Tadpole, delete the file in tadpole.config in the Resources folder")
         config['bootloader'] = {'patchskipped': True}
+        logging.info("User skipped bootloader")
     #Write default values on first run
     tadpole_functions.writeDefaultSettings(drive)
 
@@ -517,12 +527,13 @@ class GameShortcutIconsDialog(QDialog):
     """
     def __init__(self):
         super().__init__()
-        #set some common variables used in the class
         self.drive = window.combobox_drive.currentText()
         self.console = window.combobox_console.currentText()
         self.roms_path = os.path.join(self.drive, self.console)
         #This is the file we will use while modifying the existing resource file
         self.workingPNGPath = 'currentBackground.temp.png'
+        #This is the working image we will use while modifying existing resource files
+        self.backgroundImage = QLabel(self)
         #Setup a variable to access the current game shortcuts on the system
         self.game_shortcut_list = ["No Game", "No Game", "No Game", "No Game"]
         #Set UI on dialog
@@ -553,6 +564,25 @@ class GameShortcutIconsDialog(QDialog):
         #save temp to final list
         self.game_shortcut_list = temp_game_shortcut_list.copy()
 
+        # Now load Current Preview image before we do anything else
+        self.load_from_Resources()
+        
+        #ask user if they want to use this list to find files automatically
+        qm = QMessageBox()
+        ret = qm.question(self, "Find shorcuts?", "Do you want Tadpole to try to find your game shortcut icons automatically \
+by matching the name of the game and a folder you select?  You can change the icons it finds before it gets saved.")
+        if ret == qm.Yes:
+            directory = QFileDialog.getExistingDirectory()
+            if len(directory) > 0:  # confirm if user selected a file
+                for i, gameName in enumerate(self.game_shortcut_list):
+                    gameName = os.path.basename(gameName)
+                    for file in os.listdir(directory):
+                        file_stripped = frogtool.strip_file_extension(file)
+                        if gameName == file_stripped:
+                            gameIcon = os.path.join(directory, file)
+                            self.ovewrite_background_and_reload(gameIcon, i+1)
+                            continue
+
         # Setup Main Layout
         # TODO...I should have used Grid but here we are
         self.layout_main_vertical = QVBoxLayout()
@@ -560,7 +590,6 @@ class GameShortcutIconsDialog(QDialog):
         self.setLayout(self.layout_main_vertical)
         self.layout_main_vertical.addLayout(self.layout_current_viewer)
         # set up the main preview
-        self.backgroundImage = QLabel(self)
         self.layout_current_viewer.addWidget(self.backgroundImage)
         # Setup Game Shortcut Name Labels
         self.shortcut_game_labels = QHBoxLayout()
@@ -615,41 +644,89 @@ class GameShortcutIconsDialog(QDialog):
         # Save Button
         self.button_save = QPushButton("Save")
         self.button_save.setDefault(True)
-        self.button_save.setDisabled(True)  # set disabled by default; need to wait for user to select at least new image
+        #self.button_save.setDisabled(True)  # set disabled by default; need to wait for user to select at least new image
         self.button_save.clicked.connect(self.Finish)
         self.layout_buttons.addWidget(self.button_save)
         # Cancel Button
         self.button_cancel = QPushButton("Cancel")
         self.button_cancel.clicked.connect(self.reject)
         self.layout_buttons.addWidget(self.button_cancel)
-        # Now load Current Preview image
-        self.load_from_Resources()
-        # roms_path = os.path.join(self.drive, self.console)
-        # files = frogtool.getROMList(roms_path)
-        # QApplication.processEvents()
-        # window.tbl_gamelist.setRowCount(len(files))
-        # print(f"found {len(files)} ROMs")
-        # #sort the list aphabetically before we go through it
-        # files = sorted(files)
-        # for i,f in enumerate(files):
-        #     game = f
-        #     position = tadpole_functions.getGameShortcutPosition(drive, system, game)
-        #     shortcut_comboBox.setCurrentIndex(position)
+    
+    #thanks to doggyworld from discord Retro Handhelds to imrpove the icon shapes and sizes
+    def round_corner(self, radius, fill):
+        """Draw a round corner"""
+        corner = Image.new('RGBA', (radius, radius), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(corner)
+        draw.pieslice((0, 0, radius * 2, radius * 2), 180, 270, fill=fill)
+        return corner
+    
+    def round_rectangle(self, size, radius, fill):
+        """Draw a rounded rectangle"""
+        width, height = size
+        rectangle = Image.new('RGBA', size, fill)
+        corner = self.round_corner(radius, fill)
+        rectangle.paste(corner, (0, 0))
+        rectangle.paste(corner.rotate(90), (0, height - radius)) # Rotate the corner and paste it
+        rectangle.paste(corner.rotate(180), (width - radius, height - radius))
+        rectangle.paste(corner.rotate(270), (width - radius, 0))
+        return rectangle
+    
+    def resize_for_shortcut(self, game):
+        # Crop off to be square instead of just resizing.
+        x, y = game.size
+        crop_size = min(x,y)
+        x_offset = (x-crop_size)/2
+        y_offset = (y-crop_size)/2
+        game = game.crop((x_offset, y_offset, crop_size+x_offset, crop_size+y_offset))
+        game = game.resize((120,120), Image.Resampling.LANCZOS)
+
+        # Create rectangles for white borders with fillet
+        white_rounded_rect = self.round_rectangle((124,124), 8, "white")
+
+        white_rounded_rect.paste(game, (2,2))
+        game = white_rounded_rect
+
+        white_rounded_rect2 = self.round_rectangle((124,124), 8, "white")
+        black_rounded_rect2 = self.round_rectangle((120,120), 8, "black")
+        white_rounded_rect2.paste(black_rounded_rect2, (2,2), black_rounded_rect2)
+
+        datas = white_rounded_rect2.getdata()
+
+        img_data = white_rounded_rect.getdata()
+
+        newData = []
+        new_imgData = []
+        for idx,item in enumerate(datas):
+            if item[3] == 0:
+                new_imgData.append((255, 255, 255, 0))
+            else:
+                new_imgData.append(img_data[idx])
+
+            if item[0] == 0 and item[1] == 0 and item[2] == 0:
+                newData.append((255, 255, 255, 0))
+            else:
+                newData.append(item)
+
+        white_rounded_rect2.putdata(newData)
+        game.putdata(new_imgData)
+        game.paste(white_rounded_rect2, (0,0), white_rounded_rect2)
+        return game
 
     def ovewrite_background_and_reload(self, path, icon):
         #Following techniques by Zerter at view-source:https://zerter555.github.io/sf2000-collection/mainMenuIcoEditor.html
         #Add this to the temporary PNG
-        game1 = Image.open(path, 'r')
-        game1 = game1.resize((124,124), Image.Resampling.LANCZOS)
+        game = Image.open(path, 'r')
+        game = self.resize_for_shortcut(game)
+        #game = game.resize((124,124), Image.Resampling.LANCZOS)
         workingPNG = Image.open(self.workingPNGPath)
         if icon == 1:
-            workingPNG.paste(game1, (42,290))
+            workingPNG.paste(game, (42,290))
         if icon == 2:
-            workingPNG.paste(game1, (186,290))
+            workingPNG.paste(game, (186,290))
         if icon == 3:
-            workingPNG.paste(game1, (330,290))
+            workingPNG.paste(game, (330,290))
         if icon == 4:
-            workingPNG.paste(game1, (474,290))
+            workingPNG.paste(game, (474,290))
         #Add to preview and save it
         workingPNG.save(self.workingPNGPath)
         img = QImage(self.workingPNGPath)
@@ -674,8 +751,9 @@ class GameShortcutIconsDialog(QDialog):
         file_path = QFileDialog.getOpenFileName(self, 'Open file', '',
                                             "Images (*.jpg *.png *.webp);;RAW (RGB565 Little Endian) Images (*.raw)")[0]
         if len(file_path) > 0:  # confirm if user selected a file
+            #TODO: it was nice to disable but now its messing with other features, KISS
             #set save state to true so user can save this
-            self.button_save.setEnabled(True)
+            #self.button_save.setEnabled(True)
             #Add it to be processed
             if sending_button.text() == "Change Icon 1":
                 #load into preview image
@@ -1105,9 +1183,9 @@ class MainWindow (QMainWindow):
 
         # Consoles Menu
         self.menu_roms = self.menuBar().addMenu("Consoles")
-        RebuildAll_action = QAction("Update All Consoles", self, triggered=self.rebuildAll)
+        RebuildAll_action = QAction("Refresh all thumbnails and ROMs", self, triggered=self.rebuildAll)
         self.menu_roms.addAction(RebuildAll_action)
-        BackupAllSaves_action = QAction("Backup All Consoles ROMs saves", self, triggered=self.createSaveBackup)
+        BackupAllSaves_action = QAction("Backup All Consoles ROMs saves...", self, triggered=self.createSaveBackup)
         self.menu_roms.addAction(BackupAllSaves_action)     
         # Help Menu
         self.menu_help = self.menuBar().addMenu("&Help")
@@ -1493,7 +1571,6 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
                     QMessageBox.about(window, "Failure", "Something went wrong while trying to change the theme")
 
         elif url[0:4] == "http":  # internet-based
-                #TODO add support for online themes
                 result = tadpole_functions.changeTheme(drive,url, "", msgBox.progress)
                 msgBox.close()
                 QMessageBox.about(window, "Success", "Theme changed successfully")
@@ -1507,14 +1584,25 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
     def createSaveBackup(self):
         drive = window.combobox_drive.currentText()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        QMessageBox.about(self, "Select location",f"Select where you want to save your backup, \
+or cancel to save in the same directory as Tadpole.\n\n\
+It is recommended to save it somewhere other than your SD card used with the SF2000.")
+        path = QFileDialog.getExistingDirectory()
         msgBox = QMessageBox()
         msgBox.setWindowTitle("Creating Save Backup")
         msgBox.setText("Please Wait")
         msgBox.show()
-        savefilename = f"SF2000SaveBackup_{timestamp}.zip"
+        if path == '':
+            savefilename = f"SF2000SaveBackup_{timestamp}.zip"
+        else:
+            savefilename = os.path.join(path, f"SF2000SaveBackup_{timestamp}.zip")
+
         if tadpole_functions.createSaveBackup(drive,savefilename):   
             msgBox.close()
-            QMessageBox.about(self, "Success",f"Save backup created as:\n\r{savefilename}")
+            if path == '':
+                QMessageBox.about(self, "Success",f"Save backup created in:\n\r{savefilename}, located in the same folder you have Tadpole.")
+            else:
+                QMessageBox.about(self, "Success",f"Save backup created at:\n\r{savefilename}")
         else:
             msgBox.close()
             QMessageBox.about(self, "Failure","ERROR: Something went wrong while trying to create the save backup")    
@@ -1927,48 +2015,66 @@ class DownloadMessageBox(QMessageBox):
     #     tadpole_functions.changeGameShortcut(f"{self.drive}", console, position,game)
     #     print(f"changed {console} shortcut {position} to {game} successfully")
     #     QMessageBox.about(window, "Success", f"changed {console} shortcut {position} to {game} successfully")
-        
 
 if __name__ == "__main__":
-    # Initialise the Application
-    app = QApplication(sys.argv)
+    try:
+        # Initialise the Application
+        app = QApplication(sys.argv)
 
-    # Build the Window
-    window = MainWindow()
+        # Build the Window
+        window = MainWindow()
+        # Update list of drives
+        window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
+        reloadDriveList()
 
-    # Update list of drives
-    window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
-    reloadDriveList()
+        # Update list of consoles
+        # available_consoles_placeholder = "???"
+        # window.combobox_console.addItem(QIcon(), available_consoles_placeholder, available_consoles_placeholder)
+        window.combobox_console.clear()
+        # Add ALL to the list to add this fucntionality from frogtool
+        #TODO: Make sure Eric is ok simplifying this.
+        #  I'm still keeping "rebuild All" just adding to menu so the button is contextual
+        #window.combobox_console.addItem(QIcon(), static_AllSystems, static_AllSystems)
+        for console in tadpole_functions.systems.keys():
+            window.combobox_console.addItem(QIcon(), console, console)
 
-    # Update list of consoles
-    # available_consoles_placeholder = "???"
-    # window.combobox_console.addItem(QIcon(), available_consoles_placeholder, available_consoles_placeholder)
-    window.combobox_console.clear()
-    # Add ALL to the list to add this fucntionality from frogtool
-    #TODO: Make sure Eric is ok simplifying this.
-    #  I'm still keeping "rebuild All" just adding to menu so the button is contextual
-    #window.combobox_console.addItem(QIcon(), static_AllSystems, static_AllSystems)
-    for console in tadpole_functions.systems.keys():
-        window.combobox_console.addItem(QIcon(), console, console)
-    
-    window.show()
-    #if tadpole.ini already exists, skip over first run, otherwise create it
-    #Run First Run to create config, check bootloader, etc.
-    if window.combobox_drive.currentText() == "N/A":
-        QMessageBox().about(window, "Insert SD Card", "Your SD card must be plugged into the computer on launch of Tadpole.\n\n\
-Please insert the SD card and relaunch Tadpole.exe.  The application will now close.")
-        sys.exit()
-    config = configparser.ConfigParser()
-    configPath = os.path.join(window.combobox_drive.currentText(),"/Resources/tadpole.ini")
-    if os.path.isfile(configPath):
-        config.read(configPath)
-        #TODO every release let's be ultra careful for now and delete tadpole settings...
-        #if it has defualt, then it doesn't exist
-        TadpoleVersion = config.get('versions', 'tadpole')
-        if TadpoleVersion != "0.3.9.9":
-            os.remove(configPath)
-            FirstRun(window)         
-    else:
-        FirstRun(window)
-    RunFrogTool(window.combobox_console.currentText())    
-    app.exec()
+        window.show()
+
+        drive = window.combobox_drive.currentText()
+        configPath = os.path.join(drive, static_TadpoleConfigFile)
+        LoggingPath = os.path.join(drive, static_TadpoleLogFile)
+
+        # Per logger documentation, create logging as soon as possible before other hreads
+        if not os.path.exists(LoggingPath):
+            Path(drive + "Tadpole").mkdir()
+            Path(LoggingPath).touch()
+
+        logging.basicConfig(filename = LoggingPath,
+                        filemode='a',
+                        format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                        datefmt='%H:%M:%S',
+                        level=logging.DEBUG)
+        logging.info("Logging started for current session")
+
+        #if tadpole.ini already exists, skip over first run, otherwise create it
+        #Run First Run to create config, check bootloader, etc.
+        if window.combobox_drive.currentText() == "N/A":
+            QMessageBox().about(window, "Insert SD Card", "Your SD card must be plugged into the computer on launch of Tadpole.\n\n\
+    Please insert the SD card and relaunch Tadpole.exe.  The application will now close.")
+            logging.info("SD card was not detected")
+            sys.exit()
+        config = configparser.ConfigParser()
+        if os.path.isfile(configPath):
+            config.read(configPath)
+            #TODO every release let's be ultra careful for now and delete tadpole settings...
+            #if it has defualt, then it doesn't exist
+            TadpoleVersion = config.get('versions', 'tadpole')
+            if TadpoleVersion != "0.3.9.15":
+                os.remove(configPath)
+                FirstRun(window)         
+        else:
+            FirstRun(window)
+        RunFrogTool(window.combobox_console.currentText())    
+        app.exec()
+    except Exception as e:
+        logging.exception("main crashed. Error: %s", e)

@@ -33,6 +33,10 @@ supported_save_ext = [
     "sav", "sa0", "sa1", "sa2", "sa3"
 ] 
 
+static_TadpoleConfigFile = "Tadpole/tapdole.ini"
+static_TadpoleLogFile = "Tadpole/tadpole.log"
+
+
 class Exception_InvalidPath(Exception):
     pass    
 
@@ -875,14 +879,14 @@ def check_is_save_file(filename):
 
 def writeDefaultSettings(drive):
     config = configparser.ConfigParser()
-    configPath = os.path.join(drive,"/Resources/tadpole.ini")
+    configPath = os.path.join(drive, static_TadpoleConfigFile)
     #Set other config file defaults
     config.add_section('thumbnails')
     config.add_section('versions')
     config.set('thumbnails', 'view', 'False')
     config.set('thumbnails', 'download', '0')
     config.set('thumbnails', 'ovewrite', 'True') #0 - manual upload, #1 - download from internet
-    config.set('versions', 'tadpole', '0.3.9.9')
+    config.set('versions', 'tadpole', '0.3.9.15') #TODO: this is where you change the version to force settings to delete for breaking change
     with open(configPath, 'w') as configfile:
         config.write(configfile)
 
