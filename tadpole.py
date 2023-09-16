@@ -30,8 +30,8 @@ import logging
 basedir = os.path.dirname(__file__)
 static_NoDrives = "N/A"
 static_AllSystems = "ALL"
+static_LoggingPath = "tadpole.log" # Log to the local directory that tadpole is being run from.
 static_TadpoleConfigFile = os.path.join("Tadpole","tapdole.ini")
-static_TadpoleLogFile = os.path.join("Tadpole","tadpole.log")
 
 def RunFrogTool(console):
     drive = window.combobox_drive.currentText()
@@ -1016,12 +1016,8 @@ class MainWindow (QMainWindow):
         self.lbl_drive.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.combobox_drive = QComboBox()
         self.combobox_drive.activated.connect(self.combobox_drive_change)
-        # self.btn_refreshDrives = QPushButton()
-        # self.btn_refreshDrives.setIcon(self.style().standardIcon(getattr(QStyle, "SP_BrowserReload")))
-        # self.btn_refreshDrives.clicked.connect(reloadDriveList)
         selector_layout.addWidget(self.lbl_drive)
         selector_layout.addWidget(self.combobox_drive, stretch=1)
-        # selector_layout.addWidget(self.btn_refreshDrives)
 
         # Spacer
         selector_layout.addWidget(QLabel(" "), stretch=2)
@@ -1047,7 +1043,7 @@ class MainWindow (QMainWindow):
         # Add Thumbnails button
         self.btn_update_thumbnails = QPushButton("Add Thumbnails...")
         selector_layout.addWidget(self.btn_update_thumbnails )
-        self.btn_update_thumbnails .clicked.connect(self.addBoxart)
+        self.btn_update_thumbnails.clicked.connect(self.addBoxart)
 
         # Add Shortcut button
         self.btn_update_shortcuts_images = QPushButton("Change Game Shortcut Icons...")
@@ -1074,7 +1070,7 @@ class MainWindow (QMainWindow):
         self.tbl_gamelist.horizontalHeader().sectionClicked.connect(headerClicked)
 
         layout.addWidget(self.tbl_gamelist)
-
+        
         self.readme_dialog = ReadmeDialog()
 
         # Reload Drives Timer
@@ -1187,11 +1183,6 @@ class MainWindow (QMainWindow):
         self.menu_os.menu_bios = self.menu_os.addMenu("Emulator BIOS")
         self.GBABIOSFix_action = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Update GBA BIOS", self, triggered=self.GBABIOSFix)
         self.menu_os.menu_bios.addAction(self.GBABIOSFix_action)
-        #TODO Ask Eric if he is ok removing this now. 
-        #self.action_changeShortcuts = QAction("Update Game Shortcuts", self, triggered=self.changeGameShortcuts)
-        #self.menu_os.addAction(self.action_changeShortcuts)
-        # self.action_removeShortcutLabels = QAction("Remove Shortcut Labels", self, triggered=self.removeShortcutLabels)
-        # self.menu_os.addAction(self.action_removeShortcutLabels)
 
         # Consoles Menu
         self.menu_roms = self.menuBar().addMenu("Consoles")
@@ -1479,8 +1470,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         newDrive = self.combobox_drive.currentText()
         console = self.combobox_console.currentText()
         logging.info(f"Dialog for drive changed to ({newDrive})")
-        # ERIC: We shouldnt run frogtool as soon as the drive is opened. This is a lot of unnecessary processing.  
-        #RunFrogTool(console)
+        #Check if the Tadpole config file exists, if not then create it.
         configPath = os.path.join(newDrive, static_TadpoleConfigFile)
         if os.path.isfile(configPath):
             config.read(configPath)
@@ -1491,6 +1481,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
                 os.remove(configPath)
                 FirstRun(window)         
         else:
+            #Run First Run to create config, check bootloader, etc.
             FirstRun(window)
         
         loadROMsToTable()
@@ -1999,90 +1990,36 @@ class DownloadMessageBox(QMessageBox):
         self.drive = drive
         self.setWindowTitle(f"Change System Shortcuts - {drive}") 
     
-    # def loadROMsToGameShortcutList(self,index):
-    #     print("reloading shortcut game table")
-    #     if self.drive == "":
-    #         print("ERROR: tried to load games for shortcuts on a blank drive")
-    #         return
-    #     system = self.combobox_console.currentText()
-    #     if system == "" or system == "???":
-    #         print("ERROR: tried to load games for shortcuts on an incorrect system")
-    #         return
-    #     roms_path = os.path.join(self.drive, system)
-    #     try:
-    #         files = frogtool.getROMList(roms_path)
-    #         self.combobox_games.clear()
-    #         for file in files:
-    #             self.combobox_games.addItem(QIcon(),file,file)
-    #         # window.window_shortcuts.combobox_games.adjustSize()
-    #     except frogtool.StopExecution:
-    #         # Empty the table
-    #         window.tbl_gamelist.setRowCount(0)
             
-    # def changeShortcut(self):
-    #     console = self.combobox_console.currentText()
-    #     position = int(self.combobox_shortcut.currentText()) - 1 
-    #     game = self.combobox_games.currentText()
-    #     if console == "" or position == "" or game == "":
-    #         print("ERROR: There was an error due to one of the shortcut parameters being blank!")
-    #         QMessageBox.about(self, "ERROR", "One of the shortcut parameters was blank. That's not allowed for your \
-    #         safety.")
-    #         return
-    #     tadpole_functions.changeGameShortcut(f"{self.drive}", console, position,game)
-    #     print(f"changed {console} shortcut {position} to {game} successfully")
-    #     QMessageBox.about(window, "Success", f"changed {console} shortcut {position} to {game} successfully")
-
 if __name__ == "__main__":
-    try:
-        LoggingPath = "tadpole.log"
+    try:     
         # Per logger documentation, create logging as soon as possible before other hreads    
-        logging.basicConfig(filename=LoggingPath,
+        logging.basicConfig(filename=static_LoggingPath,
                         filemode='a',
                         format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
                         datefmt='%H:%M:%S',
                         level=logging.DEBUG)
-        logging.info("Logging started for current session")
-        print("Started logger")
+        logging.info("Tadpole Started")
         #Setup config
+        # ERIC: We should probably move this to launching the configParser when opening a drive rather than having it open here as it can delay startup
         config = configparser.ConfigParser()
         # Initialise the Application
         app = QApplication(sys.argv)
         
         # Build the Window
         window = MainWindow()
-        # Update list of drives
-        window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
+        window.show()
 
-        
-        
-
-        # Update list of consoles
-        # available_consoles_placeholder = "???"
-        # window.combobox_console.addItem(QIcon(), available_consoles_placeholder, available_consoles_placeholder)
+        # Clear and update the list of consoles. This has to happen before the drive loading in case a valid SD card is already connected
         window.combobox_console.clear()
-        # Add ALL to the list to add this fucntionality from frogtool
-        #TODO: Make sure Eric is ok simplifying this.
-        #  I'm still keeping "rebuild All" just adding to menu so the button is contextual
-        #window.combobox_console.addItem(QIcon(), static_AllSystems, static_AllSystems)
         for console in tadpole_functions.systems.keys():
             window.combobox_console.addItem(QIcon(), console, console)
-
+        
+        # Update list of drives
+        window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
+        #Check for Froggy SD cards
         reloadDriveList()
-    
-        window.show()
         
-        drive = window.combobox_drive.currentText()
-        #if tadpole.ini already exists, skip over first run, otherwise create it
-        #Run First Run to create config, check bootloader, etc.
-        """
-        if window.combobox_drive.currentText() == "N/A":
-            QMessageBox().about(window, "Insert SD Card", "Your SD card must be plugged into the computer on launch of Tadpole.\n\n\
-    Please insert the SD card and relaunch Tadpole.exe.  The application will now close.")
-            logging.info("SD card was not detected")
-            sys.exit
-        """
-        
-        #RunFrogTool(window.combobox_console.currentText())    
         app.exec()
     except Exception as e:
         print(f"ERROR: An Exception occurred. {e}")

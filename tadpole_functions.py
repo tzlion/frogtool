@@ -475,8 +475,6 @@ def deleteGameShortcut(index_path, console, position, game):
 def getGameShortcutPosition(index_path, console, game):
         
     try:
-        trimmedGameName = frogtool.strip_file_extension(game)
-        #print(f"Filename trimmed to: {trimmedGameName}")
         #Read in all the existing shortcuts from file
         xfgle_filepath = os.path.join(index_path, "Resources", "xfgle.hgp")
         xfgle_file_handle = open(xfgle_filepath, "r")
