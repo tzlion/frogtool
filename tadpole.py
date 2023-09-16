@@ -146,16 +146,9 @@ def loadROMsToTable():
         print(f"found {len(files)} ROMs")
         #sort the list aphabetically before we go through it
         files = sorted(files)
-        for i,f in enumerate(files):
-            game = f
-            humanReadableFileSize = "ERROR"
-            filesize = os.path.getsize(os.path.join(roms_path, game))           
-            if filesize > 1024*1024:  # More than 1 Megabyte
-                humanReadableFileSize = f"{round(filesize/(1024*1024),2)} MB"
-            elif filesize > 1024:  # More than 1 Kilobyte
-                humanReadableFileSize = f"{round(filesize/1024,2)} KB"
-            else:  # Less than 1 Kilobyte
-                humanReadableFileSize = f"filesize Bytes"
+        for i,game in enumerate(files):
+            filesize = os.path.getsize(os.path.join(roms_path, game))
+            humanReadableFileSize = tadpole_functions.getHumanReadableFileSize(filesize)
             # Filename
             cell_filename = QTableWidgetItem(f"{game}")
             cell_filename.setTextAlignment(Qt.AlignVCenter)
