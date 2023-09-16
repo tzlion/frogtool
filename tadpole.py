@@ -1482,7 +1482,6 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         # ERIC: We shouldnt run frogtool as soon as the drive is opened. This is a lot of unnecessary processing.  
         #RunFrogTool(console)
         configPath = os.path.join(newDrive, static_TadpoleConfigFile)
-        config = configparser.ConfigParser()
         if os.path.isfile(configPath):
             config.read(configPath)
             #TODO every release let's be ultra careful for now and delete tadpole settings...
@@ -2044,7 +2043,8 @@ if __name__ == "__main__":
                         level=logging.DEBUG)
         logging.info("Logging started for current session")
         print("Started logger")
-        
+        #Setup config
+        config = configparser.ConfigParser()
         # Initialise the Application
         app = QApplication(sys.argv)
         
