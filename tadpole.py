@@ -335,24 +335,37 @@ def BGM_change(source=""):
         QMessageBox.about(window, "Failure", "Something went wrong while trying to change the background music")
 
 def FirstRun(self):
-
     #Setup settings
-    config = configparser.ConfigParser()
     drive = window.combobox_drive.currentText()
     logging.info("First Run started.  This means its either brand new, deleted ini file, or something else")
-    bootloaderPatchDir = os.path.join(drive,"/UpdateFirmware/")
-    bootloaderPatchPathFile = os.path.join(drive,"/UpdateFirmware/Firmware.upk")
-    bootloaderChecksum = "eb7a4e9c8aba9f133696d4ea31c1efa50abd85edc1321ce8917becdc98a66927"
-    if drive == "N/A":
-        QMessageBox().about(window, "Insert SD Card", "Your SD card must be plugged into the computer on first launch of Tadpole.\n\n\
-Please insert the SD card and relaunch Tadpole.exe.  The application will now close.")
-        sys.exit()
     qm = QMessageBox()
     ret = qm.information(window,'Welcome', "Welcome to Tadpole!\n\n\
 Either this is your first time or this is a new version of Tadpole.  Either way, we are glad you are here!\n\n\
 It is advised to update the bootloader to avoid bricking the SF2000 when changing anything on the SD card.\n\n\
-Do you want to download and apply the bootloader fix? (Select No if you have already applied the fix previously.)", qm.Yes | qm.No)
+Do you want to download and apply the bootloader fix? (Select No if you have already applied the fix previously)", qm.Yes | qm.No)
     if ret == qm.Yes:
+        bootlaoderFix(drive)
+    else:
+        config['bootloader'] = {'patchskipped': True}
+        logging.info("User skipped bootloader")
+    #Write default values on first run
+    tadpole_functions.writeDefaultSettings(drive)
+
+def bootlaoderFix(drive):
+        qm = QMessageBox()
+        if drive == "N/A":
+            ret = QMessageBox().question("Insert SD Card", "To fix the bootloader, you must have your SD card plugged in as it downloads critical \
+    updates to the SD card to update the bootlaoder.  Do you want to plug it in and try detection agian?")
+            if ret == qm.Yes:
+                bootlaoderFix(drive)
+            elif ret == qm.No:
+                QMessageBox().about("Update skipped", "No problem.  Just remember if you change any files on the SD card without the bootlaoder \
+The SF2000 may not boot.  You can always try this fix again in the Firmware options")
+                logging.info("User skipped bootloader")
+                return
+        bootloaderPatchDir = os.path.join(drive,"/UpdateFirmware/")
+        bootloaderPatchPathFile = os.path.join(drive,"/UpdateFirmware/Firmware.upk")
+        bootloaderChecksum = "eb7a4e9c8aba9f133696d4ea31c1efa50abd85edc1321ce8917becdc98a66927"
         #Let's delete old stuff if it exits incase they tried this before and failed
         if Path(bootloaderPatchDir).is_dir():
             shutil.rmtree(bootloaderPatchDir)
@@ -366,10 +379,9 @@ Do you want to download and apply the bootloader fix? (Select No if you have alr
             print("Checking if " + bootloaderChecksum + " matches " + downloadedchecksum)
             if bootloaderChecksum != downloadedchecksum:
                 QMessageBox().about(window, "Update not successful", "The downloaded file did not download correctly.\n\
-Please try the instructions again.\
-Consult https://github.com/vonmillhausen/sf2000#bootloader-bug\n\
-or ask for help on Discord https://discord.gg/retrohandhelds.  The app will now close.")
-                sys.exit()
+Tadpole will try the process again. For more help consult https://github.com/vonmillhausen/sf2000#bootloader-bug\n\
+or ask for help on Discord https://discord.gg/retrohandhelds.")
+                bootlaoderFix(drive)
             ret = QMessageBox().warning(window, "Bootloader Fix", "Downloaded bootloader to SD card.\n\n\
 You can keep this window open while you appy the fix:\n\
 1. Eject the SD card from your computer\n\
@@ -387,25 +399,20 @@ Did the update complete successfully?", qm.Yes | qm.No)
             if ret == qm.Yes:
                 QMessageBox().about(window, "Update complete", "Your SF2000 should now be safe to use with \
 Tadpole. Major thanks to osaka#9664 on RetroHandhelds Discords for this fix!\n\n\
-Tadpole will not ask you again to fix the bootloader. If you want to reset Tadpole, delete the file 'Resources/tadpole.ini")
+Remember, you only need to apply the bootloader fix once to your SF2000.  Unlike other changes affecting the SD card, this changes the code running on the SF2000.")
                 logging.info("Bootloader installed correctly...or so the user says")
                 config['bootloader'] = {'patchapplied': True}
+                return
             else:
                 QMessageBox().about(window, "Update not successful", "Please try the instructions again.\
 Consult https://github.com/vonmillhausen/sf2000#bootloader-bug\n\
-or ask for help on Discord https://discord.gg/retrohandhelds.  The app will now close.")
+or ask for help on Discord https://discord.gg/retrohandhelds. ")
                 logging.error("Bootloader failed to install...or so the user says")
-                sys.exit()
+                return
         else:
             QMessageBox().about(window, "Download did not complete", "Please ensure you have internet and re-open the app")
             logging.error("Bootloader failed to download")
-            sys.exit()
-    else:
-        config['bootloader'] = {'patchskipped': True}
-        logging.info("User skipped bootloader")
-    #Write default values on first run
-    tadpole_functions.writeDefaultSettings(drive)
-
+            return
 class BootLogoViewer(QLabel):
     """
     Args:
@@ -2034,7 +2041,7 @@ class DownloadMessageBox(QMessageBox):
 
 if __name__ == "__main__":
     try:
-        LoggingPath = "tadpole.log"
+        LoggingPath = static_TadpoleLogFile
         # Per logger documentation, create logging as soon as possible before other hreads    
         logging.basicConfig(filename=LoggingPath,
                         filemode='a',
