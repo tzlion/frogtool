@@ -3,6 +3,9 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtMultimedia import QSoundEffect
 from PyQt5.QtCore import Qt, QTimer, QUrl, QSize
+from dialogs.BootConfirmDialog import BootConfirmDialog
+from dialogs.DownloadProgressDialog import DownloadProgressDialog
+from dialogs.ThumbnailDialog import ThumbnailDialog
 # OS imports - these should probably be moved somewhere else
 import os
 import sys
@@ -45,7 +48,7 @@ def RunFrogTool(console):
         #tadpole_functions.emptyHistory(drive)
         if(console == static_AllSystems):
             #Give progress to user if rebuilding has hundreds of ROMS
-            rebuildingmsgBox = DownloadMessageBox()
+            rebuildingmsgBox = DownloadProgressDialog()
             rebuildingmsgBox.progress.reset()
             rebuildingmsgBox.setText("Rebuilding roms...")
             progress = 20
@@ -132,7 +135,7 @@ def loadROMsToTable():
     system = window.combobox_console.currentText()
     print(f"loading roms to table for ({drive}) ({system})")
     logging.info(f"loading roms to table for ({drive}) ({system})")
-    msgBox = DownloadMessageBox()
+    msgBox = DownloadProgressDialog()
     msgBox.setText(" Loading "+ system + " ROMS...")
     if drive == static_NoDrives or system == "???" or system == static_AllSystems:
         #TODO: should load ALL ROMs to the table rather than none
@@ -273,7 +276,7 @@ def headerClicked(column):
         window.btn_delete_roms.setEnabled(False)
 
 def viewThumbnail(rom_path):
-    window.window_thumbnail = thumbnailWindow(rom_path)  
+    window.window_thumbnail = ThumbnailDialog(rom_path)  
     result = window.window_thumbnail.exec()
     system = window.combobox_console.currentText()
     if result:
@@ -317,7 +320,7 @@ def BGM_change(source=""):
         SF2000 files. The action you selected has been aborted for your safety.")
         return
 
-    msg_box = DownloadMessageBox()
+    msg_box = DownloadProgressDialog()
     msg_box.setText("Downloading background music.")
     msg_box.show()
     msg_box.showProgress(25, True)
@@ -477,56 +480,6 @@ class BootLogoViewer(QLabel):
             self.parent().button_save.setDisabled(False)
         return True
 
-
-class BootConfirmDialog(QDialog):
-    """
-    Dialog used to confirm boot logo selection with the ability to view existing selection and replacement.
-
-    Args:
-        drive (str): Path to root of froggy drive.
-    """
-    def __init__(self, drive):
-        super().__init__()
-
-        self.drive = drive
-
-        self.setWindowTitle("Boot Image Selection")
-        self.setWindowIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)))
-
-        # Setup Main Layout
-        self.layout_main = QVBoxLayout()
-        self.setLayout(self.layout_main)
-
-        # set up current image viewer
-        self.layout_main.addWidget(QLabel("Current Image"))
-        self.current_viewer = BootLogoViewer(self)
-        self.layout_main.addWidget(self.current_viewer)
-
-        self.layout_main.addWidget(QLabel(" "))  # spacer
-
-        # set up new image viewer
-        self.layout_main.addWidget(QLabel("New Image"))
-        self.new_viewer = BootLogoViewer(self, changeable=True)
-        self.layout_main.addWidget(self.new_viewer)
-
-        # Main Buttons Layout (Save/Cancel)
-        self.layout_buttons = QHBoxLayout()
-        self.layout_main.addLayout(self.layout_buttons)
-
-        # Save Button
-        self.button_save = QPushButton("Save")
-        self.button_save.setDefault(True)
-        self.button_save.setDisabled(True)  # set disabled by default; need to wait for user to select new image
-        self.button_save.clicked.connect(self.accept)
-        self.layout_buttons.addWidget(self.button_save)
-
-        # Cancel Button
-        self.button_cancel = QPushButton("Cancel")
-        self.button_cancel.clicked.connect(self.reject)
-        self.layout_buttons.addWidget(self.button_cancel)
-
-        # Load Initial Image
-        self.current_viewer.load_from_bios(self.drive)
 
 class GameShortcutIconsDialog(QDialog):
     """
@@ -1213,7 +1166,7 @@ class MainWindow (QMainWindow):
     def detectOSVersion(self):
         print("Tadpole~DetectOSVersion: Trying to read bisrv hash")
         drive = window.combobox_drive.currentText()
-        msg_box = DownloadMessageBox()
+        msg_box = DownloadProgressDialog()
         msg_box.setText("Detecting firmware version")
         msg_box.show()
         try:
@@ -1249,7 +1202,7 @@ class MainWindow (QMainWindow):
         drive = window.combobox_drive.currentText()
         user_selected_console = window.combobox_console.currentText()
         rom_path = os.path.join(drive,user_selected_console)
-        msgBox = DownloadMessageBox()
+        msgBox = DownloadProgressDialog()
         msgBox.progress.reset()
         #Check what the user has configured; upload or download
         config = configparser.ConfigParser()
@@ -1393,7 +1346,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         QMessageBox.about(self, "GBA BIOS Fix", "BIOS successfully copied")
         
     def changeBootLogo(self):
-        msgBox = DownloadMessageBox()
+        msgBox = DownloadProgressDialog()
         msgBox.setText(" Loading current boot logo...")
         msgBox.show()
         msgBox.showProgress(50, True)
@@ -1407,7 +1360,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
                 print("user cancelled image select")
                 return
             try:
-                msgBox = DownloadMessageBox()
+                msgBox = DownloadProgressDialog()
                 msgBox.setText("Updating boot logo...")
                 msgBox.show()
                 msgBox.showProgress(10, True)
@@ -1527,7 +1480,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
             else:
                 window.Updateto20230803()
         #get some progress for the user
-        UpdateMsgBox = DownloadMessageBox()
+        UpdateMsgBox = DownloadProgressDialog()
         UpdateMsgBox.setText("Patching firmware...")
         UpdateMsgBox.showProgress(1, True)
         UpdateMsgBox.show()
@@ -1541,7 +1494,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         drive = window.combobox_drive.currentText()
         msgBox = QMessageBox()
 
-        msgBox = DownloadMessageBox()
+        msgBox = DownloadProgressDialog()
         msgBox.setText("Downloading Firmware Update.")
         msgBox.show()
         msgBox.showProgress(0, True)
@@ -1561,7 +1514,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         #TODO error handling
         if not self.sender().text() == "Update From Local File...":
             url =  self.theme_options[self.sender().text()]
-        msgBox = DownloadMessageBox()
+        msgBox = DownloadProgressDialog()
         msgBox.setText("Updating Theme...")
         msgBox.show()
         progress = 1
@@ -1625,7 +1578,7 @@ It is recommended to save it somewhere other than your SD card used with the SF2
                                                     *.zfc *.zsf *.zmd *.zgb *.zfb *.smc *.fig *.sfc *.gd3 *.gd7 *.dx2 *.bsx *.swc \
                                                     *.nes *.nfc *.fds *.unf *.gbc *.gb *.sgb *.gba *.agb *.gbz *.bin *.md *.smd *.gen *.sms)")
         if filenames:
-            msgBox = DownloadMessageBox()
+            msgBox = DownloadProgressDialog()
             msgBox.setText(" Copying "+ console + " Roms...")
             games_copied = 1
             msgBox.progress.reset()
@@ -1794,202 +1747,6 @@ class SettingsWindow(QDialog):
             config[section][key] = str(value)
             with open(configPath, 'w') as configfile:
                 config.write(configfile)   
-
-# Subclass Qidget to create a thumbnail viewing window        
-class thumbnailWindow(QDialog):
-    """
-        This window should be called without a parent widget so that it is created in its own window.
-    """
-    def __init__(self, filepath):
-        super().__init__()
-        layout = QVBoxLayout()
-        
-        self.setWindowIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)))
-        self.setWindowTitle(f"Thumbnail - {filepath}")
-        
-        # Setup Main Layout
-        self.layout_main = QVBoxLayout()
-        self.setLayout(self.layout_main)
-
-        # set up current image viewer
-        self.layout_main.addWidget(QLabel("Current Image"))
-        self.current_viewer = ROMCoverViewer(self)
-        self.layout_main.addWidget(self.current_viewer, Qt.AlignCenter)
-
-        self.layout_main.addWidget(QLabel(" "))  # spacer
-
-        # set up new image viewer
-        self.layout_main.addWidget(QLabel("New Image"))
-        self.new_viewer = ROMCoverViewer(self, changeable=True)
-        self.layout_main.addWidget(self.new_viewer, Qt.AlignCenter)
-
-        # Main Buttons Layout (Save/Cancel)
-        self.layout_buttons = QHBoxLayout()
-        self.layout_main.addLayout(self.layout_buttons)
-        
-        #Save Existing Cover To File Button
-        self.button_write = QPushButton("Save Existing to File")
-        self.button_write.clicked.connect(self.WriteImgToFile)
-        self.layout_buttons.addWidget(self.button_write)     
-
-        # Save Button
-        self.button_save = QPushButton("Overwrite Cover")
-        self.button_save.setDefault(True)
-        self.button_save.setDisabled(True)  # set disabled by default; need to wait for user to select new image
-        self.button_save.clicked.connect(self.accept)
-        self.layout_buttons.addWidget(self.button_save)
-
-        # Cancel Button
-        self.button_cancel = QPushButton("Cancel")
-        self.button_cancel.clicked.connect(self.reject)
-        self.layout_buttons.addWidget(self.button_cancel)
-
-        # Load Initial Image
-        self.current_viewer.load_from_ROM(filepath)
-        
-    def WriteImgToFile(self):
-        newCoverFileName = QFileDialog.getSaveFileName(window,
-                                                       'Save Cover',
-                                                       'c:\\',
-                                                       "Image files (*.png)")[0]
-        
-        if newCoverFileName is None or newCoverFileName == "":
-            print("user cancelled save select")
-            return      
-        try:
-            tadpole_functions.extractImgFromROM(self.current_viewer.path, newCoverFileName)
-        except tadpole_functions.Exception_InvalidPath:
-            QMessageBox.about(window, "Save ROM Cover", "An error occurred.")
-            return
-        QMessageBox.about(window, "Save ROM Cover", "ROM cover saved successfully")
-       
-
-
-class ROMCoverViewer(QLabel):
-    """
-    Args:
-        parent (thumbnailWindow): Parent widget. Used to enable/disable controls on parent.
-        changeable (bool): If True, will allow importing new image. If False, will just allow static display.
-    """
-    def __init__(self, parent, changeable=False):
-        super().__init__(parent)
-
-        self.changeable = changeable
-        self.path = ""  # Used to store path to the currently-displayed file
-
-        self.setStyleSheet("background-color: white;")
-        self.setMinimumSize(144, 208)  # resize to Froggy ROM logo dimensions
-        self.setFixedSize(144, 208)  # resize to Froggy ROM logo dimensions
-
-        if self.changeable:
-            self.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-            self.setText("Click to Select New Image")
-
-    def mousePressEvent(self, ev):
-        """
-        Overrides built-in function to handle mouse click events. Prompts user for image path and loads same.
-        """
-        if self.changeable:  # only do something if image is changeable
-            file_name = QFileDialog.getOpenFileName(self, 'Open file', '',
-                                                    "Image files (*.gif *jpeg *.jpg *.png *.webp);;All Files (*.*)")[0]
-            if len(file_name) > 0:  # confirm if user selected a file
-                self.load_image(file_name)
-
-    def load_from_ROM(self, pathToROM: str):
-        """
-        Extracts image from the bios and passes to load image function.
-
-        Args:
-            drive (str):  Path to the root of the Froggy drive.
-        """
-        print(f"loading cover from {pathToROM}")
-        with open(pathToROM, "rb") as rom_file:
-            rom_content = bytearray(rom_file.read())
-        with open(os.path.join(basedir, "temp_rom_cover.raw"), "wb") as image_file:
-            image_file.write(rom_content[0:((144*208)*2)])
-
-        self.load_image(os.path.join(basedir, "temp_rom_cover.raw"))
-
-    def load_image(self, path: str) -> bool:
-        """
-        Loads an image into the viewer.  If the image is loaded successfully, may enable the parent Save button based
-        on the changeable flag.
-
-        Args:
-            path (str): Path to the image.  Can be .raw or other format.  If .raw, assumed to be in RGB16 (RGB565 Little
-                Endian) format used for Froggy boot logos.  Must be 512x200 pixels or it will not be accepted/displayed.
-
-        Returns:
-            bool: True if image was loaded, False if not.
-        """
-        if os.path.splitext(path)[1] == ".raw":  # if raw image, assume RGB16 (RGB565 Little Endian)
-            with open(path, "rb") as f:
-                img = QImage(f.read(), 144, 208, QImage.Format_RGB16)
-        else:  # otherwise let QImage autodetection do its thing
-            img = QImage(path)
-            if (img.width(), img.height()) != (144, 208): 
-                img = img.scaled(144, 208, Qt.KeepAspectRatio, Qt.SmoothTransformation) #Rescale new boot logo to correct size
-        self.path = path  # update path
-        self.setPixmap(QPixmap().fromImage(img))
-
-        if self.changeable:  # only enable saving for changeable dialogs; prevents enabling with load from bios
-            self.parent().button_save.setDisabled(False)
-        return True
-
-class DownloadMessageBox(QMessageBox):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        grid_layout = self.layout()
-
-        qt_msgboxex_icon_label = self.findChild(QLabel, "qt_msgboxex_icon_label")
-        qt_msgboxex_icon_label.deleteLater()
-
-        qt_msgbox_label = self.findChild(QLabel, "qt_msgbox_label")
-        qt_msgbox_label.setAlignment(Qt.AlignCenter)
-        grid_layout.removeWidget(qt_msgbox_label)
-
-        qt_msgbox_buttonbox = self.findChild(QDialogButtonBox, "qt_msgbox_buttonbox")
-        grid_layout.removeWidget(qt_msgbox_buttonbox)
-        
-        self.setStyleSheet("QLabel{min-width: 300px}")
-        self.setWindowFlags(Qt.CustomizeWindowHint)
-        self.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
-        # Create a dialog for progress
-        self.progress = QProgressBar()
-        self.progress.setFixedWidth(300)
-
-        self.spacer = QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        grid_layout.addItem(self.spacer, 0, 0, 1, self.layout().columnCount())
-        grid_layout.addWidget(qt_msgbox_label, 1, 0, alignment=Qt.AlignCenter)
-        # Add the progress bar at the bottom (last row + 1) and first column with column span
-        grid_layout.addWidget(self.progress,2, 0, 1, grid_layout.columnCount(), Qt.AlignCenter )
-        grid_layout.addWidget(qt_msgbox_buttonbox, 3, 0, alignment=Qt.AlignCenter)
-        qt_msgbox_buttonbox.hide()
-    
-    def setText(self, text):
-        super().setText(text)
-        
-        longest = ""
-        for part in text.split("\n"):
-            if len(part) > len(longest):
-                longest = part
-        
-        font_matrix = self.fontMetrics()
-        width = font_matrix.boundingRect(longest).width() + 8 # Have to add ~20 as a buffer
-        self.spacer = QSpacerItem(width, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        self.layout().addItem(self.spacer, 0, 0, 1, self.layout().columnCount())
-        
-    def showProgress(self, progressValue, refreshBoolean):
-        #start_time = time.time()
-        self.progress.setValue(progressValue)
-        #TODO: This really is tough on long calls on performance, let's only do it when needed
-        if refreshBoolean:
-            QApplication.processEvents()
-
-    def setDrive(self,drive):
-        self.drive = drive
-        self.setWindowTitle(f"Change System Shortcuts - {drive}") 
-    
             
 if __name__ == "__main__":
     try:     
