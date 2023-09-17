@@ -1269,6 +1269,7 @@ class MainWindow (QMainWindow):
         self.menu_help = self.menuBar().addMenu("&Help")
         action_sf2000_boot  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Fix SF2000 not booting - Reformats SD card and reinstalls all OS files", self, triggered=FixSF2000Boot)                                                                              
         self.menu_help.addAction(action_sf2000_boot)
+        self.menu_help.addSeparator()
         self.readme_action = QAction(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarContextHelpButton),
                                      "Read Me",
                                      triggered=self.show_readme)
