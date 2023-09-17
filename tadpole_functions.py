@@ -11,6 +11,7 @@ import requests
 import json
 import re
 import configparser
+import logging
 try:
     from PIL import Image
     image_lib_avail = True
@@ -33,8 +34,8 @@ supported_save_ext = [
     "sav", "sa0", "sa1", "sa2", "sa3"
 ] 
 
-static_TadpoleConfigFile = "Tadpole/tapdole.ini"
-static_TadpoleLogFile = "Tadpole/tadpole.log"
+static_TadpoleConfigFile = os.path.join("Tadpole","tapdole.ini")
+static_TadpoleLogFile = os.path.join("Tadpole","tadpole.log")
 
 
 class Exception_InvalidPath(Exception):
