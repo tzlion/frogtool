@@ -492,7 +492,7 @@ Format it to with a drive letter and to FAT32.  It may say the drive is in use; 
         if foundSD == False:
             QMessageBox.about(window, "Empty SD card not found", "Looks like none of the mounted drives in Windows are empty SD cards. Are you sure you formatted it and it is empty?")
             return False
-        msgBox = DownloadMessageBox()
+        msgBox = DownloadProgressDialog()
         msgBox.setText("Downloading Firmware Update.")
         msgBox.show()
         tadpole_functions.downloadDirectoryFromGithub(correct_drive,"https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.6", msgBox.progress)
@@ -519,7 +519,6 @@ Format it to with a drive letter and to FAT32.  It may say the drive is in use; 
         if os.path.exists(correct_drive + "bios/bisrv.asd"):
             os.remove(correct_drive + "bios/bisrv.asd")
         #Re-add biserv.asd
-        tadpole_functions.downloadFileFromGithub(correct_drive + "bios/bisrv.asd", "https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.6/bios/bisrv.asd?raw=true")
         tadpole_functions.downloadFileFromGithub(correct_drive + "bios/bisrv.asd", "https://github.com/EricGoldsteinNz/SF2000_Resources/blob/7216dd81395dc23e41f42fc929e04ef963bd766e/OS/V1.6/bios/bisrv.asd?raw=true")
         msgBox.close()
         ret = QMessageBox.question(window, "Try booting",  "Try putting the SD card in the SF2000 and starting it.  Did it work?")
@@ -527,7 +526,7 @@ Format it to with a drive letter and to FAT32.  It may say the drive is in use; 
             QMessageBox.about(window, "Not booting", "Sorry it didn't work; Consult https://github.com/vonmillhausen/sf2000#bootloader-bug or ask for help on Discord https://discord.gg/retrohandhelds.")
             return False
         ret = QMessageBox.about(window, "Success",  "Congrats!  Now put the SD card back into the computer.  Tadpole will go through its first time setup again.\n\n\
-It is going to ask you to the bootloader fix.  Please do so to avoid getting into this state again.")        
+It is going to ask you to patch the bootloader.  Please do so to avoid getting into this state again.")        
         return True
 
 class BootLogoViewer(QLabel):
