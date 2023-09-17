@@ -1298,7 +1298,6 @@ class MainWindow (QMainWindow):
             detectedVersion = tadpole_functions.bisrv_getFirmwareVersion(os.path.join(drive,"bios","bisrv.asd"))
             if not detectedVersion:
                 detectedVersion = "Version Not Found"
-                return False
             #TODO: move this from string base to something else...or at lesat make sure this gets updated when/if new firmware gets out there
             if detectedVersion == "2023.04.20 (V1.5)":
                 msg_box.close()

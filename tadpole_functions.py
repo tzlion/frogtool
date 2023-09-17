@@ -121,7 +121,7 @@ def QImageToRGB565Logo(inputQImage):
 
 # hash, versionName
 versionDictionary = {
-    "6aebab0e4da39e0a997df255ad6a1bd12fdd356cdf51a85c614d47109a0d7d07": "2023.04.20 (V1.5)",
+    "1cd37343576a6584565884fcbbe2ffaf18b50466144b356aa0b885cd9cf10484": "2023.04.20 (V1.5)",
     "334c8f0a8584db07078d7dfc940e540e6538dde948cb6fdbf50754e4e113d6bc": "2023.08.03 (V1.6)"
 }
 
