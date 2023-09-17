@@ -536,7 +536,6 @@ def findSequence(needle, haystack, offset = 0):
     return -1
     
 
-froggyFoldersAndFiles = ["/bios", "/Resources", "/bios/bisrv.asd"]
     
 """
 This function is used to check if the supplied drive has relevant folders and files for an SF2000 SD card. 
@@ -548,12 +547,11 @@ The drive should be supplied as "E:"
 
 
 def checkDriveLooksFroggy(drivePath):
-    for file in froggyFoldersAndFiles:
-        if not os.path.exists(os.path.join(drivePath, file)):
-            print(f"Missing file {drivePath}/{file}")
-            return False
-    return True
-
+    bisrvpath = os.path.join(drivePath,"bios","bisrv.asd")
+    if os.path.exists(bisrvpath):
+        return True
+    return False
+    
 
 def get_background_music(url="https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/BackgroundMusic"):
     """gets index of background music from provided GitHub API URL"""
@@ -599,7 +597,7 @@ def changeBackgroundMusic(drive_path: str, url: str = "", file: str = "") -> boo
         ValueError: When both url and file params are provided.
     """
     if url and not file:
-        return downloadAndReplace(drive_path, "/Resources/pagefile.sys", url)
+        return downloadAndReplace(drive_path, os.path.join("Resources","pagefile.sys"), url)
     elif file and not url:
         try:
             shutil.copyfile(os.path.join(drive_path, "Resources", "pagefile.sys"), file)
@@ -679,7 +677,7 @@ def changeTheme(drive_path: str, url: str = "", file: str = "", progressBar: QPr
         raise ValueError("Error updating theme")
 
 def changeConsoleLogos(drivePath, url=""):
-    return downloadAndReplace(drivePath, "/Resources/sfcdr.cpl", url)    
+    return downloadAndReplace(drivePath, os.path.join("Resources","sfcdr.cpl"), url)    
 
 
 def downloadAndReplace(drivePath, fileToReplace, url=""):
@@ -713,12 +711,13 @@ def downloadDirectoryFromGithub(location, url, progressBar):
             if item["type"] == "dir":
                 #create folder then recursively download
                 foldername = item["name"]
-                print(f"creating directory {location}/{foldername}")
-                os.makedirs(os.path.dirname(f"{location}/{foldername}/"), exist_ok=True)
-                downloadDirectoryFromGithub(f"{location}/{foldername}", item["url"], progressBar)
+                destination = os.path.join(location,foldername)
+                print(f"creating directory {destination}")
+                os.makedirs(os.path.dirname(destination), exist_ok=True)
+                downloadDirectoryFromGithub(destination, item["url"], progressBar)
             else:# all other cases should be files
                 filename = item["name"]
-                downloadFileFromGithub(f"{location}/{filename}", item["download_url"])
+                downloadFileFromGithub(os.path.join(location,filename), item["download_url"])
                 downloadTotal += 1
                 progressBar.setValue(downloadTotal)
                 QApplication.processEvents()

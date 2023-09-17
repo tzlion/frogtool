@@ -186,10 +186,7 @@ def loadROMsToTable():
                 if(extension == sys_zxx_ext):
                     with open(pathToROM, "rb") as rom_file:
                         rom_content = bytearray(rom_file.read())
-                    with open(os.path.join(basedir, "temp_rom_cover.raw"), "wb") as image_file:
-                        image_file.write(rom_content[0:((144*208)*2)])
-                        with open(pathToROM, "rb") as f:
-                            img = QImage(f.read(), 144, 208, QImage.Format_RGB16)
+                    img = QImage(rom_content[0:((144*208)*2)], 144, 208, QImage.Format_RGB16)
                     pimg = QPixmap()
                     icon = QIcon()
                     QPixmap.convertFromImage(pimg, img)
@@ -497,28 +494,29 @@ Format it to with a drive letter and to FAT32.  It may say the drive is in use; 
         msgBox.show()
         tadpole_functions.downloadDirectoryFromGithub(correct_drive,"https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.6", msgBox.progress)
         #Make a bunch of the other directories at github doesn't let you create empty ones
-        os.mkdir(correct_drive + "/ARCADE")
-        os.mkdir(correct_drive + "/ARCADE/bin")
-        os.mkdir(correct_drive + "ARCADE/save")
-        os.mkdir(correct_drive + "ARCADE/skp")
-        os.mkdir(correct_drive + "FC")
-        os.mkdir(correct_drive + "FC/Saves")
-        os.mkdir(correct_drive + "GB")
-        os.mkdir(correct_drive + "GB/Saves")
-        os.mkdir(correct_drive + "GBC")
-        os.mkdir(correct_drive + "GBC/Saves")
-        os.mkdir(correct_drive + "GBA")
-        os.mkdir(correct_drive + "GBA/Saves")
-        os.mkdir(correct_drive + "MD")
-        os.mkdir(correct_drive + "MD/Saves")
-        os.mkdir(correct_drive + "SFC")
-        os.mkdir(correct_drive + "SFC/Saves")
-        os.mkdir(correct_drive + "ROMS")
-        os.mkdir(correct_drive + "ROMS/Saves")  
+        os.mkdir(os.path.join(correct_drive,"ARCADE"))
+        os.mkdir(os.path.join(correct_drive,"ARCADE","bin"))
+        os.mkdir(os.path.join(correct_drive,"ARCADE","save"))
+        os.mkdir(os.path.join(correct_drive,"ARCADE","skp"))
+        os.mkdir(os.path.join(correct_drive,"FC"))
+        os.mkdir(os.path.join(correct_drive,"FC","Saves"))
+        os.mkdir(os.path.join(correct_drive,"GB"))
+        os.mkdir(os.path.join(correct_drive,"GB","Saves"))
+        os.mkdir(os.path.join(correct_drive,"GBC"))
+        os.mkdir(os.path.join(correct_drive,"GBC","Saves"))
+        os.mkdir(os.path.join(correct_drive,"GBA"))
+        os.mkdir(os.path.join(correct_drive,"GBA","Saves"))
+        os.mkdir(os.path.join(correct_drive,"MD"))
+        os.mkdir(os.path.join(correct_drive,"MD","Saves"))
+        os.mkdir(os.path.join(correct_drive,"SFC"))
+        os.mkdir(os.path.join(correct_drive,"SFC","Saves"))
+        os.mkdir(os.path.join(correct_drive,"ROMS"))
+        os.mkdir(os.path.join(correct_drive,"ROMS","Saves")) 
         #Need to delete bisrv.asd again to prevent bootloader bug      
-        if os.path.exists(correct_drive + "bios/bisrv.asd"):
-            os.remove(correct_drive + "bios/bisrv.asd")
+        if os.path.exists(os.path.join(correct_drive,"bios","bisrv.asd")):
+            os.remove(os.path.join(correct_drive,"bios","bisrv.asd"))
         #Re-add biserv.asd
+        #TODO: Review why we are doing this
         tadpole_functions.downloadFileFromGithub(os.path.join(correct_drive,"bios","bisrv.asd"), "https://raw.githubusercontent.com/EricGoldsteinNz/SF2000_Resources/main/OS/V1.6/bios/bisrv.asd")
         msgBox.close()
         ret = QMessageBox.question(window, "Try booting",  "Try putting the SD card in the SF2000 and starting it.  Did it work?")
@@ -1586,7 +1584,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         if ret == qm.No:
             return
         Drive = window.combobox_drive.currentText()
-        BisrvLocation = Drive + "/bios/bisrv.asd"
+        BisrvLocation = os.path.join(Drive,"bios","bisrv.asd")
         battery_patcher = tadpole_functions.BatteryPatcher(BisrvLocation, BisrvLocation)
 
         with open(BisrvLocation, 'rb') as f:
