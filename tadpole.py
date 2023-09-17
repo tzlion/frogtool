@@ -1205,10 +1205,6 @@ class MainWindow (QMainWindow):
 
     def testFunction(self):
         print("Called test function. Remember to disable this before publishing")
-        try:
-            tadpole_functions.bisrv_getFirmwareVersion("C:\\Users\\OEM\\Downloads\\bisrv (1).asd")
-        except tadpole_functions.InvalidURLError:
-            print("URL did not return a valid file")
     
     def Settings(self):
         window_settings = SettingsWindow()

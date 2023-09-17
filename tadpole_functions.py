@@ -713,7 +713,7 @@ def downloadDirectoryFromGithub(location, url, progressBar):
                 foldername = item["name"]
                 destination = os.path.join(location,foldername)
                 print(f"creating directory {destination}")
-                os.makedirs(os.path.dirname(destination), exist_ok=True)
+                os.makedirs(destination, exist_ok=True)
                 downloadDirectoryFromGithub(destination, item["url"], progressBar)
             else:# all other cases should be files
                 filename = item["name"]
