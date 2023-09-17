@@ -549,7 +549,7 @@ The drive should be supplied as "E:"
 def checkDriveLooksFroggy(drivePath):
     for file in froggyFoldersAndFiles:
         if not os.path.exists(os.path.join(drivePath, file)):
-            print(f"missing file {drivePath}/{file}")
+            print(f"Missing file {drivePath}/{file}")
             return False
     return True
 

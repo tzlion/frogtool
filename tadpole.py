@@ -146,7 +146,7 @@ def loadROMsToTable():
         msgBox.show()
         QApplication.processEvents()
         window.tbl_gamelist.setRowCount(len(files))
-        print(f"found {len(files)} ROMs")
+        print(f"Found {len(files)} ROMs")
         #sort the list aphabetically before we go through it
         files = sorted(files)
         for i,game in enumerate(files):
@@ -837,7 +837,7 @@ class ReadmeDialog(QMainWindow):
     """
     def __init__(self):
         super().__init__()
-
+        logging.info("User opened ReadMeDialog")
         self.setWindowTitle("Read Me")
         self.setWindowIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarContextHelpButton))
 
@@ -1071,7 +1071,6 @@ class MainWindow (QMainWindow):
 
         layout.addWidget(self.tbl_gamelist)
         
-        self.readme_dialog = ReadmeDialog()
 
         # Reload Drives Timer
         # This is run once per second to check if any new SD cards have been inserted.
@@ -1493,6 +1492,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         RunFrogTool(console)
 
     def show_readme(self):
+        self.readme_dialog = ReadmeDialog()
         self.readme_dialog.show()
 
     def UpdatetoV1_5(self):
