@@ -464,7 +464,7 @@ def turn_on_polling():
 
 def formatAndDownloadOSFiles():
         foundSD = False
-        QMessageBox.about(window, "Formatting", "First format your SD card using. After pressing OK the partition tool will come up enabling you to format it.\n\n\
+        QMessageBox.about(window, "Formatting", "First format your SD card. After pressing OK the partition tool will come up enabling you to format it.\n\n\
 Format it to with a drive letter and to FAT32.  It may say the drive is in use; that is Normal as Tadpole is looking for it.")
         try:
             subprocess.Popen('diskmgmt.msc', shell=True)
@@ -492,7 +492,7 @@ Format it to with a drive letter and to FAT32.  It may say the drive is in use; 
         if foundSD == False:
             QMessageBox.about(window, "Empty SD card not found", "Looks like none of the mounted drives in Windows are empty SD cards. Are you sure you formatted it and it is empty?")
             return False
-        msgBox = DownloadMessageBox()
+        msgBox = DownloadProgressDialog()
         msgBox.setText("Downloading Firmware Update.")
         msgBox.show()
         tadpole_functions.downloadDirectoryFromGithub(correct_drive,"https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.6", msgBox.progress)
@@ -515,19 +515,18 @@ Format it to with a drive letter and to FAT32.  It may say the drive is in use; 
         os.mkdir(correct_drive + "SFC/Saves")
         os.mkdir(correct_drive + "ROMS")
         os.mkdir(correct_drive + "ROMS/Saves")  
-        #Need to delete biserv.asd again to prevent bootloader bug      
+        #Need to delete bisrv.asd again to prevent bootloader bug      
         if os.path.exists(correct_drive + "bios/bisrv.asd"):
             os.remove(correct_drive + "bios/bisrv.asd")
         #Re-add biserv.asd
-        tadpole_functions.downloadFileFromGithub(correct_drive + "bios/bisrv.asd", "https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.6/bios/bisrv.asd?raw=true")
-        tadpole_functions.downloadFileFromGithub(correct_drive + "bios/bisrv.asd", "https://github.com/EricGoldsteinNz/SF2000_Resources/blob/7216dd81395dc23e41f42fc929e04ef963bd766e/OS/V1.6/bios/bisrv.asd?raw=true")
+        tadpole_functions.downloadFileFromGithub(os.path.join(correct_drive,"bios","bisrv.asd"), "https://raw.githubusercontent.com/EricGoldsteinNz/SF2000_Resources/main/OS/V1.6/bios/bisrv.asd")
         msgBox.close()
         ret = QMessageBox.question(window, "Try booting",  "Try putting the SD card in the SF2000 and starting it.  Did it work?")
         if ret == qm.No:
             QMessageBox.about(window, "Not booting", "Sorry it didn't work; Consult https://github.com/vonmillhausen/sf2000#bootloader-bug or ask for help on Discord https://discord.gg/retrohandhelds.")
             return False
         ret = QMessageBox.about(window, "Success",  "Congrats!  Now put the SD card back into the computer.  Tadpole will go through its first time setup again.\n\n\
-It is going to ask you to the bootloader fix.  Please do so to avoid getting into this state again.")        
+It is going to ask you to patch the bootloader.  Please do so to avoid getting into this state again.")        
         return True
 
 class BootLogoViewer(QLabel):
@@ -1299,7 +1298,6 @@ class MainWindow (QMainWindow):
             detectedVersion = tadpole_functions.bisrv_getFirmwareVersion(os.path.join(drive,"bios","bisrv.asd"))
             if not detectedVersion:
                 detectedVersion = "Version Not Found"
-                return False
             #TODO: move this from string base to something else...or at lesat make sure this gets updated when/if new firmware gets out there
             if detectedVersion == "2023.04.20 (V1.5)":
                 msg_box.close()
