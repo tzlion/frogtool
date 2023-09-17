@@ -476,8 +476,6 @@ def deleteGameShortcut(index_path, console, position, game):
 def getGameShortcutPosition(index_path, console, game):
         
     try:
-        trimmedGameName = frogtool.strip_file_extension(game)
-        #print(f"Filename trimmed to: {trimmedGameName}")
         #Read in all the existing shortcuts from file
         xfgle_filepath = os.path.join(index_path, "Resources", "xfgle.hgp")
         xfgle_file_handle = open(xfgle_filepath, "r")
@@ -552,7 +550,7 @@ The drive should be supplied as "E:"
 def checkDriveLooksFroggy(drivePath):
     for file in froggyFoldersAndFiles:
         if not os.path.exists(os.path.join(drivePath, file)):
-            print(f"missing file {drivePath}/{file}")
+            print(f"Missing file {drivePath}/{file}")
             return False
     return True
 
