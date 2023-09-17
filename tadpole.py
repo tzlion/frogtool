@@ -26,12 +26,16 @@ from pathlib import Path
 import configparser
 import webbrowser
 import logging
+import subprocess
 
 basedir = os.path.dirname(__file__)
 static_NoDrives = "N/A"
 static_AllSystems = "ALL"
 static_TadpoleConfigFile = os.path.join("Tadpole","tapdole.ini")
 static_TadpoleLogFile = os.path.join("Tadpole","tadpole.log")
+
+#Use this to poll for SD cards, turn it to False to stop polling
+poll_drives = True
 
 def RunFrogTool(console):
     drive = window.combobox_drive.currentText()
@@ -84,30 +88,32 @@ def processGameShortcuts():
             tadpole_functions.changeGameShortcut(drive, console, position, game)
 
 def reloadDriveList():
-    current_drive = window.combobox_drive.currentText()
-    window.combobox_drive.clear()
+    #If polling is disabled don't do anything
+    if poll_drives == True:
+        current_drive = window.combobox_drive.currentText()
+        window.combobox_drive.clear()
 
-    for drive in psutil.disk_partitions():
-        if os.path.exists(os.path.join(drive.mountpoint, "bios", "bisrv.asd")):
-            window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
-                                          drive.mountpoint,
-                                          drive.mountpoint)
+        for drive in psutil.disk_partitions():
+            if os.path.exists(os.path.join(drive.mountpoint, "bios", "bisrv.asd")):
+                window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
+                                            drive.mountpoint,
+                                            drive.mountpoint)
 
-    if len(window.combobox_drive) > 0:
-        toggle_features(True)
-        window.status_bar.showMessage("SF2000 Drive(s) Detected.", 20000)
-        #Eric: Need to check in with Jason on why this was removed.
-        if(current_drive == static_NoDrives):
-            print("New drive detected")
-            logging.info(f"Automatically triggering drive change because a new drive connected")
-            window.combobox_drive_change()
-    else:
-        # disable functions
-        window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
-        window.status_bar.showMessage("No SF2000 Drive Detected. Please insert SD card and try again.", 20000)
-        toggle_features(False)
+        if len(window.combobox_drive) > 0:
+            toggle_features(True)
+            window.status_bar.showMessage("SF2000 Drive(s) Detected.", 20000)
+            #Eric: Need to check in with Jason on why this was removed.
+            if(current_drive == static_NoDrives):
+                print("New drive detected")
+                logging.info(f"Automatically triggering drive change because a new drive connected")
+                window.combobox_drive_change()
+        else:
+            # disable functions
+            window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
+            window.status_bar.showMessage("No SF2000 Drive Detected. Please insert SD card and try again.", 20000)
+            toggle_features(False)
 
-    window.combobox_drive.setCurrentText(current_drive)
+        window.combobox_drive.setCurrentText(current_drive)
 
 def toggle_features(enable: bool):
     """Toggles program features on or off"""
@@ -335,6 +341,13 @@ def BGM_change(source=""):
 
 def FirstRun(self):
     #Setup settings
+    TadpoleFolder = os.path.join(window.combobox_drive.currentText(), "/Tadpole")
+    TadpoleConfigPath = os.path.join(window.combobox_drive.currentText(), static_TadpoleConfigFile)
+    if not os.path.exists(TadpoleFolder):
+        os.mkdir(TadpoleFolder)
+    if not os.path.isfile(TadpoleConfigPath):
+        Path(TadpoleConfigPath).touch()
+
     drive = window.combobox_drive.currentText()
     logging.info("First Run started.  This means its either brand new, deleted ini file, or something else")
     qm = QMessageBox()
@@ -343,14 +356,14 @@ Either this is your first time or this is a new version of Tadpole.  Either way,
 It is advised to update the bootloader to avoid bricking the SF2000 when changing anything on the SD card.\n\n\
 Do you want to download and apply the bootloader fix? (Select No if you have already applied the fix previously)", qm.Yes | qm.No)
     if ret == qm.Yes:
-        bootlaoderFix()
+        bootloaderPatch()
     else:
         config['bootloader'] = {'patchskipped': True}
         logging.info("User skipped bootloader")
     #Write default values on first run
     tadpole_functions.writeDefaultSettings(drive)
 
-def bootlaoderFix():
+def bootloaderPatch():
     qm = QMessageBox
     ret = qm.question(window, "Download fix", "This will require your SD card and that the SF2000 is well charged.  Do you want to download the fix?")
     if ret == qm.No:
@@ -361,7 +374,7 @@ def bootlaoderFix():
         ret = QMessageBox().question(window, "Insert SD Card", "To fix the bootloader, you must have your SD card plugged in as it downloads critical \
 updates to the SD card to update the bootlaoder.  Do you want to plug it in and try detection agian?")
         if ret == qm.Yes:
-            bootlaoderFix()
+            bootloaderPatch()
         elif ret == qm.No:
             QMessageBox().about("Update skipped", "No problem.  Just remember if you change any files on the SD card without the bootlaoder \
 The SF2000 may not boot.  You can always try this fix again in the Firmware options")
@@ -385,7 +398,7 @@ The SF2000 may not boot.  You can always try this fix again in the Firmware opti
             QMessageBox().about(window, "Update not successful", "The downloaded file did not download correctly.\n\
 Tadpole will try the process again. For more help consult https://github.com/vonmillhausen/sf2000#bootloader-bug\n\
 or ask for help on Discord https://discord.gg/retrohandhelds.")
-            bootlaoderFix()
+            bootloaderPatch()
         ret = QMessageBox().warning(window, "Bootloader Fix", "Downloaded bootloader to SD card.\n\n\
 You can keep this window open while you appy the fix:\n\
 1. Eject the SD card from your computer\n\
@@ -418,6 +431,101 @@ Consult https://github.com/vonmillhausen/sf2000#bootloader-bug or ask for help o
         logging.error("Bootloader failed to download")
         config['bootloader'] = {'patchapplied': False}
         return
+
+def FixSF2000Boot():
+        qm = QMessageBox
+        ret = qm.question(window, "SF2000 not booting", "If your SF2000 won't boot, you likely hit the bootloader bug or have broken some critical files.  This process attempts to restore your SF2000.\n\n\
+This process will delete ALL SAVES AND ROMS, so if you want to save those, cancel out and do so.\n\n\
+This process is only tested on Windows and will not work on Linux/Mac.\n\nDo you want to proceed?")
+        if ret == qm.No:
+            return
+        # ret = qm.question(window,"Save backups?", "Do you want to backup your save files first?")
+        # if ret == qm.Yes:
+        #     MainWindow.createSaveBackup()    
+        #Turn off polling since we are going to mess with the SD card
+        turn_off_polling()
+        #Stop access to the drives
+        window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
+        window.status_bar.showMessage("No SF2000 Drive Detected. Please insert SD card and try again.", 20000)
+        toggle_features(False)
+        formatAndDownloadOSFiles()
+        turn_on_polling()
+
+def turn_off_polling():
+        global poll_drives 
+        poll_drives = False
+
+def turn_on_polling():
+        global poll_drives 
+        poll_drives = True
+
+def formatAndDownloadOSFiles():
+        foundSD = False
+        QMessageBox.about(window, "Formatting", "First format your SD card using. After pressing OK the partition tool will come up enabling you to format it.\n\n\
+Format it to with a drive letter and to FAT32.  It may say the drive is in use; that is Normal as Tadpole is looking for it.")
+        try:
+            subprocess.Popen('diskmgmt.msc', shell=True)
+        except:
+            logging.error("Can't run diskpart.  Wrong OS?")
+        qm = QMessageBox()
+        ret = qm.question(window, "Formatting", "Did you finish formatting it to FAT32?  Tadpole will now try to detect it.")
+        if ret == qm.No:
+            QMessageBox.about(window, "Formatting", "Please try formating the SD card and trying again.")
+            return False
+        for drive in psutil.disk_partitions():
+            dir = os.listdir(drive.mountpoint)
+            #Windows puts in a System inFormation item that is hidden
+            if len(dir) > 1:
+                continue
+            if(drive.mountpoint != f'C:\\'):
+                ret = qm.question(window, "Empty SD card found", "Is the right SD card: " + drive.mountpoint + "?")
+                if ret == qm.Yes:
+                    correct_drive = drive.mountpoint
+                    foundSD = True
+                    logging.info("SD card was formatted and is empty")
+                    break
+                if ret == qm.No:
+                    continue
+        if foundSD == False:
+            QMessageBox.about(window, "Empty SD card not found", "Looks like none of the mounted drives in Windows are empty SD cards. Are you sure you formatted it and it is empty?")
+            return False
+        msgBox = DownloadMessageBox()
+        msgBox.setText("Downloading Firmware Update.")
+        msgBox.show()
+        tadpole_functions.downloadDirectoryFromGithub(correct_drive,"https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.6", msgBox.progress)
+        #Make a bunch of the other directories at github doesn't let you create empty ones
+        os.mkdir(correct_drive + "/ARCADE")
+        os.mkdir(correct_drive + "/ARCADE/bin")
+        os.mkdir(correct_drive + "ARCADE/save")
+        os.mkdir(correct_drive + "ARCADE/skp")
+        os.mkdir(correct_drive + "FC")
+        os.mkdir(correct_drive + "FC/Saves")
+        os.mkdir(correct_drive + "GB")
+        os.mkdir(correct_drive + "GB/Saves")
+        os.mkdir(correct_drive + "GBC")
+        os.mkdir(correct_drive + "GBC/Saves")
+        os.mkdir(correct_drive + "GBA")
+        os.mkdir(correct_drive + "GBA/Saves")
+        os.mkdir(correct_drive + "MD")
+        os.mkdir(correct_drive + "MD/Saves")
+        os.mkdir(correct_drive + "SFC")
+        os.mkdir(correct_drive + "SFC/Saves")
+        os.mkdir(correct_drive + "ROMS")
+        os.mkdir(correct_drive + "ROMS/Saves")  
+        #Need to delete biserv.asd again to prevent bootloader bug      
+        if os.path.exists(correct_drive + "bios/bisrv.asd"):
+            os.remove(correct_drive + "bios/bisrv.asd")
+        #Re-add biserv.asd
+        tadpole_functions.downloadFileFromGithub(correct_drive + "bios/bisrv.asd", "https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.6/bios/bisrv.asd?raw=true")
+        tadpole_functions.downloadFileFromGithub(correct_drive + "bios/bisrv.asd", "https://github.com/EricGoldsteinNz/SF2000_Resources/blob/7216dd81395dc23e41f42fc929e04ef963bd766e/OS/V1.6/bios/bisrv.asd?raw=true")
+        msgBox.close()
+        ret = QMessageBox.question(window, "Try booting",  "Try putting the SD card in the SF2000 and starting it.  Did it work?")
+        if ret == qm.No:
+            QMessageBox.about(window, "Not booting", "Sorry it didn't work; Consult https://github.com/vonmillhausen/sf2000#bootloader-bug or ask for help on Discord https://discord.gg/retrohandhelds.")
+            return False
+        ret = QMessageBox.about(window, "Success",  "Congrats!  Now put the SD card back into the computer.  Tadpole will go through its first time setup again.\n\n\
+It is going to ask you to the bootloader fix.  Please do so to avoid getting into this state again.")        
+        return True
 
 class BootLogoViewer(QLabel):
     """
@@ -1126,8 +1234,8 @@ class MainWindow (QMainWindow):
         self.menu_os.menu_update.addSeparator()
         action_battery_fix  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Battery Fix - Built by commnity (Improves battery life & shows low power warning)", self, triggered=self.Battery_fix)                                                                              
         self.menu_os.menu_update.addAction(action_battery_fix)
-        action_bootloader_fix  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Bootloader Fix - Built by commnity (Prevents device from not booting and corrupting SD card when changing files on SD card)", self, triggered=bootlaoderFix)                                                                              
-        self.menu_os.menu_update.addAction(action_bootloader_fix)   
+        action_bootloader_patch  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Bootloader Fix - Built by commnity (Prevents device from not booting and corrupting SD card when changing files on SD card)", self, triggered=bootloaderPatch)                                                                              
+        self.menu_os.menu_update.addAction(action_bootloader_patch)   
             #Sub-menu for updating themes
         self.menu_os.menu_change_theme = self.menu_os.addMenu("Theme")
         try:
@@ -1216,6 +1324,8 @@ class MainWindow (QMainWindow):
         self.menu_roms.addAction(BackupAllSaves_action)     
         # Help Menu
         self.menu_help = self.menuBar().addMenu("&Help")
+        action_sf2000_boot  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Fix SF2000 not booting - Reformats SD card and reinstalls all OS files", self, triggered=FixSF2000Boot)                                                                              
+        self.menu_help.addAction(action_sf2000_boot)
         self.readme_action = QAction(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarContextHelpButton),
                                      "Read Me",
                                      triggered=self.show_readme)
@@ -2045,7 +2155,7 @@ class DownloadMessageBox(QMessageBox):
     #     tadpole_functions.changeGameShortcut(f"{self.drive}", console, position,game)
     #     print(f"changed {console} shortcut {position} to {game} successfully")
     #     QMessageBox.about(window, "Success", f"changed {console} shortcut {position} to {game} successfully")
-
+        
 if __name__ == "__main__":
     try:
         #Setup config
@@ -2072,22 +2182,31 @@ if __name__ == "__main__":
         window.show()
         
         drive = window.combobox_drive.currentText()
-
-        #Setup logging since we know the drive we want to use
-        LoggingPath =  os.path.join(drive, static_TadpoleLogFile)
-        TadpoleFolder = os.path.join(drive, 'Tadpole')
         # Per logger documentation, create logging as soon as possible before other hreads    
-        if not os.path.exists(TadpoleFolder):
-            os.mkdir(TadpoleFolder)
-        if not os.path.isfile(LoggingPath):
-            Path(LoggingPath).touch()
-        for handler in logging.root.handlers[:]:
-            logging.root.removeHandler(handler)
-        logging.basicConfig(filename=LoggingPath,
-                        filemode='a',
-                        format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
-                        datefmt='%H:%M:%S',
-                        level=logging.INFO)
+        #TODO: Maybe we just dump the log file wherever Tadpole is.  Not as clean....
+        if(drive == 'N/A'):
+            for handler in logging.root.handlers[:]:
+                logging.root.removeHandler(handler)
+            logging.basicConfig(filename='Tadpole.log',
+                            filemode='a',
+                            format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                            datefmt='%H:%M:%S',
+                            level=logging.INFO)
+        else:
+            #Setup logging since we know the drive we want to use
+            LoggingPath =  os.path.join(drive, static_TadpoleLogFile)
+            TadpoleFolder = os.path.join(drive, 'Tadpole')
+            if not os.path.exists(TadpoleFolder):
+                os.mkdir(TadpoleFolder)
+            if not os.path.isfile(LoggingPath):
+                Path(LoggingPath).touch()
+            for handler in logging.root.handlers[:]:
+                logging.root.removeHandler(handler)
+            logging.basicConfig(filename=LoggingPath,
+                            filemode='a',
+                            format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                            datefmt='%H:%M:%S',
+                            level=logging.INFO)
         logging.info("Logging started for current session")
         #if tadpole.ini already exists, skip over first run, otherwise create it
         #Run First Run to create config, check bootloader, etc.
