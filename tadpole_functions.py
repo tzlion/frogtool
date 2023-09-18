@@ -20,6 +20,8 @@ except ImportError:
     ImageDraw = None
     image_lib_avail = False
 
+# This dictionary is in the following format:
+# "System": []
 systems = {  
     "FC":     ["rdbui.tax", "fhcfg.nec", "nethn.bvs",1],
     "SFC":    ["urefs.tax", "adsnt.nec", "xvb6c.bvs",2],
@@ -932,6 +934,8 @@ def convertPNGtoResourceRGB565(srcPNG, resourceFileName, drive):
         print(resourceFileName + " updated.")
     else:
         print("Couldn't convert file for gameshortcut")
+
+
 
 #returns a string to the current resource file for each system
 def getBackgroundResourceFileforConsole(drive, system):
