@@ -609,6 +609,8 @@ def setupUserSelectedDrive(config):
     config.read(TadpoleConfigPath)
     if config.has_option('file', 'user_directory'):
         saved_directory = config.get('file', 'user_directory')
+        if saved_directory == 'None':
+            return
     else:
         return
     #Setup the drive with this directory, we know its good
@@ -1107,9 +1109,9 @@ class MainWindow (QMainWindow):
         selector_layout.addWidget(self.combobox_drive, stretch=3)
 
         #User defined
-        self.btn_user_dir = QPushButton("Select your own directory...")
-        selector_layout.addWidget(self.btn_user_dir)
-        self.btn_user_dir.clicked.connect(self.userSelectedDirectoryButton)
+        #self.btn_user_dir = QPushButton("Select your own directory...")
+        #selector_layout.addWidget(self.btn_user_dir)
+        #self.btn_user_dir.clicked.connect(self.userSelectedDirectoryButton)
         #CopyButton
         self.btn_coppy_user_selected_button = QPushButton("Copy to SD...")
         self.btn_coppy_user_selected_button.setEnabled(False)
@@ -1899,10 +1901,9 @@ class SettingsWindow(QDialog):
         self.btn_change_user_dir = QPushButton("Select your own local directory...")
         self.layout_main.addWidget(self.btn_change_user_dir)
         self.btn_change_user_dir.clicked.connect(self.userSelectedDirectorySettingsButton)
-        #Let's finish removing later...
-        #self.btn_remove_user_dir = QPushButton("Remove your local directory from Tadpole")
-        #self.layout_main.addWidget(self.btn_remove_user_dir)
-        #self.btn_remove_user_dir.clicked.connect(self.userSelectedDirectoryResetSettingsButton)
+        self.btn_remove_user_dir = QPushButton("Remove your local directory from Tadpole")
+        self.layout_main.addWidget(self.btn_remove_user_dir)
+        self.btn_remove_user_dir.clicked.connect(self.userSelectedDirectoryResetSettingsButton)
                 
         self.layout_main.addWidget(QLabel(" "))  # spacer
 
@@ -1936,7 +1937,9 @@ class SettingsWindow(QDialog):
     def userSelectedDirectoryResetSettingsButton(self):
         self.WriteValueToFile('file','user_directory', 'None')
         self.user_directory.setText('None')
-        self.user_directory.adjustSize()        
+        self.user_directory.adjustSize()
+        window.combobox_drive.clear()
+        reloadDriveList(True)        
 
     def thumbnailViewClicked(self):
         cbutton = self.sender()
