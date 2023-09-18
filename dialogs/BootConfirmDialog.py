@@ -2,9 +2,8 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
-
+# Tadpole imports
 import tadpole_functions
-
 import os
 
 class BootConfirmDialog(QDialog):

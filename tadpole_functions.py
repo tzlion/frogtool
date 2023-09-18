@@ -1,10 +1,15 @@
+# GUI imports
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
+# OS imports - these should probably be moved somewhere else
 import os
 import shutil
 import hashlib
 import zipfile
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
+# Tadpole imports
+import tadpole
+#feature imports
 import struct
 import frogtool
 import requests
@@ -12,6 +17,8 @@ import json
 import re
 import configparser
 import logging
+
+
 try:
     from PIL import Image
     image_lib_avail = True
@@ -34,8 +41,8 @@ supported_save_ext = [
     "sav", "sa0", "sa1", "sa2", "sa3"
 ] 
 
-static_TadpoleConfigFile = os.path.join("Tadpole","tapdole.ini")
-static_TadpoleLogFile = os.path.join("Tadpole","tadpole.log")
+# static_TadpoleConfigFile = os.path.join("Tadpole","tapdole.ini")
+# static_TadpoleLogFile = os.path.join("Tadpole","tadpole.log")
 
 
 class Exception_InvalidPath(Exception):
@@ -888,7 +895,7 @@ def getHumanReadableFileSize(filesize):
 
 def writeDefaultSettings(drive):
     config = configparser.ConfigParser()
-    configPath = os.path.join(drive, static_TadpoleConfigFile)
+    configPath = tadpole.static_TadpoleConfigFile
     #Set other config file defaults
     config.add_section('thumbnails')
     config.add_section('versions')

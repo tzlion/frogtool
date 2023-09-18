@@ -3,9 +3,6 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtMultimedia import QSoundEffect
 from PyQt5.QtCore import Qt, QTimer, QUrl, QSize
-from dialogs.BootConfirmDialog import BootConfirmDialog
-from dialogs.DownloadProgressDialog import DownloadProgressDialog
-from dialogs.ThumbnailDialog import ThumbnailDialog
 # OS imports - these should probably be moved somewhere else
 import os
 import sys
@@ -14,9 +11,13 @@ import threading
 import queue
 import shutil
 import hashlib
-# Feature imports
+# Tadpole imports
 import frogtool
 import tadpole_functions
+from dialogs.BootConfirmDialog import BootConfirmDialog
+from dialogs.DownloadProgressDialog import DownloadProgressDialog
+from dialogs.ThumbnailDialog import ThumbnailDialog
+#feature imports
 import requests
 import wave
 from io import BytesIO
@@ -34,9 +35,9 @@ import subprocess
 basedir = os.path.dirname(__file__)
 static_NoDrives = "N/A"
 static_AllSystems = "ALL"
-static_LoggingPath = "tadpole.log" # Log to the local directory that tadpole is being run from.
-#TODO: Eric, with multiple drives, having multiple Tadpole settings will get annoying. 
-static_TadpoleConfigFile = os.path.join("Tadpole","tapdole.ini")
+static_TadpoleDir = os.path.join(os.path.expanduser('~'), '.tadpole')
+static_LoggingPath = os.path.join(os.path.expanduser('~'), '.tadpole', 'tadpole.log')
+static_TadpoleConfigFile = os.path.join(os.path.expanduser('~'), '.tadpole', 'tadpole.ini')
 
 #Use this to poll for SD cards, turn it to False to stop polling
 poll_drives = True
@@ -156,7 +157,7 @@ def toggle_features(enable: bool):
 def loadROMsToTable():
     drive = window.combobox_drive.currentText()
     system = window.combobox_console.currentText()
-    TadpoleConfigPath = os.path.join(drive, static_TadpoleConfigFile)
+    TadpoleConfigPath = static_TadpoleConfigFile
     print(f"loading roms to table for ({drive}) ({system})")
     logging.info(f"loading roms to table for ({drive}) ({system})")
     msgBox = DownloadProgressDialog()
@@ -545,7 +546,7 @@ def DownloadOSFiles(correct_drive):
 
 def CreateTadpoleFiles():
     TadpoleFolder = os.path.join(window.combobox_drive.currentText(), "Tadpole")
-    TadpoleConfigPath = os.path.join(window.combobox_drive.currentText(), static_TadpoleConfigFile)
+    TadpoleConfigPath = static_TadpoleConfigFile
     if not os.path.exists(TadpoleFolder):
         os.mkdir(TadpoleFolder)
     if not os.path.isfile(TadpoleConfigPath):
@@ -587,25 +588,18 @@ When you are ready to ovewrite that SD card, press the 'Copy to SD' button")
     reloadDriveList(True)
 
     new_drive = window.combobox_drive.currentText()
-    # save this directory to Tadpole...in both places.... :( 
+    # save this directory to Tadpole
     config = configparser.ConfigParser()
-    TadpoleConfigPath = os.path.join(new_drive, static_TadpoleConfigFile)
+    TadpoleConfigPath = static_TadpoleConfigFile
     config.read(TadpoleConfigPath)
     if config.has_option('file', 'user_directory'):
         config['file']['user_directory'] = new_drive
         with open(os.path.join(new_drive, static_TadpoleConfigFile), 'w') as configfile:
             config.write(configfile)   
-    #TODO: Eric maybe we should just keep Tadpole.ini in the Tadpole.exe directory :(...)    
-    TadpoleConfigPath = os.path.join(old_path, static_TadpoleConfigFile)
-    config.read(TadpoleConfigPath)
-    if config.has_option('file', 'user_directory'):
-        config['file']['user_directory'] = new_drive
-        with open(os.path.join(old_path, static_TadpoleConfigFile), 'w') as configfile:
-            config.write(configfile)   
     return True
 
 def setupUserSelectedDrive(config):
-    TadpoleConfigPath = os.path.join(window.combobox_drive.currentText(), static_TadpoleConfigFile)
+    TadpoleConfigPath = static_TadpoleConfigFile
     config.read(TadpoleConfigPath)
     if config.has_option('file', 'user_directory'):
         saved_directory = config.get('file', 'user_directory')
@@ -1551,7 +1545,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
     def changeThumbnailView(self, state):
         drive = window.combobox_drive.currentText()
         config = configparser.ConfigParser()
-        TadpoleConfigPath = os.path.join(drive, static_TadpoleConfigFile)
+        TadpoleConfigPath = static_TadpoleConfigFile
         config.read(TadpoleConfigPath)
         if not config.has_section('view'):
             config.add_section('view')
@@ -1566,11 +1560,8 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
 
     def combobox_drive_change(self):
         newDrive = self.combobox_drive.currentText()
-        console = self.combobox_console.currentText()
-        index = self.combobox_drive.currentIndex()
 
         logging.info(f"Dialog for drive changed to ({newDrive})")
-
         
         #Check if the Tadpole config file exists, if not then create it.
         configPath = os.path.join(newDrive, static_TadpoleConfigFile)
@@ -1589,8 +1580,8 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         else:
             #Run First Run to create config, check bootloader, etc.
             FirstRun()
-        
-        loadROMsToTable()
+        if (newDrive != 'N/A'):
+            loadROMsToTable()
 
     def combobox_console_change(self):
         console = self.combobox_console.currentText()
@@ -1803,7 +1794,7 @@ same contents as the SF2000." , qm.Yes | qm.No)
             return
         directory = QFileDialog.getExistingDirectory()
         config = configparser.ConfigParser()
-        TadpoleConfigPath = os.path.join(window.combobox_drive.currentText(), static_TadpoleConfigFile)
+        TadpoleConfigPath = static_TadpoleConfigFile
         config.read(TadpoleConfigPath)
         if config.has_option('file', 'user_directory'):
             saved_directory = config.get('file', 'user_directory')
@@ -1955,12 +1946,14 @@ class SettingsWindow(QDialog):
         drive = window.combobox_drive.currentText()
         if config.has_option(section, key):
             config[section][key] = str(value)
-            with open(os.path.join(drive, static_TadpoleConfigFile), 'w') as configfile:
+            with open(static_TadpoleConfigFile, 'w') as configfile:
                 config.write(configfile)   
             
 if __name__ == "__main__":
-    try:     
+    try:
         # Per logger documentation, create logging as soon as possible before other hreads    
+        if not os.path.exists(static_TadpoleDir):
+            os.mkdir(static_TadpoleDir)
         logging.basicConfig(filename=static_LoggingPath,
                         filemode='a',
                         format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
