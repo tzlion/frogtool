@@ -5,6 +5,8 @@ from PyQt5.QtMultimedia import QSoundEffect
 from PyQt5.QtCore import Qt, QTimer, QUrl, QSize
 # OS imports - these should probably be moved somewhere else
 import os
+import tadpole_functions
+import frogtool
 
 # Subclass Qidget to create a thumbnail viewing window        
 class ThumbnailDialog(QDialog):
@@ -56,7 +58,11 @@ class ThumbnailDialog(QDialog):
         self.layout_buttons.addWidget(self.button_cancel)
 
         # Load Initial Image
-        self.current_viewer.load_from_ROM(filepath)
+        # If it's a supported .z**, open it, otherwise leave it blank
+        file_extension = file_extension = os.path.splitext(filepath)[1]
+        if file_extension == '.zfb' or file_extension == '.zfc' or file_extension == '.zgb' or \
+                                    file_extension == '.zmd' or file_extension == '.zsf': 
+            self.current_viewer.load_from_ROM(filepath)
         
     def WriteImgToFile(self):
         newCoverFileName = QFileDialog.getSaveFileName(self,

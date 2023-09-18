@@ -35,6 +35,7 @@ basedir = os.path.dirname(__file__)
 static_NoDrives = "N/A"
 static_AllSystems = "ALL"
 static_LoggingPath = "tadpole.log" # Log to the local directory that tadpole is being run from.
+#TODO: Eric, with multiple drives, having multiple Tadpole settings will get annoying. 
 static_TadpoleConfigFile = os.path.join("Tadpole","tapdole.ini")
 
 #Use this to poll for SD cards, turn it to False to stop polling
@@ -90,11 +91,21 @@ def processGameShortcuts():
             #print(drive + " " + console + " " + str(position) + " "+ game)
             tadpole_functions.changeGameShortcut(drive, console, position, game)
 
-def reloadDriveList():
+#Trigger is optional and will force a reload
+#TODO: Eric, sorry its an optional argument and I couldn't find a better way to foce the polling
+#forcing polling to only go through its flow with new user selected drive
+def reloadDriveList(trigger = False):
     #If polling is disabled don't do anything
     if poll_drives == True:
         current_drive = window.combobox_drive.currentText()
-        window.combobox_drive.clear()
+
+        # Iterate through the ComboBox in reverse order to safely remove items
+        for index in reversed(range(window.combobox_drive.count())):
+            user_data = window.combobox_drive.itemData(index)
+            #let's add if any new ones showed up
+            #If the user created their own, don't remove it
+            if isinstance(user_data, str) and user_data != "localDrive":
+                window.combobox_drive.removeItem(index)
 
         for drive in psutil.disk_partitions():
             if os.path.exists(os.path.join(drive.mountpoint, "bios", "bisrv.asd")):
@@ -104,12 +115,18 @@ def reloadDriveList():
 
         if len(window.combobox_drive) > 0:
             toggle_features(True)
+            window.btn_coppy_user_selected_button.setEnabled(False)
             window.status_bar.showMessage("SF2000 Drive(s) Detected.", 20000)
             #Eric: Need to check in with Jason on why this was removed.
-            if(current_drive == static_NoDrives):
+            #TODO: Eric, not sure why it was originally, but I think the refactor should say != ?
+            #In other words, if the drive changes, and its not N/A, let's process it to get things like config file, etc.
+            if(current_drive == static_NoDrives or trigger == True):
                 print("New drive detected")
                 logging.info(f"Automatically triggering drive change because a new drive connected")
                 window.combobox_drive_change()
+            #Turn on ability to copy if there is at least one other drive selected
+            if len(window.combobox_drive) > 1:
+                window.btn_coppy_user_selected_button.setEnabled(True)
         else:
             # disable functions
             window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
@@ -339,20 +356,14 @@ def BGM_change(source=""):
         msg_box.close()
         QMessageBox.about(window, "Failure", "Something went wrong while trying to change the background music")
 
-def FirstRun(self):
+def FirstRun():
     #Setup settings
-    TadpoleFolder = os.path.join(window.combobox_drive.currentText(), "Tadpole")
-    TadpoleConfigPath = os.path.join(window.combobox_drive.currentText(), static_TadpoleConfigFile)
-    if not os.path.exists(TadpoleFolder):
-        os.mkdir(TadpoleFolder)
-    if not os.path.isfile(TadpoleConfigPath):
-        Path(TadpoleConfigPath).touch()
-
+    CreateTadpoleFiles()
     drive = window.combobox_drive.currentText()
     logging.info("First Run started.  This means its either brand new, deleted ini file, or something else")
     qm = QMessageBox()
     ret = qm.information(window,'Welcome', "Welcome to Tadpole!\n\n\
-Either this is your first time or this is a new version of Tadpole.  Either way, we are glad you are here!\n\n\
+Either this is your first time, you've pointed to a new directory for Tadpole, or it is a new version of Tadpole.  However you go here, we are glad you are here!\n\n\
 It is advised to update the bootloader to avoid bricking the SF2000 when changing anything on the SD card.\n\n\
 Do you want to download and apply the bootloader fix? (Select No if you have already applied the fix previously)", qm.Yes | qm.No)
     if ret == qm.Yes:
@@ -360,8 +371,6 @@ Do you want to download and apply the bootloader fix? (Select No if you have alr
     else:
         config['bootloader'] = {'patchskipped': True}
         logging.info("User skipped bootloader")
-    #Write default values on first run
-    tadpole_functions.writeDefaultSettings(drive)
 
 def bootloaderPatch():
     qm = QMessageBox
@@ -489,6 +498,16 @@ Format it to with a drive letter and to FAT32.  It may say the drive is in use; 
         if foundSD == False:
             QMessageBox.about(window, "Empty SD card not found", "Looks like none of the mounted drives in Windows are empty SD cards. Are you sure you formatted it and it is empty?")
             return False
+        DownloadOSFiles(correct_drive)
+        ret = QMessageBox.question(window, "Try booting",  "Try putting the SD card in the SF2000 and starting it.  Did it work?")
+        if ret == qm.No:
+            QMessageBox.about(window, "Not booting", "Sorry it didn't work; Consult https://github.com/vonmillhausen/sf2000#bootloader-bug or ask for help on Discord https://discord.gg/retrohandhelds.")
+            return False
+        ret = QMessageBox.about(window, "Success",  "Congrats!  Now put the SD card back into the computer.  Tadpole will go through its first time setup again.\n\n\
+It is going to ask you to patch the bootloader.  Please do so to avoid getting into this state again.")        
+        return True
+
+def DownloadOSFiles(correct_drive):
         msgBox = DownloadProgressDialog()
         msgBox.setText("Downloading Firmware Update.")
         msgBox.show()
@@ -521,16 +540,80 @@ Format it to with a drive letter and to FAT32.  It may say the drive is in use; 
         #Re-add biserv.asd
         #TODO: Review why we are doing this
         tadpole_functions.downloadFileFromGithub(os.path.join(correct_drive,"bios","bisrv.asd"), "https://raw.githubusercontent.com/EricGoldsteinNz/SF2000_Resources/main/OS/V1.6/bios/bisrv.asd")
-        msgBox.close()
-        ret = QMessageBox.question(window, "Try booting",  "Try putting the SD card in the SF2000 and starting it.  Did it work?")
-        if ret == qm.No:
-            QMessageBox.about(window, "Not booting", "Sorry it didn't work; Consult https://github.com/vonmillhausen/sf2000#bootloader-bug or ask for help on Discord https://discord.gg/retrohandhelds.")
-            return False
-        ret = QMessageBox.about(window, "Success",  "Congrats!  Now put the SD card back into the computer.  Tadpole will go through its first time setup again.\n\n\
-It is going to ask you to patch the bootloader.  Please do so to avoid getting into this state again.")        
+        msgBox.close()    
         return True
 
+def CreateTadpoleFiles():
+    TadpoleFolder = os.path.join(window.combobox_drive.currentText(), "Tadpole")
+    TadpoleConfigPath = os.path.join(window.combobox_drive.currentText(), static_TadpoleConfigFile)
+    if not os.path.exists(TadpoleFolder):
+        os.mkdir(TadpoleFolder)
+    if not os.path.isfile(TadpoleConfigPath):
+        Path(TadpoleConfigPath).touch()
+    tadpole_functions.writeDefaultSettings(window.combobox_drive.currentText())
 
+def SetUserSelectedDirectory(directory, supressed=False):
+    qm = QMessageBox()
+    old_path = window.combobox_drive.currentText()
+    #Supressed means we know its all good, don't give an user prompts/confirmation
+    if supressed:
+        #See if it has all folders/files we need
+        #TODO: Do more than bios?
+        if not os.path.exists(os.path.join(directory, "bios", "bisrv.asd")):
+            ret = qm.question(window,'Working location', "This folder doesn't contain the bios folder or bisrv.as file, so it doens't look \
+like the root of the SD card.  Do you want us to download all the most up to date files to this folder instead?" , qm.Yes | qm.No)
+            #If not, we need them to fix this, start over
+            if ret == qm.No:
+                directory = QFileDialog.getExistingDirectory()
+                if directory != '':
+                    SetUserSelectedDirectory(directory)
+                return False
+            #Add all these in via the FixSF2000 function
+            if ret == qm.Yes:
+                DownloadOSFiles(directory)
+                CreateTadpoleFiles()
+        QMessageBox().about(window, "Working location", "When you want to go back to using an SD card, select it in the dropdown list of drives.\n\n\
+When you are ready to ovewrite that SD card, press the 'Copy to SD' button")
+    window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
+                                        directory + f'/', 'localDrive')
+    #TODO: why are some functions failing without the '/'
+    # window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
+    #                                 directory + f'/', 'localDrive')
+    # Set the current index to the newly added item
+    new_item_index = window.combobox_drive.count() - 1
+    window.combobox_drive.setCurrentIndex(new_item_index)
+
+    # force a reload to build tadpole settings and such
+    reloadDriveList(True)
+
+    new_drive = window.combobox_drive.currentText()
+    # save this directory to Tadpole...in both places.... :( 
+    config = configparser.ConfigParser()
+    TadpoleConfigPath = os.path.join(new_drive, static_TadpoleConfigFile)
+    config.read(TadpoleConfigPath)
+    if config.has_option('file', 'user_directory'):
+        config['file']['user_directory'] = new_drive
+        with open(os.path.join(new_drive, static_TadpoleConfigFile), 'w') as configfile:
+            config.write(configfile)   
+    #TODO: Eric maybe we should just keep Tadpole.ini in the Tadpole.exe directory :(...)    
+    TadpoleConfigPath = os.path.join(old_path, static_TadpoleConfigFile)
+    config.read(TadpoleConfigPath)
+    if config.has_option('file', 'user_directory'):
+        config['file']['user_directory'] = new_drive
+        with open(os.path.join(old_path, static_TadpoleConfigFile), 'w') as configfile:
+            config.write(configfile)   
+    return True
+
+def setupUserSelectedDrive(config):
+    TadpoleConfigPath = os.path.join(window.combobox_drive.currentText(), static_TadpoleConfigFile)
+    config.read(TadpoleConfigPath)
+    if config.has_option('file', 'user_directory'):
+        saved_directory = config.get('file', 'user_directory')
+    else:
+        return
+    #Setup the drive with this directory, we know its good
+    #Supress on the user dialogs
+    SetUserSelectedDirectory(saved_directory, True)
 
 class GameShortcutIconsDialog(QDialog):
     """
@@ -997,7 +1080,7 @@ class MainWindow (QMainWindow):
         super().__init__()
         self.setWindowTitle("Tadpole - SF2000 Tool")
         self.setWindowIcon(QIcon(os.path.join(basedir, 'frog.ico')))
-        self.resize(925,500)
+        self.resize(1200,500)
 
         widget = QWidget()
         self.setCentralWidget(widget)
@@ -1021,10 +1104,20 @@ class MainWindow (QMainWindow):
         self.combobox_drive = QComboBox()
         self.combobox_drive.activated.connect(self.combobox_drive_change)
         selector_layout.addWidget(self.lbl_drive)
-        selector_layout.addWidget(self.combobox_drive, stretch=1)
+        selector_layout.addWidget(self.combobox_drive, stretch=3)
+
+        #User defined
+        self.btn_user_dir = QPushButton("Select your own directory...")
+        selector_layout.addWidget(self.btn_user_dir)
+        self.btn_user_dir.clicked.connect(self.userSelectedDirectoryButton)
+        #CopyButton
+        self.btn_coppy_user_selected_button = QPushButton("Copy to SD...")
+        self.btn_coppy_user_selected_button.setEnabled(False)
+        selector_layout.addWidget(self.btn_coppy_user_selected_button)
+        self.btn_coppy_user_selected_button.clicked.connect(self.copyUserSelectedDirectoryButton)
 
         # Spacer
-        selector_layout.addWidget(QLabel(" "), stretch=2)
+        selector_layout.addWidget(QLabel(" "), stretch=3)
 
         # Console Select Widgets
         self.lbl_console = QLabel(text="Console:")
@@ -1033,11 +1126,6 @@ class MainWindow (QMainWindow):
         self.combobox_console.activated.connect(self.combobox_console_change)
         selector_layout.addWidget(self.lbl_console)
         selector_layout.addWidget(self.combobox_console, stretch=1)
-        
-        # Update Button Widget
-        # self.btn_update = QPushButton("Update device")
-        # selector_layout.addWidget(self.btn_update)
-        # self.btn_update.clicked.connect(RebuildClicked)
 
         # Add ROMS button
         self.btn_update = QPushButton("Add ROMs...")
@@ -1477,20 +1565,28 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
     def combobox_drive_change(self):
         newDrive = self.combobox_drive.currentText()
         console = self.combobox_console.currentText()
+        index = self.combobox_drive.currentIndex()
+
         logging.info(f"Dialog for drive changed to ({newDrive})")
+
+        
         #Check if the Tadpole config file exists, if not then create it.
         configPath = os.path.join(newDrive, static_TadpoleConfigFile)
         if os.path.isfile(configPath):
             config.read(configPath)
             #TODO every release let's be ultra careful for now and delete tadpole settings...
             #if it has defualt, then it doesn't exist
-            TadpoleVersion = config.get('versions', 'tadpole')
-            if TadpoleVersion != "0.3.9.15":
+            try:
+                TadpoleVersion = config.get('versions', 'tadpole')
+                if TadpoleVersion != "0.3.9.16":
+                    os.remove(configPath)
+                    FirstRun()
+            except:
                 os.remove(configPath)
-                FirstRun(window)         
+                FirstRun()
         else:
             #Run First Run to create config, check bootloader, etc.
-            FirstRun(window)
+            FirstRun()
         
         loadROMsToTable()
 
@@ -1647,7 +1743,7 @@ It is recommended to save it somewhere other than your SD card used with the SF2
                 #Additoinal safety to make sure this file exists...
                 if os.path.isfile(filename):
                     shutil.copy(filename, drive + console)
-                print (filename + " added to " + drive + console)
+                    print (filename + " added to " + drive + console)
             msgBox.close()
             qm = QMessageBox
             ret = qm.question(self,'Add Thumbnails?', f"Added " + str(len(filenames)) + " ROMs to " + drive + console + "\n\nDo you want to add thumbnails?\n\n\
@@ -1696,14 +1792,63 @@ Note: You can change in settings to either pick your own or try to downlad autom
         QMessageBox.about(self, "Success",f"Successfully deleted selected ROMs.")
         RunFrogTool(self.combobox_console.currentText())
 
-# Subclass Qidget to create a thumbnail viewing window        
+    def userSelectedDirectoryButton(self):
+        qm = QMessageBox
+        ret = qm.question(window,'Working location', "Instead of an SD card, you can define your own working location on your drive.\n\
+Once you finish working there, you'll need to 'Copy' everything over to your SD card.  Do you want to use this mode?  If so, click Yes and select the folder that has the \
+same contents as the SF2000." , qm.Yes | qm.No)
+        if ret == qm.No:
+            return
+        directory = QFileDialog.getExistingDirectory()
+        config = configparser.ConfigParser()
+        TadpoleConfigPath = os.path.join(window.combobox_drive.currentText(), static_TadpoleConfigFile)
+        config.read(TadpoleConfigPath)
+        if config.has_option('file', 'user_directory'):
+            saved_directory = config.get('file', 'user_directory')
+            if directory == saved_directory:
+                QMessageBox.about(self, "Same directory", "You already have this folder set as your local directory.")
+                return False
+        if directory != '':
+            return SetUserSelectedDirectory(directory)
+        return False
+
+    def copyUserSelectedDirectoryButton(self):
+        source_directory = window.combobox_drive.currentText()
+        qm = QMessageBox()
+        ret = qm.question(window, "Copy?", "Do you want to copy your entire folder over to the SD?\n\n\
+All files will be overriden, INCLUDING game saves.  Are you sure you want to continue?")
+        if ret == qm.No:
+            return
+        for drive in psutil.disk_partitions():
+            #TODO: should we check if it has more?
+            if os.path.exists(os.path.join(drive.mountpoint, "bios", "bisrv.asd")):
+                #TODO: should we copy everything in this folder or what?
+                #TODO: what happens if we run out of space?
+                ret = qm.question(window, "SD Card", "Froggy files found on " + drive.mountpoint + "\n\nAre you sure you want to copy and overwrite all files, including saves?")
+                if ret == qm.No:
+                    return
+                destination_directory = drive.mountpoint
+
+                #show indeterminite progress bar
+                progressMsgBox = DownloadProgressDialog()
+                progressMsgBox.setText("Copying files")
+                progressMsgBox.progress.setMinimum(0)
+                progressMsgBox.progress.setMaximum(0)
+                progressMsgBox.show()
+                QApplication.processEvents()
+                #copy everything over
+                shutil.copytree(source_directory, destination_directory, dirs_exist_ok=True)
+                progressMsgBox.close()
+                QMessageBox.about(window, "Success", "Files copied successfully.")
+                return
+
+# Subclass Qidget to create a Settings window        
 class SettingsWindow(QDialog):
     """
         This window should be called without a parent widget so that it is created in its own window.
     """
     def __init__(self):
         super().__init__()
-        layout = QVBoxLayout()
         
         self.setWindowIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)))
         self.setWindowTitle(f"Tadpole Settings")
@@ -1744,25 +1889,23 @@ class SettingsWindow(QDialog):
         self.layout_main.addWidget(thubmnailAddCombo)
 
         self.layout_main.addWidget(QLabel(" "))  # spacer
-        #self.layout_main.addWidget(QLabel("Select Type of ))
-        # Thmbnail Type
-        # self.layout_main.addWidget(QLabel("Type of Thumbnails to use"))
-        # thumbnail_view = QWidget(self)  # central widget
-        # thumbnail_view.setLayout(self.layout_main)
-        # view_group = QButtonGroup(thumbnail_view) # Number group
-        # thumbnailIcons = QRadioButton("0")
-        # number_group.addButton(r0)
-        # r1=QtGui.QRadioButton("1")
-        # number_group.addButton(r1)
-        # layout.addWidget(r0)
-        # layout.addWidget(r1)
-        #TODO add a bunch more help to users
-        """
-        QMessageBox.about(self, "Add Thumbnails", "You have Tadpole configured to upload your own thumbnails. \
-        In the open file dialog, select the directory where the images are located.  For this to work, \
-        The picture names must be the same as the ROM names. A great tool for this is Skraper combined \
-        with the 'Full Height Mix' style here: https://github.com/ebzero/garlic-onion-skraper-mix/tree/main#full-height-mix.")
-        """
+
+        #File options options
+        self.layout_main.addWidget(QLabel("File Options"))
+        UserSavedDirectory = self.GetKeyValue('file', 'user_directory')
+        self.layout_main.addWidget(QLabel(f"User defined directory:"))
+        self.user_directory = QLabel(UserSavedDirectory, self)
+        self.layout_main.addWidget(self.user_directory)
+        self.btn_change_user_dir = QPushButton("Select your own local directory...")
+        self.layout_main.addWidget(self.btn_change_user_dir)
+        self.btn_change_user_dir.clicked.connect(self.userSelectedDirectorySettingsButton)
+        #Let's finish removing later...
+        #self.btn_remove_user_dir = QPushButton("Remove your local directory from Tadpole")
+        #self.layout_main.addWidget(self.btn_remove_user_dir)
+        #self.btn_remove_user_dir.clicked.connect(self.userSelectedDirectoryResetSettingsButton)
+                
+        self.layout_main.addWidget(QLabel(" "))  # spacer
+
         # Main Buttons Layout (Save/Cancel)
         self.layout_buttons = QHBoxLayout()
         self.layout_main.addLayout(self.layout_buttons)
@@ -1784,6 +1927,16 @@ class SettingsWindow(QDialog):
         else:
             index = "False"
         self.WriteValueToFile('thumbnails','ovewrite', str(index))
+
+    def userSelectedDirectorySettingsButton(self):
+        if window.userSelectedDirectoryButton():
+            drive = window.combobox_drive.currentText()
+            self.user_directory.setText(drive)
+
+    def userSelectedDirectoryResetSettingsButton(self):
+        self.WriteValueToFile('file','user_directory', 'None')
+        self.user_directory.setText('None')
+        self.user_directory.adjustSize()        
 
     def thumbnailViewClicked(self):
         cbutton = self.sender()
@@ -1813,6 +1966,9 @@ if __name__ == "__main__":
         logging.info("Tadpole Started")
         #Setup config
         # ERIC: We should probably move this to launching the configParser when opening a drive rather than having it open here as it can delay startup
+        # Jason: Yes...but if we need to pull settings to configure the window we'll need it pretty soon
+        # Since polling comes right after the window is shown, I think that is the only place to put it...
+        # It would need some rework and I don't know if it buys us anything we are pulling settings at launch
         config = configparser.ConfigParser()
         # Initialise the Application
         app = QApplication(sys.argv)
@@ -1831,7 +1987,8 @@ if __name__ == "__main__":
         #Check for Froggy SD cards
         reloadDriveList()
 
-        
+        setupUserSelectedDrive(config)
+
         app.exec()
     except Exception as e:
         print(f"ERROR: An Exception occurred. {e}")

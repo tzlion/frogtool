@@ -715,7 +715,7 @@ def downloadDirectoryFromGithub(location, url, progressBar):
                 print(f"creating directory {destination}")
                 #TODO: this doesn't work with formatAndDownloadOSFiles.  It isn't creating the folder
                 os.makedirs(os.path.dirname(destination), exist_ok=True)
-                downloadDirectoryFromGithub(destination, item["url"], progressBar)
+                downloadDirectoryFromGithub(os.path.dirname(destination), item["url"], progressBar)
             else:# all other cases should be files
                 filename = item["name"]
                 downloadFileFromGithub(os.path.join(location,filename), item["download_url"])
@@ -892,10 +892,13 @@ def writeDefaultSettings(drive):
     #Set other config file defaults
     config.add_section('thumbnails')
     config.add_section('versions')
+    config.add_section('file')
     config.set('thumbnails', 'view', 'False')
     config.set('thumbnails', 'download', '0')
     config.set('thumbnails', 'ovewrite', 'True') #0 - manual upload, #1 - download from internet
-    config.set('versions', 'tadpole', '0.3.9.15') #TODO: this is where you change the version to force settings to delete for breaking change
+    config.set('versions', 'tadpole', '0.3.9.16') #TODO: this is where you change the version to force settings to delete for breaking change
+    config.set('file', 'user_directory', 'None') #TODO: this is where you change the version to force settings to delete for breaking change
+
     with open(configPath, 'w') as configfile:
         config.write(configfile)
 
