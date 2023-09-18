@@ -556,7 +556,7 @@ def SetUserSelectedDirectory(directory, supressed=False):
     qm = QMessageBox()
     old_path = window.combobox_drive.currentText()
     #Supressed means we know its all good, don't give an user prompts/confirmation
-    if supressed:
+    if not supressed:
         #See if it has all folders/files we need
         #TODO: Do more than bios?
         if not os.path.exists(os.path.join(directory, "bios", "bisrv.asd")):
