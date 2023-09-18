@@ -492,9 +492,6 @@ Format it to with a drive letter and to FAT32.  It may say the drive is in use; 
         msgBox = DownloadProgressDialog()
         msgBox.setText("Downloading Firmware Update.")
         msgBox.show()
-        #TODO: creating folders as the refactors directory mkdirs isn't working
-        os.mkdir(os.path.join(correct_drive,"Resources"))
-        os.mkdir(os.path.join(correct_drive,"bios"))
         tadpole_functions.downloadDirectoryFromGithub(correct_drive,"https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.6", msgBox.progress)
         #Make a bunch of the other directories at github doesn't let you create empty ones
         os.mkdir(os.path.join(correct_drive,"ARCADE"))
