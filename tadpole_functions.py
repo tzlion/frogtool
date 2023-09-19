@@ -41,9 +41,6 @@ supported_save_ext = [
     "sav", "sa0", "sa1", "sa2", "sa3"
 ] 
 
-# static_TadpoleConfigFile = os.path.join("Tadpole","tapdole.ini")
-# static_TadpoleLogFile = os.path.join("Tadpole","tadpole.log")
-
 
 class Exception_InvalidPath(Exception):
     pass    
@@ -721,7 +718,7 @@ def downloadDirectoryFromGithub(location, url, progressBar):
                 print(f"creating directory {destination}")
                 #TODO: this doesn't work with formatAndDownloadOSFiles.  It isn't creating the folder
                 os.makedirs(destination, exist_ok=True)
-                downloadDirectoryFromGithub((destination), item["url"], progressBar)
+                downloadDirectoryFromGithub(destination, item["url"], progressBar)
             else:# all other cases should be files
                 filename = item["name"]
                 downloadFileFromGithub(os.path.join(location,filename), item["download_url"])
