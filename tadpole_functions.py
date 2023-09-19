@@ -1,10 +1,15 @@
+# GUI imports
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
+# OS imports - these should probably be moved somewhere else
 import os
 import shutil
 import hashlib
 import zipfile
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
+# Tadpole imports
+import tadpole
+#feature imports
 import struct
 import frogtool
 import requests
@@ -12,6 +17,8 @@ import json
 import re
 import configparser
 import logging
+
+
 try:
     from PIL import Image
     image_lib_avail = True
@@ -35,9 +42,6 @@ systems = {
 supported_save_ext = [
     "sav", "sa0", "sa1", "sa2", "sa3"
 ] 
-
-static_TadpoleConfigFile = os.path.join("Tadpole","tapdole.ini")
-static_TadpoleLogFile = os.path.join("Tadpole","tadpole.log")
 
 
 class Exception_InvalidPath(Exception):
@@ -706,7 +710,6 @@ def downloadDirectoryFromGithub(location, url, progressBar):
     response = requests.get(url) 
     if response.status_code == 200:
         data = json.loads(response.content)
-        #progressBar.reset()
         downloadTotal = 0
         progressBar.setMaximum(len(data)+1)
         for item in data:
@@ -715,6 +718,7 @@ def downloadDirectoryFromGithub(location, url, progressBar):
                 foldername = item["name"]
                 destination = os.path.join(location,foldername)
                 print(f"creating directory {destination}")
+                #TODO: this doesn't work with formatAndDownloadOSFiles.  It isn't creating the folder
                 os.makedirs(destination, exist_ok=True)
                 downloadDirectoryFromGithub(destination, item["url"], progressBar)
             else:# all other cases should be files
@@ -889,14 +893,17 @@ def getHumanReadableFileSize(filesize):
 
 def writeDefaultSettings(drive):
     config = configparser.ConfigParser()
-    configPath = os.path.join(drive, static_TadpoleConfigFile)
+    configPath = tadpole.static_TadpoleConfigFile
     #Set other config file defaults
     config.add_section('thumbnails')
     config.add_section('versions')
+    config.add_section('file')
     config.set('thumbnails', 'view', 'False')
     config.set('thumbnails', 'download', '0')
     config.set('thumbnails', 'ovewrite', 'True') #0 - manual upload, #1 - download from internet
-    config.set('versions', 'tadpole', '0.3.9.15') #TODO: this is where you change the version to force settings to delete for breaking change
+    config.set('versions', 'tadpole', '0.3.9.16') #TODO: this is where you change the version to force settings to delete for breaking change
+    config.set('file', 'user_directory', 'None') #TODO: this is where you change the version to force settings to delete for breaking change
+
     with open(configPath, 'w') as configfile:
         config.write(configfile)
 
@@ -960,6 +967,31 @@ def getBackgroundResourceFileforConsole(drive, system):
     elif system == "ARCADE":
         resourceFile = "hctml.ers"
         return (drive + "/Resources/" + resourceFile)
+
+def copy_files(source, destination, progressBar):
+    total_files = 0
+    for root, dirs, files in os.walk(source):
+        total_files += len(files)
+
+    #progressBar.setMaximum(total_files)
+
+    copied_files = 0
+    for root, dirs, files in os.walk(source):
+        for file in files:
+            source_file = os.path.join(root, file)
+            destination_file = os.path.join(destination, os.path.relpath(source_file, source))
+
+            os.makedirs(os.path.dirname(destination_file), exist_ok=True)
+            with open(source_file, 'rb') as src, open(destination_file, 'wb') as dst:
+                while True:
+                    data = src.read(8192)
+                    if not data:
+                        break
+
+                    dst.write(data)
+            copied_files += 1
+            progressBar.setValue(int((copied_files / total_files) * 100))
+            QApplication.processEvents()
 
 #Thanks to Dteyn for putting the python together from here: https://github.com/Dteyn/SF2000_Battery_Level_Patcher/blob/master/main.py
 #Thanks to OpenAI for writing the class and converting logging to prints
