@@ -610,11 +610,10 @@ When you are ready to ovewrite that SD card, press the 'Copy to SD' button")
     new_drive = window.combobox_drive.currentText()
     # save this directory to Tadpole
     config = configparser.ConfigParser()
-    TadpoleConfigPath = static_TadpoleConfigFile
-    config.read(TadpoleConfigPath)
+    config.read(static_TadpoleConfigFile)
     if config.has_option('file', 'user_directory'):
         config['file']['user_directory'] = new_drive
-        with open(os.path.join(new_drive, static_TadpoleConfigFile), 'w') as configfile:
+        with open(static_TadpoleConfigFile, 'w') as configfile:
             config.write(configfile)   
     return True
 
@@ -1275,6 +1274,21 @@ class MainWindow (QMainWindow):
 
         #Menus for boot logo
         self.menu_os.menu_boot_logo = self.menu_os.addMenu("Boot Logo")
+        try:
+            self.boot_logos  = tadpole_functions.get_boot_logos()
+        except (ConnectionError, requests.exceptions.ConnectionError):
+            self.status_bar.showMessage("Error loading external theme resources.  Reconnect to internet and try restarting tadpole.", 20000)
+            error_action = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical)),
+                                   "Error Loading External Resources!",
+                                   self)
+            error_action.setDisabled(True)
+            self.menu_os.menu_boot_logo.addAction(error_action)
+        else:
+            for bootlogo in self.boot_logos:
+                self.menu_os.menu_boot_logo.addAction(QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)),
+                                                bootlogo,
+                                                self,
+                                                triggered=self.download_bootlogo))
         self.menu_os.menu_boot_logo.addAction(QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)),
                                             "Check out and download boot logos...",
                                             self,
@@ -1705,6 +1719,27 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         else:
             QMessageBox.about(window, "Failure", "Something went wrong while trying to change the theme")
 
+    def download_bootlogo(self):
+        status = True
+        url = self.boot_logos[self.sender().text()]
+        drive = window.combobox_drive.currentText()
+        index_path = os.path.join(drive,"bios","bisrv.asd")
+        bootlogo_file = "bootlogo.tmp"
+        msgBox = DownloadProgressDialog()
+        msgBox.setText("Downloading Boot Logo...")
+        msgBox.show()
+        msgBox.showProgress(1, True)
+        if not tadpole_functions.downloadFileFromGithub(bootlogo_file, url):
+            status = False
+        if tadpole_functions.changeBootLogo(index_path, bootlogo_file, msgBox):
+            QMessageBox.about(window, "Success", "The boot logo was updated to " + self.sender().text())
+            status = True
+        else:
+            QMessageBox.about(window, "Failure", "Something went wrong while trying to change the theme")
+            status = True
+        os.remove(bootlogo_file)
+        return status
+    
     def rebuildAll(self):
         RunFrogTool("ALL")
         return
@@ -1828,7 +1863,6 @@ same contents as the SF2000." , qm.Yes | qm.No)
                 QMessageBox.about(self, "Same directory", "You already have this folder set as your local directory.")
                 return False
         return SetUserSelectedDirectory(directory)
-        return False
 
     def copyUserSelectedDirectoryButton(self):
         source_directory = window.combobox_drive.currentText()

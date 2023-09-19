@@ -64,7 +64,6 @@ def changeBootLogo(index_path, newLogoFileName, msgBox):
     # Load the new Logo
     msgBox.setText("Uploading new boot logo...")
     msgBox.showProgress(25, True)
-    QApplication.processEvents  
     newLogo = QImage(newLogoFileName)
     # Convert to RGB565
     msgBox.setText("Converting boot logo...")
@@ -435,6 +434,8 @@ def changeGameShortcut(index_path, console, position, game):
         if console == "ARCADE":  # Arcade lines must be prefixed with "6", all others can be anything.
             prefix = 6
         # Overwrite the one line we want to change
+        #TODO: what if the wrong system is in the list?  We need to write the prefix of a new game
+        #to avoid bugs
         lines[4*systems[console][3]+position] = f"{prefix} {game}*\n"
         # Save the changes out to file
         xfgle_file_handle = open(xfgle_filepath, "w")
@@ -584,10 +585,22 @@ def get_themes(url="https://api.github.com/repos/EricGoldsteinNz/SF2000_Resource
         return theme
     raise ConnectionError("Unable to obtain theme resources. (Status Code: {})".format(response.status_code))
 
+def get_boot_logos(url="https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/BootLogos") -> bool:
+    """gets index of theme from provided GitHub API URL"""
+    bootlogos = {}
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        data = json.loads(response.content)
+        for item in data:
+            bootlogos[item['name'].replace(".zip", "")] = item['download_url']
+        return bootlogos
+    raise ConnectionError("Unable to obtain boot logo resources. (Status Code: {})".format(response.status_code))
+
+
 """
 This function downloads a file from the internet and renames it to pagefile.sys to replace the background music.
 """
-
 
 def changeBackgroundMusic(drive_path: str, url: str = "", file: str = "") -> bool:
     """
