@@ -211,8 +211,8 @@ def loadROMsToTable():
                 sys_zxx_ext = '.' + frogtool.zxx_ext[system]
                 if(extension == sys_zxx_ext):
                     with open(pathToROM, "rb") as rom_file:
-                        rom_content = bytearray(rom_file.read())
-                    img = QImage(rom_content[0:((144*208)*2)], 144, 208, QImage.Format_RGB16)
+                        rom_content = bytearray(rom_file.read(((144*208)*2)))
+                    img = QImage(rom_content[0:((144*208)*2)], 144, 208, QImage.Format_RGB16) # The byte array length has been left here as a second safety to ensure we dont try to over read.
                     pimg = QPixmap()
                     icon = QIcon()
                     QPixmap.convertFromImage(pimg, img)
@@ -1207,7 +1207,7 @@ class MainWindow (QMainWindow):
 
         # OS Menu
         self.menu_os = self.menuBar().addMenu("&OS")
-            #Sub-menu for updating Firmware
+        #Sub-menu for updating Firmware
         self.menu_os.menu_update = self.menu_os.addMenu("Firmware")
         action_detectOSVersion = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Detect and update firmware", self, triggered=self.detectOSVersion)
         self.menu_os.menu_update.addAction(action_detectOSVersion)
@@ -1220,7 +1220,7 @@ class MainWindow (QMainWindow):
         self.menu_os.menu_update.addAction(action_battery_fix)
         action_bootloader_patch  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Bootloader Fix - Built by commnity (Prevents device from not booting and corrupting SD card when changing files on SD card)", self, triggered=bootloaderPatch)                                                                              
         self.menu_os.menu_update.addAction(action_bootloader_patch)   
-            #Sub-menu for updating themes
+        #Sub-menu for updating themes
         self.menu_os.menu_change_theme = self.menu_os.addMenu("Theme")
         try:
             self.theme_options = tadpole_functions.get_themes()
@@ -1246,7 +1246,7 @@ class MainWindow (QMainWindow):
                                         "Update From Local File...",
                                         self,
                                         triggered=self.change_theme)) 
-           # Sub-menu for changing background music
+        # Sub-menu for changing background music
         self.menu_os.menu_change_music = self.menu_os.addMenu("Background Music")
         try:
             self.music_options = tadpole_functions.get_background_music()
@@ -1315,10 +1315,6 @@ class MainWindow (QMainWindow):
 
     def testFunction(self):
         print("Called test function. Remember to disable this before publishing")
-        try:
-            tadpole_functions.bisrv_getFirmwareVersion("C:\\Users\\OEM\\Downloads\\bisrv (1).asd")
-        except tadpole_functions.InvalidURLError:
-            print("URL did not return a valid file")
     
     def Settings(self):
         window_settings = SettingsWindow()
