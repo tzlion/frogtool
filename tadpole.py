@@ -44,6 +44,9 @@ poll_drives = True
 
 def RunFrogTool(console):
     drive = window.combobox_drive.currentText()
+    if drive == 'N/A':
+        logging.warning("You are trying to run froggy with no drive.")
+        return
     print(f"Running frogtool with drive ({drive}) and console ({console})")
     logging.info(f"Running frogtool with drive ({drive}) and console ({console})")
     try:
@@ -99,7 +102,7 @@ def reloadDriveList(trigger = False):
     #If polling is disabled don't do anything
     if poll_drives == True:
         current_drive = window.combobox_drive.currentText()
-
+        old_length = len(window.combobox_drive) 
         # Iterate through the ComboBox in reverse order to safely remove items
         for index in reversed(range(window.combobox_drive.count())):
             user_data = window.combobox_drive.itemData(index)
@@ -116,11 +119,10 @@ def reloadDriveList(trigger = False):
 
         if len(window.combobox_drive) > 0:
             toggle_features(True)
+            window.status_bar.showMessage("SF2000 Drive(s) Detected.", 20000)            
+            #If there is only one drive, then they can't copy
             window.btn_coppy_user_selected_button.setEnabled(False)
-            window.status_bar.showMessage("SF2000 Drive(s) Detected.", 20000)
-            #Eric: Need to check in with Jason on why this was removed.
-            #TODO: Eric, not sure why it was originally, but I think the refactor should say != ?
-            #In other words, if the drive changes, and its not N/A, let's process it to get things like config file, etc.
+            #This force trigger is just a way to let us through polling when we need to, e.g. with a user selected directory
             if(current_drive == static_NoDrives or trigger == True):
                 print("New drive detected")
                 logging.info(f"Automatically triggering drive change because a new drive connected")
@@ -129,11 +131,17 @@ def reloadDriveList(trigger = False):
             if len(window.combobox_drive) > 1:
                 window.btn_coppy_user_selected_button.setEnabled(True)
         else:
-            # disable functions
+            # disable functions if nothing is in the combobox
             window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
             window.status_bar.showMessage("No SF2000 Drive Detected. Please insert SD card and try again.", 20000)
             toggle_features(False)
 
+        #If there were more drives than there are now, it means the user removed one
+        #which means we need to load the rom list to refresh it (fixes bugs when pulling out the microSD and views don't update)
+        new_length = len(window.combobox_drive)
+        if old_length > new_length:
+            RunFrogTool(window.combobox_console.currentText())
+            logging.info("SD Drive was disconnected since there were {old_length} and now there are {new_length}")
         window.combobox_drive.setCurrentText(current_drive)
 
 def toggle_features(enable: bool):
@@ -153,7 +161,7 @@ def toggle_features(enable: bool):
         feature.setEnabled(enable)
 
 #NOTE: this function refreshes the ROM table.  If you run this AND NOT FROG_TOOL, you can get your window out of sync
-#NOTE: So don't run loadROMsToTable, instead run FrogTool
+#So don't run loadROMsToTable, instead run FrogTool(console)
 def loadROMsToTable():
     drive = window.combobox_drive.currentText()
     system = window.combobox_console.currentText()
@@ -375,7 +383,7 @@ Do you want to download and apply the bootloader fix? (Select No if you have alr
 
 def bootloaderPatch():
     qm = QMessageBox
-    ret = qm.question(window, "Download fix", "This will require your SD card and that the SF2000 is well charged.  Do you want to download the fix?")
+    ret = qm.question(window, "Download fix", "Patching the bootloader will require your SD card and that the SF2000 is well charged.  Do you want to download the fix?")
     if ret == qm.No:
         return
     #cleanup previous files
@@ -483,19 +491,25 @@ Format it to with a drive letter and to FAT32.  It may say the drive is in use; 
             QMessageBox.about(window, "Formatting", "Please try formating the SD card and trying again.")
             return False
         for drive in psutil.disk_partitions():
+            if not os.path.exists(drive.mountpoint):
+                logging.info("Formatting prevented {drive} can't be read")
+                continue
             dir = os.listdir(drive.mountpoint)
             #Windows puts in a System inFormation item that is hidden
             if len(dir) > 1:
+                logging.info("Formatting prevented {drive} isn't empty")
                 continue
-            if(drive.mountpoint != f'C:\\'):
-                ret = qm.question(window, "Empty SD card found", "Is the right SD card: " + drive.mountpoint + "?")
-                if ret == qm.Yes:
-                    correct_drive = drive.mountpoint
-                    foundSD = True
-                    logging.info("SD card was formatted and is empty")
-                    break
-                if ret == qm.No:
-                    continue
+            if(drive.mountpoint == f'C:\\'):
+                logging.info("Formatting prevented, be ultra safe don't let them format C")
+                continue
+            ret = qm.question(window, "Empty SD card found", "Is the right SD card: " + drive.mountpoint + "?")
+            if ret == qm.Yes:
+                correct_drive = drive.mountpoint
+                foundSD = True
+                logging.info("SD card was formatted and is empty")
+                break
+            if ret == qm.No:
+                continue
         if foundSD == False:
             QMessageBox.about(window, "Empty SD card not found", "Looks like none of the mounted drives in Windows are empty SD cards. Are you sure you formatted it and it is empty?")
             return False
@@ -504,8 +518,12 @@ Format it to with a drive letter and to FAT32.  It may say the drive is in use; 
         if ret == qm.No:
             QMessageBox.about(window, "Not booting", "Sorry it didn't work; Consult https://github.com/vonmillhausen/sf2000#bootloader-bug or ask for help on Discord https://discord.gg/retrohandhelds.")
             return False
-        ret = QMessageBox.about(window, "Success",  "Congrats!  Now put the SD card back into the computer.  Tadpole will go through its first time setup again.\n\n\
-It is going to ask you to patch the bootloader.  Please do so to avoid getting into this state again.")        
+        
+        ret = QMessageBox.question(window, "Success",  "Congrats!  Now put the SD card back into the computer.\n\n\
+If you got into a bad state without patching the bootloader, you should patch it so you can make changes safely.  Do you want to patch the bootloader?")
+        if ret == qm.No:
+            return True
+        bootloaderPatch()
         return True
 
 def DownloadOSFiles(correct_drive):
@@ -578,7 +596,7 @@ like the root of the SD card.  Do you want us to download all the most up to dat
         QMessageBox().about(window, "Working location", "When you want to go back to using an SD card, select it in the dropdown list of drives.\n\n\
 When you are ready to ovewrite that SD card, press the 'Copy to SD' button")
     window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
-                                        directory + f'/', 'localDrive')
+                                        directory, 'localDrive')
     #TODO: why are some functions failing without the '/'
     # window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
     #                                 directory + f'/', 'localDrive')
@@ -768,18 +786,18 @@ by matching the name of the game and a folder you select?  You can change the ic
     
     def resize_for_shortcut(self, game):
         # This will resample down to 60x60 and then back up to 120x120 for better thumbnails
-        game1 = game1.convert('RGBA')
-        game1 = game1.resize((60, 60), Image.Resampling.LANCZOS)
+        game = game.convert('RGBA')
+        game = game.resize((60, 60), Image.Resampling.LANCZOS)
         new_image = Image.new('RGB', (60, 60), (255,255,255,0))
-        new_image.paste(game1, (0, 0), game1)
+        new_image.paste(game, (0, 0), game)
 
-        game1 = new_image.resize((120, 120), Image.Resampling.NEAREST)
+        game = new_image.resize((120, 120), Image.Resampling.NEAREST)
 
         # Create rectangles for white borders with fillet
         white_rounded_rect = self.round_rectangle((124,124), 8, "white")
 
-        white_rounded_rect.paste(game1, (2,2))
-        game1 = white_rounded_rect
+        white_rounded_rect.paste(game, (2,2))
+        game = white_rounded_rect
 
         white_rounded_rect2 = self.round_rectangle((124,124), 8, "white")
         black_rounded_rect2 = self.round_rectangle((120,120), 8, "black")
@@ -803,30 +821,35 @@ by matching the name of the game and a folder you select?  You can change the ic
                 newData.append(item)
 
         white_rounded_rect2.putdata(newData)
-        game1.putdata(new_imgData)
-        game1.paste(white_rounded_rect2, (0,0), white_rounded_rect2)
-        return game1
+        game.putdata(new_imgData)
+        game.paste(white_rounded_rect2, (0,0), white_rounded_rect2)
+        return game
     
     def ovewrite_background_and_reload(self, path, icon):
         #Following techniques by Zerter at view-source:https://zerter555.github.io/sf2000-collection/mainMenuIcoEditor.html
         #Add this to the temporary PNG
-        game = Image.open(path, 'r')
-        game = self.resize_for_shortcut(game)
-        #game = game.resize((124,124), Image.Resampling.LANCZOS)
-        workingPNG = Image.open(self.workingPNGPath)
-        if icon == 1:
-            workingPNG.paste(game, (42,290))
-        if icon == 2:
-            workingPNG.paste(game, (186,290))
-        if icon == 3:
-            workingPNG.paste(game, (330,290))
-        if icon == 4:
-            workingPNG.paste(game, (474,290))
+        try:
+            game = Image.open(path, 'r')
+            game = self.resize_for_shortcut(game)
+            workingPNG = Image.open(self.workingPNGPath)
+            if icon == 1:
+                workingPNG.paste(game, (42,290))
+            if icon == 2:
+                workingPNG.paste(game, (186,290))
+            if icon == 3:
+                workingPNG.paste(game, (330,290))
+            if icon == 4:
+                workingPNG.paste(game, (474,290))
+        except:
+            logging.error("Failed to open {game}")
+            return
         #Add to preview and save it
         workingPNG.save(self.workingPNGPath)
         img = QImage(self.workingPNGPath)
         #Update image
         self.backgroundImage.setPixmap(QPixmap().fromImage(img))
+        logging.info("Added {game} to the background image")
+
         return True
 
     def load_from_Resources(self):
@@ -846,9 +869,6 @@ by matching the name of the game and a folder you select?  You can change the ic
         file_path = QFileDialog.getOpenFileName(self, 'Open file', '',
                                             "Images (*.jpg *.png *.webp);;RAW (RGB565 Little Endian) Images (*.raw)")[0]
         if len(file_path) > 0:  # confirm if user selected a file
-            #TODO: it was nice to disable but now its messing with other features, KISS
-            #set save state to true so user can save this
-            #self.button_save.setEnabled(True)
             #Add it to be processed
             if sending_button.text() == "Change Icon 1":
                 #load into preview image
@@ -1303,7 +1323,8 @@ class MainWindow (QMainWindow):
     def Settings(self):
         window_settings = SettingsWindow()
         window_settings.exec()
-        RunFrogTool(window.combobox_console.currentText())
+        if(window.combobox_drive.currentText() != 'static_NoDrives'):
+            RunFrogTool(window.combobox_console.currentText())
 
     def detectOSVersion(self):
         print("Tadpole~DetectOSVersion: Trying to read bisrv hash")
@@ -1583,7 +1604,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
             #Run First Run to create config, check bootloader, etc.
             FirstRun()
         if (newDrive != 'N/A'):
-            loadROMsToTable()
+            RunFrogTool(window.combobox_console.currentText())
 
     def combobox_console_change(self):
         console = self.combobox_console.currentText()
@@ -1795,6 +1816,9 @@ same contents as the SF2000." , qm.Yes | qm.No)
         if ret == qm.No:
             return
         directory = QFileDialog.getExistingDirectory()
+        if directory == '':
+            return False
+        directory = os.path.join(directory, '')
         config = configparser.ConfigParser()
         TadpoleConfigPath = static_TadpoleConfigFile
         config.read(TadpoleConfigPath)
@@ -1803,8 +1827,7 @@ same contents as the SF2000." , qm.Yes | qm.No)
             if directory == saved_directory:
                 QMessageBox.about(self, "Same directory", "You already have this folder set as your local directory.")
                 return False
-        if directory != '':
-            return SetUserSelectedDirectory(directory)
+        return SetUserSelectedDirectory(directory)
         return False
 
     def copyUserSelectedDirectoryButton(self):
@@ -1817,22 +1840,18 @@ All files will be overriden, INCLUDING game saves.  Are you sure you want to con
         for drive in psutil.disk_partitions():
             #TODO: should we check if it has more?
             if os.path.exists(os.path.join(drive.mountpoint, "bios", "bisrv.asd")):
-                #TODO: should we copy everything in this folder or what?
                 #TODO: what happens if we run out of space?
                 ret = qm.question(window, "SD Card", "Froggy files found on " + drive.mountpoint + "\n\nAre you sure you want to copy and overwrite all files, including saves?")
                 if ret == qm.No:
                     return
-                destination_directory = drive.mountpoint
 
-                #show indeterminite progress bar
+                destination_directory = drive.mountpoint
+                
                 progressMsgBox = DownloadProgressDialog()
                 progressMsgBox.setText("Copying files")
-                progressMsgBox.progress.setMinimum(0)
-                progressMsgBox.progress.setMaximum(0)
                 progressMsgBox.show()
-                QApplication.processEvents()
-                #copy everything over
-                shutil.copytree(source_directory, destination_directory, dirs_exist_ok=True)
+                progressMsgBox.progress.setMaximum
+                tadpole_functions.copy_files(source_directory, destination_directory, progressMsgBox.progress)
                 progressMsgBox.close()
                 QMessageBox.about(window, "Success", "Files copied successfully.")
                 return

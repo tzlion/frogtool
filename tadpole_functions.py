@@ -967,6 +967,31 @@ def getBackgroundResourceFileforConsole(drive, system):
         resourceFile = "hctml.ers"
         return (drive + "/Resources/" + resourceFile)
 
+def copy_files(source, destination, progressBar):
+    total_files = 0
+    for root, dirs, files in os.walk(source):
+        total_files += len(files)
+
+    #progressBar.setMaximum(total_files)
+
+    copied_files = 0
+    for root, dirs, files in os.walk(source):
+        for file in files:
+            source_file = os.path.join(root, file)
+            destination_file = os.path.join(destination, os.path.relpath(source_file, source))
+
+            os.makedirs(os.path.dirname(destination_file), exist_ok=True)
+            with open(source_file, 'rb') as src, open(destination_file, 'wb') as dst:
+                while True:
+                    data = src.read(8192)
+                    if not data:
+                        break
+
+                    dst.write(data)
+            copied_files += 1
+            progressBar.setValue(int((copied_files / total_files) * 100))
+            QApplication.processEvents()
+
 #Thanks to Dteyn for putting the python together from here: https://github.com/Dteyn/SF2000_Battery_Level_Patcher/blob/master/main.py
 #Thanks to OpenAI for writing the class and converting logging to prints
 class BatteryPatcher:
