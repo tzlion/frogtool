@@ -711,7 +711,6 @@ def downloadDirectoryFromGithub(location, url, progressBar):
     response = requests.get(url) 
     if response.status_code == 200:
         data = json.loads(response.content)
-        #progressBar.reset()
         downloadTotal = 0
         progressBar.setMaximum(len(data)+1)
         for item in data:
@@ -721,8 +720,8 @@ def downloadDirectoryFromGithub(location, url, progressBar):
                 destination = os.path.join(location,foldername)
                 print(f"creating directory {destination}")
                 #TODO: this doesn't work with formatAndDownloadOSFiles.  It isn't creating the folder
-                os.makedirs(os.path.dirname(destination), exist_ok=True)
-                downloadDirectoryFromGithub(os.path.dirname(destination), item["url"], progressBar)
+                os.makedirs(destination, exist_ok=True)
+                downloadDirectoryFromGithub((destination), item["url"], progressBar)
             else:# all other cases should be files
                 filename = item["name"]
                 downloadFileFromGithub(os.path.join(location,filename), item["download_url"])

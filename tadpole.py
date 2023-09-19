@@ -513,8 +513,8 @@ def DownloadOSFiles(correct_drive):
         msgBox.setText("Downloading Firmware Update.")
         msgBox.show()
         #TODO: creating folders as the refactors directory mkdirs isn't working
-        os.mkdir(os.path.join(correct_drive,"Resources"))
-        os.mkdir(os.path.join(correct_drive,"bios"))
+        #os.mkdir(os.path.join(correct_drive,"Resources"))
+        #os.mkdir(os.path.join(correct_drive,"bios"))
         tadpole_functions.downloadDirectoryFromGithub(correct_drive,"https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.6", msgBox.progress)
         #Make a bunch of the other directories at github doesn't let you create empty ones
         os.mkdir(os.path.join(correct_drive,"ARCADE"))
@@ -556,6 +556,8 @@ def CreateTadpoleFiles():
 def SetUserSelectedDirectory(directory, supressed=False):
     qm = QMessageBox()
     old_path = window.combobox_drive.currentText()
+    #clear out the old selected directory; let's only support 1
+    window.combobox_drive.clear()
     #Supressed means we know its all good, don't give an user prompts/confirmation
     if not supressed:
         #See if it has all folders/files we need
@@ -765,19 +767,19 @@ by matching the name of the game and a folder you select?  You can change the ic
         return rectangle
     
     def resize_for_shortcut(self, game):
-        # Crop off to be square instead of just resizing.
-        x, y = game.size
-        crop_size = min(x,y)
-        x_offset = (x-crop_size)/2
-        y_offset = (y-crop_size)/2
-        game = game.crop((x_offset, y_offset, crop_size+x_offset, crop_size+y_offset))
-        game = game.resize((120,120), Image.Resampling.LANCZOS)
+        # This will resample down to 60x60 and then back up to 120x120 for better thumbnails
+        game1 = game1.convert('RGBA')
+        game1 = game1.resize((60, 60), Image.Resampling.LANCZOS)
+        new_image = Image.new('RGB', (60, 60), (255,255,255,0))
+        new_image.paste(game1, (0, 0), game1)
+
+        game1 = new_image.resize((120, 120), Image.Resampling.NEAREST)
 
         # Create rectangles for white borders with fillet
         white_rounded_rect = self.round_rectangle((124,124), 8, "white")
 
-        white_rounded_rect.paste(game, (2,2))
-        game = white_rounded_rect
+        white_rounded_rect.paste(game1, (2,2))
+        game1 = white_rounded_rect
 
         white_rounded_rect2 = self.round_rectangle((124,124), 8, "white")
         black_rounded_rect2 = self.round_rectangle((120,120), 8, "black")
@@ -801,10 +803,10 @@ by matching the name of the game and a folder you select?  You can change the ic
                 newData.append(item)
 
         white_rounded_rect2.putdata(newData)
-        game.putdata(new_imgData)
-        game.paste(white_rounded_rect2, (0,0), white_rounded_rect2)
-        return game
-
+        game1.putdata(new_imgData)
+        game1.paste(white_rounded_rect2, (0,0), white_rounded_rect2)
+        return game1
+    
     def ovewrite_background_and_reload(self, path, icon):
         #Following techniques by Zerter at view-source:https://zerter555.github.io/sf2000-collection/mainMenuIcoEditor.html
         #Add this to the temporary PNG
