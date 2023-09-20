@@ -165,10 +165,10 @@ def toggle_features(enable: bool):
 
 #NOTE: this function refreshes the ROM table.  If you run this AND NOT FROG_TOOL, you can get your window out of sync
 #So don't run loadROMsToTable, instead run FrogTool(console)
+#TODO: move this into mainWindow
 def loadROMsToTable():
     drive = window.combobox_drive.currentText()
     system = window.combobox_console.currentText()
-    TadpoleConfigPath = static_TadpoleConfigFile
     print(f"loading roms to table for ({drive}) ({system})")
     logging.info(f"loading roms to table for ({drive}) ({system})")
     msgBox = DownloadProgressDialog()
@@ -203,8 +203,6 @@ def loadROMsToTable():
             window.tbl_gamelist.setItem(i, 1, cell_fileSize) 
             # View Thumbnail 
             #Show picture if thumbnails in View is selected
-            config = configparser.ConfigParser()
-            config.read(TadpoleConfigPath)
             if tpConf.getViewThumbnailsInTable():
                 cell_viewthumbnail = QTableWidgetItem()
                 cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
