@@ -496,7 +496,10 @@ Format it to with a drive letter and to FAT32.  It may say the drive is in use; 
         if foundSD == False:
             QMessageBox.about(window, "Empty SD card not found", "Looks like none of the mounted drives in Windows are empty SD cards. Are you sure you formatted it and it is empty?")
             return False
-        DownloadOSFiles(correct_drive)
+        msgBox = DownloadProgressDialog()
+        msgBox.setText("Downloading Firmware Update.")
+        msgBox.show()
+        tadpole_functions.DownloadOSFiles(correct_drive, msgBox.progress)
         ret = QMessageBox.question(window, "Try booting",  "Try putting the SD card in the SF2000 and starting it.  Did it work?")
         if ret == qm.No:
             QMessageBox.about(window, "Not booting", "Sorry it didn't work; Consult https://github.com/vonmillhausen/sf2000#bootloader-bug or ask for help on Discord https://discord.gg/retrohandhelds.")
@@ -1441,14 +1444,17 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         
     def combobox_drive_change(self):
         newDrive = self.combobox_drive.currentText()
+        console = self.combobox_console.currentText()
         logging.info(f"combobox for drive changed to ({newDrive})")
         if (newDrive != static_NoDrives):
-            RunFrogTool(newDrive)
+            RunFrogTool(console)
 
     def combobox_console_change(self):
         console = self.combobox_console.currentText()
         logging.info(f"Dialog for console changed to ({console})")
         # ERIC: We shouldnt run frogtool as soon as the drive is opened. This is a lot of unnecessary processing.  
+        # Jason: agree it takes processing, but there were some crashing bugs where we got out of sync with the table
+        # Jason: and if the user changes anything outside of Tadpole it helps keep in sync.  Pros and cons
         RunFrogTool(console)
 
     def show_readme(self):

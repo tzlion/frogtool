@@ -739,7 +739,6 @@ def downloadDirectoryFromGithub(location, url, progressBar):
                 foldername = item["name"]
                 destination = os.path.join(location,foldername)
                 print(f"creating directory {destination}")
-                #TODO: this doesn't work with formatAndDownloadOSFiles.  It isn't creating the folder
                 os.makedirs(destination, exist_ok=True)
                 downloadDirectoryFromGithub(destination, item["url"], progressBar)
             else:# all other cases should be files
@@ -769,12 +768,8 @@ def downloadFileFromGithub(outFile, url):
         return False
 
 
-def DownloadOSFiles(correct_drive): 
-    # TODO: Ideally pull this out. We shouldnt have GUI in the functions file
-    msgBox = DownloadProgressDialog()
-    msgBox.setText("Downloading Firmware Update.")
-    msgBox.show()
-    downloadDirectoryFromGithub(correct_drive,"https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.6", msgBox.progress)
+def DownloadOSFiles(correct_drive, progress): 
+    downloadDirectoryFromGithub(correct_drive,"https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.6", progress)
     #Make the ROM directories
     os.mkdir(os.path.join(correct_drive,"ARCADE"))
     os.mkdir(os.path.join(correct_drive,"ARCADE","bin"))
@@ -799,14 +794,9 @@ def DownloadOSFiles(correct_drive):
         os.remove(os.path.join(correct_drive,"bios","bisrv.asd"))
     #Re-add biserv.asd
     #TODO: Review why we are doing this
+    #Jason: Per Dteyn, we need to remove and redownlaod bisrv.asd to clear the known bug bootloader crash
     downloadFileFromGithub(os.path.join(correct_drive,"bios","bisrv.asd"), "https://raw.githubusercontent.com/EricGoldsteinNz/SF2000_Resources/main/OS/V1.6/bios/bisrv.asd")        
-    msgBox.close()
     return True
-
-
-
-
-
 
 def emptyFavourites(drive) -> bool:
     return emptyFile(os.path.join(drive, "Resources", "Favorites.bin"))
