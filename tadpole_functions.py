@@ -63,7 +63,6 @@ def changeBootLogo(index_path, newLogoFileName, msgBox):
     # Load the new Logo
     msgBox.setText("Uploading new boot logo...")
     msgBox.showProgress(25, True)
-    QApplication.processEvents  
     newLogo = QImage(newLogoFileName)
     # Convert to RGB565
     msgBox.setText("Converting boot logo...")
@@ -414,7 +413,6 @@ position is a 0-based index of the short. values 0 to 3 are considered valid.
 game should be the file name including extension. ie Final Fantasy Tactics Advance (USA).zgb
 """
 
-
 def changeGameShortcut(index_path, console, position, game):
     # Check the passed variables for validity
     if not(0 <= position <= 3):
@@ -430,9 +428,7 @@ def changeGameShortcut(index_path, console, position, game):
         xfgle_file_handle = open(xfgle_filepath, "r")
         lines = xfgle_file_handle.readlines()
         xfgle_file_handle.close()
-        prefix = 9
-        if console == "ARCADE":  # Arcade lines must be prefixed with "6", all others can be anything.
-            prefix = 6
+        prefix = getPrefixFromConsole(console)
         # Overwrite the one line we want to change
         lines[4*systems[console][3]+position] = f"{prefix} {game}*\n"
         # Save the changes out to file
@@ -461,9 +457,7 @@ def deleteGameShortcut(index_path, console, position, game):
         xfgle_file_handle = open(xfgle_filepath, "r")
         lines = xfgle_file_handle.readlines()
         xfgle_file_handle.close()
-        prefix = 9
-        if console == "ARCADE":  # Arcade lines must be prefixed with "6", all others can be anything.
-            prefix = 6
+        prefix = getPrefixFromConsole(console)
         # Overwrite the one line we want to change
         lines[4*systems[console][3]+position] = f"{prefix} {game}*\n"
         # Save the changes out to file
@@ -487,9 +481,7 @@ def getGameShortcutPosition(index_path, console, game):
         xfgle_file_handle = open(xfgle_filepath, "r")
         lines = xfgle_file_handle.readlines()
         xfgle_file_handle.close()
-        prefix = 9
-        if console == "ARCADE":  # Arcade lines must be prefixed with "6", all others can be anything.
-            prefix = 6
+        prefix = getPrefixFromConsole(console)
         # see if this game is listed.  If so get its position
         savedShortcut = f"{prefix} {game}*\n"
         for i, gameShortcutLine in enumerate(lines):
@@ -521,6 +513,24 @@ def getGameShortcutPosition(index_path, console, game):
     except (OSError, IOError):
         print(f"! Failed changing the shortcut file")
         return 0
+
+#Although not required, if you don't have seperate prefixes, games with same ROM names/extension
+# e.g. Gameboy, gameboy color, and gameboy advance can get confused when loading the shortcuts in other systems.  
+def getPrefixFromConsole(console):
+    if console == "FC":  
+        return 1
+    elif console == "SFC": 
+        return 2
+    elif console == "MD":  
+        return 3
+    elif console == "GB":  
+        return 4
+    elif console == "GBC":
+        return 5
+    elif console == "GBA":
+        return 7
+    else:  
+        return 6 #Aracde NEEDS 6
 
 def findSequence(needle, haystack, offset = 0):
     # Loop through the data array starting from the offset
@@ -583,10 +593,22 @@ def get_themes(url="https://api.github.com/repos/EricGoldsteinNz/SF2000_Resource
         return theme
     raise ConnectionError("Unable to obtain theme resources. (Status Code: {})".format(response.status_code))
 
+def get_boot_logos(url="https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/BootLogos") -> bool:
+    """gets index of theme from provided GitHub API URL"""
+    bootlogos = {}
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        data = json.loads(response.content)
+        for item in data:
+            bootlogos[item['name'].replace(".zip", "")] = item['download_url']
+        return bootlogos
+    raise ConnectionError("Unable to obtain boot logo resources. (Status Code: {})".format(response.status_code))
+
+
 """
 This function downloads a file from the internet and renames it to pagefile.sys to replace the background music.
 """
-
 
 def changeBackgroundMusic(drive_path: str, url: str = "", file: str = "") -> bool:
     """
@@ -739,7 +761,7 @@ def downloadFileFromGithub(outFile, url):
             with open(outFile, 'wb') as f:
                 print(f'downloading {url} to {outFile}')
                 f.write(response.content)
-                return True
+            return True
         else:
             print("Error when trying to download a file from Github. Response was not code 200")
             raise InvalidURLError
@@ -992,6 +1014,44 @@ def copy_files(source, destination, progressBar):
             copied_files += 1
             progressBar.setValue(int((copied_files / total_files) * 100))
             QApplication.processEvents()
+
+def zip_file(file_path, output_path):
+    file_name = os.path.basename(file_path)
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write(file_path, arcname=file_name)
+
+#Add a thumbnail to a single rom
+def addThumbnail(rom_path, drive, system, new_thumbnail, ovewrite):
+        try:
+            #Check if this rom type is supported
+            romFullName = os.path.basename(rom_path)
+            romName, romExtension = os.path.splitext(romFullName)
+            #Strip the . as frogtool doesn't use it in its statics
+            romExtension = romExtension.lstrip('.')
+            sys_zxx_ext = frogtool.zxx_ext[system]
+            #If its not supported, return
+            if romExtension not in frogtool.supported_rom_ext:
+                #QMessageBox.about(window, "Change ROM Cover", "File format " + romExtension + "Not supported")
+                return False
+            #If its zip pass to frogtool
+            elif romExtension in frogtool.supported_zip_ext:
+                changeZIPThumbnail(rom_path, new_thumbnail, system)
+            #If its the supported system .z** pass to frogtool
+            elif romExtension == sys_zxx_ext and ovewrite == 'True':
+                changeZXXThumbnail(rom_path, new_thumbnail)
+            #Finally that means its supported but not zip, let's zip it up
+            else:
+                new_zipped_rom_path = os.path.join(drive, system, romName + '.zip')
+                zip_file(rom_path, new_zipped_rom_path)
+                if not changeZIPThumbnail(new_zipped_rom_path, new_thumbnail, system):
+                    #QMessageBox.about(window, "Change ROM Cover", "An error occurred.")
+                    return False
+                #Frogtool takes care of the zip, we need to remove the base ROM to not confuse the user
+                os.remove(rom_path)
+            return True
+        except Exception_InvalidPath:
+            #QMessageBox.about(window, "Change ROM Cover", "An error occurred.")
+            return False
 
 #Thanks to Dteyn for putting the python together from here: https://github.com/Dteyn/SF2000_Battery_Level_Patcher/blob/master/main.py
 #Thanks to OpenAI for writing the class and converting logging to prints
