@@ -753,7 +753,7 @@ def downloadFileFromGithub(outFile, url):
             with open(outFile, 'wb') as f:
                 print(f'downloading {url} to {outFile}')
                 f.write(response.content)
-                return True
+            return True
         else:
             print("Error when trying to download a file from Github. Response was not code 200")
             raise InvalidURLError
@@ -1004,6 +1004,44 @@ def copy_files(source, destination, progressBar):
             copied_files += 1
             progressBar.setValue(int((copied_files / total_files) * 100))
             QApplication.processEvents()
+
+def zip_file(file_path, output_path):
+    file_name = os.path.basename(file_path)
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write(file_path, arcname=file_name)
+
+#Add a thumbnail to a single rom
+def addThumbnail(rom_path, drive, system, new_thumbnail, ovewrite):
+        try:
+            #Check if this rom type is supported
+            romFullName = os.path.basename(rom_path)
+            romName, romExtension = os.path.splitext(romFullName)
+            #Strip the . as frogtool doesn't use it in its statics
+            romExtension = romExtension.lstrip('.')
+            sys_zxx_ext = frogtool.zxx_ext[system]
+            #If its not supported, return
+            if romExtension not in frogtool.supported_rom_ext:
+                #QMessageBox.about(window, "Change ROM Cover", "File format " + romExtension + "Not supported")
+                return False
+            #If its zip pass to frogtool
+            elif romExtension in frogtool.supported_zip_ext:
+                changeZIPThumbnail(rom_path, new_thumbnail, system)
+            #If its the supported system .z** pass to frogtool
+            elif romExtension == sys_zxx_ext and ovewrite == 'True':
+                changeZXXThumbnail(rom_path, new_thumbnail)
+            #Finally that means its supported but not zip, let's zip it up
+            else:
+                new_zipped_rom_path = os.path.join(drive, system, romName + '.zip')
+                zip_file(rom_path, new_zipped_rom_path)
+                if not changeZIPThumbnail(new_zipped_rom_path, new_thumbnail, system):
+                    #QMessageBox.about(window, "Change ROM Cover", "An error occurred.")
+                    return False
+                #Frogtool takes care of the zip, we need to remove the base ROM to not confuse the user
+                os.remove(rom_path)
+            return True
+        except Exception_InvalidPath:
+            #QMessageBox.about(window, "Change ROM Cover", "An error occurred.")
+            return False
 
 #Thanks to Dteyn for putting the python together from here: https://github.com/Dteyn/SF2000_Battery_Level_Patcher/blob/master/main.py
 #Thanks to OpenAI for writing the class and converting logging to prints

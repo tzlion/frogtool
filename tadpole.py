@@ -306,6 +306,7 @@ def headerClicked(column):
 def viewThumbnail(rom_path):
     window.window_thumbnail = ThumbnailDialog(rom_path)  
     result = window.window_thumbnail.exec()
+    drive = window.combobox_drive.currentText()
     system = window.combobox_console.currentText()
     if result:
         newLogoFileName = window.window_thumbnail.new_viewer.path
@@ -313,16 +314,13 @@ def viewThumbnail(rom_path):
         if newLogoFileName is None or newLogoFileName == "":
             print("user cancelled image select")
             return
-        try:
-            if(rom_path.endswith('.zip')):
-                tadpole_functions.changeZIPThumbnail(rom_path, newLogoFileName, system)
-            else:
-                tadpole_functions.changeZXXThumbnail(rom_path, newLogoFileName)
-        except tadpole_functions.Exception_InvalidPath:
+        if tadpole_functions.addThumbnail(rom_path, drive, system, newLogoFileName, True):
+            QMessageBox.about(window, "Change ROM Logo", "ROM cover successfully changed")
+            RunFrogTool(window.combobox_console.currentText())
+            return True
+        else:
             QMessageBox.about(window, "Change ROM Cover", "An error occurred.")
-            return
-        QMessageBox.about(window, "Change ROM Logo", "ROM cover successfully changed")
-        RunFrogTool(window.combobox_console.currentText())
+            return False
 
 def deleteROM(rom_path):
     qm = QMessageBox
@@ -1376,65 +1374,50 @@ class MainWindow (QMainWindow):
     
     def addBoxart(self):
         drive = window.combobox_drive.currentText()
-        user_selected_console = window.combobox_console.currentText()
-        rom_path = os.path.join(drive,user_selected_console)
+        system = window.combobox_console.currentText()
+        rom_path = os.path.join(drive,system)
+        romList = frogtool.getROMList(rom_path)
         msgBox = DownloadProgressDialog()
-        msgBox.progress.reset()
+
         #Check what the user has configured; upload or download
         config = configparser.ConfigParser()
-        config.read(drive + static_TadpoleConfigFile)
+        config.read(static_TadpoleConfigFile)
+        ovewrite = config.get('thumbnails', 'ovewrite')
         if config.get('thumbnails', 'download',fallback="0") == "0":
-            thumbnailDialog = QFileDialog()
-            thumbnailDialog.setDirectory('')
-            thumbnailDialog.setFileMode(QFileDialog.Directory)
-            thumbnailDialog.setOption(QFileDialog.ShowDirsOnly)
-            if thumbnailDialog.exec_():
-                for dir in thumbnailDialog.selectedFiles():
-                    #In the directory, grab all the imagess and copy them over to our console folder
-                    files = os.listdir(dir)
-                    savedFiles = []
-                    #Setup progress as these can take a while
-                    msgBox.progress.setMaximum(len(files)*2)
-                    progress = 0
-                    msgBox.setText("Copying thumbnails for zips")
-                    msgBox.showProgress(progress, True)
-                    msgBox.show()
-                    for file in files:
-                        #Only copy images over from that folder
-                        if file.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
-                            img_path = os.path.join(dir,file)
-                            shutil.copy(img_path,rom_path)
-                            #Save a copy of this file for us to delete later
-                            savedFiles.append(os.path.join(rom_path, file))
-                            progress += 1
-                            msgBox.showProgress(progress, True)
-                    #New run through frogtool to match all zips...
-                    frogtool.convert_zip_image_pairs_to_zxx(rom_path, user_selected_console)
-                    #Now run through all .ZBB files IF the user has this setup
-                    if config.get('thumbnails', 'ovewrite',fallback="0") == "True":
-                        msgBox.setText("Copying more thumbnails...")
-                        msgBox.progress.reset()
-                        tadpole_functions.overwriteZXXThumbnail(rom_path, user_selected_console, msgBox.progress)
-                    msgBox.close()
-                    QMessageBox.about(self, "Downloaded Thumbnails", "Adding thumbnails complete for "
-                        + user_selected_console + "\n\nPro tip: Turn on 'View thumbnails in Viewer' in Settings to scroll through all ROMs the thumbanils shown in the viewer.\n\n\
-Missing some thumbnails? Check to make sure you selected the right image folder, the names are the same, and you are in the right console in Tadpole.")
-                    #Cleanup all thoes PNG's that didn't get converted
-                    for file in savedFiles:
-                        if os.path.isfile(file):
-                            os.remove(file)
+            directory = QFileDialog.getExistingDirectory()
+            if directory == '':
+                    return
+            files = os.listdir(directory)
+            #Setup progress as these can take a while
+            msgBox.progress.setMaximum(len(romList))
+            msgBox.setText("Copying thumbnails for zips")
+            msgBox.showProgress(0, True)
+            msgBox.show()
+            for i, newThumbnail in enumerate(files):
+                newThumbnailName = os.path.splitext(newThumbnail)[0]
+                newThumbnailPath = os.path.join(directory, newThumbnail)
+                #Only copy images over from that folder
+                if newThumbnail.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                    for rom in romList:
+                        romName = os.path.splitext(rom)[0]
+                        if newThumbnailName == romName:
+                            rom_full_path = os.path.join(rom_path, rom)
+                            tadpole_functions.addThumbnail(rom_full_path, drive, system, newThumbnailPath, ovewrite)
+                msgBox.showProgress(i, True)
+        #User wants to download romart from internet
         if config.get('thumbnails', 'download',fallback="0") == "1":
             QMessageBox.about(self, "Add Thumbnails", "You have Tadpole configured to download thumbnails automatically. \
 For this to work, your roms must be in ZIP files and the name of that zip must match their common released English US localized \
 name.  Please refer to https://github.com/EricGoldsteinNz/libretro-thumbnails/tree/master if Tadpole isn't finding \
 the thumbnail for you. ")
             #ARCADE can't get ROM art, so just return
-            if user_selected_console == "ARCADE":
+            if system == "ARCADE":
                 QMessageBox.about(self, "Add Thumbnails", "Custom Arcade ROMs cannot have thumbnails at this time.")
                 return
             #Need the url for scraping the png's, which is different
             ROMART_baseURL_parsing = "https://github.com/EricGoldsteinNz/libretro-thumbnails/tree/master/"
-            
+            ROMART_baseURL = "https://raw.githubusercontent.com/EricGoldsteinNz/libretro-thumbnails/master/"
+            art_Type = "/Named_Snaps/"
             ROMArt_console = {  
                 "FC":     "Nintendo - Nintendo Entertainment System",
                 "SFC":    "Nintendo - Super Nintendo Entertainment System",
@@ -1446,26 +1429,16 @@ the thumbnail for you. ")
             }
             msgBox.setText("Downloading thumbnails...")
             msgBox.show()
-            #TODO: I shouldn't base this on strings incase it gets localized, should base it on the item clicked with "sender" obj but I can't figure out where that data is in that object 
-            art_Selection = self.sender().text()
-            if('Titles' in art_Selection):
-                art_Type = "/Named_Titles/"
-            elif('Snaps'in art_Selection):
-                art_Type = "/Named_Snaps/"
-            else:
-                art_Type = "/Named_Boxarts/"
-            console = user_selected_console
-            zip_files = os.scandir(os.path.join(drive,console))
+
+            zip_files = os.scandir(os.path.join(drive,system))
             zip_files = list(filter(frogtool.check_zip, zip_files))
-            msgBox.setText("Trying to find thumbnails for " + str(len(zip_files)) + " ROMs\n" + ROMArt_console[console])
-            #reset progress bar for next console
-            games_total = 0
+            msgBox.setText("Trying to find thumbnails for " + str(len(zip_files)) + " ROMs\n" + ROMArt_console[system])
             msgBox.progress.reset()
             msgBox.progress.setMaximum(len(zip_files)+1)
             msgBox.progress.setValue(0)
             QApplication.processEvents()
             #Scrape the url for .png files
-            url_for_scraping = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type
+            url_for_scraping = ROMART_baseURL_parsing + ROMArt_console[system] + art_Type
             response = requests.get(url_for_scraping)
             # BeautifulSoup magically find ours PNG's and ties them up into a nice bow
             soup = BeautifulSoup(response.content, 'html.parser')
@@ -1473,24 +1446,37 @@ the thumbnail for you. ")
             png_files = []
             for value in json_response['payload']['tree']['items']:
                 png_files.append(value['name'])
+            for i, newThumbnail in enumerate(png_files):
+                newThumbnailName = os.path.splitext(newThumbnail)[0]
+                #Only copy images over from the list
+                if newThumbnail.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                    for rom in romList:
+                        newThumbnailPath = os.path.join(rom_path, newThumbnail)
+                        romName = os.path.splitext(rom)[0]
+                        if newThumbnailName == romName:
+                            #download the png
+                            rom_png_url = ROMART_baseURL + ROMArt_console[system] + art_Type + newThumbnail
+                            rom_full_path = os.path.join(rom_path, rom)
+                            #If it finds it, download it and add it
+                            if tadpole_functions.downloadFileFromGithub(newThumbnailPath, rom_png_url):
+                                tadpole_functions.addThumbnail(rom_full_path, drive, system, newThumbnailPath, ovewrite)
+                msgBox.showProgress(i, True)
 
-            for file in zip_files:
-                game = os.path.splitext(file.name)
-                outFile = os.path.join(os.path.dirname(file.path),f"{game[0]}.png")
+            # for file in zip_files:
+            #     game = os.path.splitext(file.name)
+            #     outFile = os.path.join(os.path.dirname(file.path),f"{game[0]}.png")
 
-                msgBox.progress.setValue(games_total)
-                QApplication.processEvents()
-                if not os.path.exists(outFile):
-                    url_to_download = ROMART_baseURL_parsing + ROMArt_console[console] + art_Type + game[0]
-                    for x in png_files:
-                        if game[0] in x:
-                            tadpole_functions.downloadROMArt(console,file.path,x,art_Type,game[0])
-                            games_total += 1
-                            break
-            QApplication.processEvents()
-            QMessageBox.about(self, "Downloaded Thumbnails", "Downloaded " + str(games_total) + " thumbnails")
+            #     msgBox.progress.setValue(games_total)
+            #     QApplication.processEvents()
+            #     if not os.path.exists(outFile):
+            #         for x in png_files:
+            #             if game[0] in x:
+            #                 tadpole_functions.downloadROMArt(system,file.path,x,art_Type,game[0])
+            #                 games_total += 1
+            #                 break
         msgBox.close()
         RunFrogTool(window.combobox_console.currentText())
+        QMessageBox.about(self, "Add Thumbnails", "Successfully downloaded thumbnails for " + system)
 
     def change_background_music(self):
         """event to change background music"""
@@ -1780,6 +1766,8 @@ It is recommended to save it somewhere other than your SD card used with the SF2
         filenames, _ = QFileDialog.getOpenFileNames(self,"Select ROMs",'',"ROM files (*.zip *.bkp \
                                                     *.zfc *.zsf *.zmd *.zgb *.zfb *.smc *.fig *.sfc *.gd3 *.gd7 *.dx2 *.bsx *.swc \
                                                     *.nes *.nfc *.fds *.unf *.gbc *.gb *.sgb *.gba *.agb *.gbz *.bin *.md *.smd *.gen *.sms)")
+        if len(filenames) == 0:
+            return
         if filenames:
             msgBox = DownloadProgressDialog()
             msgBox.setText(" Copying "+ console + " Roms...")
@@ -1792,9 +1780,13 @@ It is recommended to save it somewhere other than your SD card used with the SF2
                 games_copied += 1
                 msgBox.showProgress(games_copied, True)
                 #Additoinal safety to make sure this file exists...
-                if os.path.isfile(filename):
-                    shutil.copy(filename, drive + console)
-                    print (filename + " added to " + drive + console)
+                try: 
+                    if os.path.isfile(filename):
+                        shutil.copy(filename, drive + console)
+                        print (filename + " added to " + drive + console)
+                except Exception as e:
+                    logging.error("Can't copy because {e}")
+                    continue
             msgBox.close()
             qm = QMessageBox
             ret = qm.question(self,'Add Thumbnails?', f"Added " + str(len(filenames)) + " ROMs to " + drive + console + "\n\nDo you want to add thumbnails?\n\n\
