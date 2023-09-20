@@ -366,20 +366,6 @@ def BGM_change(source=""):
         msg_box.close()
         QMessageBox.about(window, "Failure", "Something went wrong while trying to change the background music")
 
-def FirstRun():
-    drive = window.combobox_drive.currentText()
-    logging.info("First Run started.  This means its either brand new, deleted ini file, or something else")
-    qm = QMessageBox()
-    ret = qm.information(window,'Welcome', "Welcome to Tadpole!\n\n\
-Either this is your first time, you've pointed to a new directory for Tadpole, or it is a new version of Tadpole.  However you go here, we are glad you are here!\n\n\
-It is advised to update the bootloader to avoid bricking the SF2000 when changing anything on the SD card.\n\n\
-Do you want to download and apply the bootloader fix? (Select No if you have already applied the fix previously)", qm.Yes | qm.No)
-    if ret == qm.Yes:
-        bootloaderPatch()
-    else:
-        config['bootloader'] = {'patchskipped': True}
-        logging.info("User skipped bootloader")
-
 def bootloaderPatch():
     qm = QMessageBox
     ret = qm.question(window, "Download fix", "Patching the bootloader will require your SD card and that the SF2000 is well charged.  Do you want to download the fix?")
@@ -1226,7 +1212,7 @@ class MainWindow (QMainWindow):
     
     def Settings(self):
         SettingsDialog(tpConf).exec()
-        if(window.combobox_drive.currentText() != 'static_NoDrives'):
+        if(window.combobox_drive.currentText() != static_NoDrives):
             RunFrogTool(window.combobox_console.currentText())
 
     def detectOSVersion(self):
@@ -1455,31 +1441,11 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
     def UnderDevelopmentPopup(self):
         QMessageBox.about(self, "Development", "This feature is still under development")
         
-
     def combobox_drive_change(self):
         newDrive = self.combobox_drive.currentText()
-
-        logging.info(f"Dialog for drive changed to ({newDrive})")
-        
-        #Check if the Tadpole config file exists, if not then create it.
-        configPath = os.path.join(newDrive, static_TadpoleConfigFile)
-        if os.path.isfile(configPath):
-            config.read(configPath)
-            #TODO every release let's be ultra careful for now and delete tadpole settings...
-            #if it has defualt, then it doesn't exist
-            try:
-                TadpoleVersion = config.get('versions', 'tadpole')
-                if TadpoleVersion != "0.3.9.16":
-                    os.remove(configPath)
-                    FirstRun()
-            except:
-                os.remove(configPath)
-                FirstRun()
-        else:
-            #Run First Run to create config, check bootloader, etc.
-            FirstRun()
-        if (newDrive != 'N/A'):
-            RunFrogTool(window.combobox_console.currentText())
+        logging.info(f"combobox for drive changed to ({newDrive})")
+        if (newDrive != static_NoDrives):
+            RunFrogTool(newDrive)
 
     def combobox_console_change(self):
         console = self.combobox_console.currentText()
