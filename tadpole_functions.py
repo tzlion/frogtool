@@ -414,7 +414,6 @@ position is a 0-based index of the short. values 0 to 3 are considered valid.
 game should be the file name including extension. ie Final Fantasy Tactics Advance (USA).zgb
 """
 
-
 def changeGameShortcut(index_path, console, position, game):
     # Check the passed variables for validity
     if not(0 <= position <= 3):
@@ -430,12 +429,8 @@ def changeGameShortcut(index_path, console, position, game):
         xfgle_file_handle = open(xfgle_filepath, "r")
         lines = xfgle_file_handle.readlines()
         xfgle_file_handle.close()
-        prefix = 9
-        if console == "ARCADE":  # Arcade lines must be prefixed with "6", all others can be anything.
-            prefix = 6
+        prefix = getPrefixFromConsole(console)
         # Overwrite the one line we want to change
-        #TODO: what if the wrong system is in the list?  We need to write the prefix of a new game
-        #to avoid bugs
         lines[4*systems[console][3]+position] = f"{prefix} {game}*\n"
         # Save the changes out to file
         xfgle_file_handle = open(xfgle_filepath, "w")
@@ -463,9 +458,7 @@ def deleteGameShortcut(index_path, console, position, game):
         xfgle_file_handle = open(xfgle_filepath, "r")
         lines = xfgle_file_handle.readlines()
         xfgle_file_handle.close()
-        prefix = 9
-        if console == "ARCADE":  # Arcade lines must be prefixed with "6", all others can be anything.
-            prefix = 6
+        prefix = getPrefixFromConsole(console)
         # Overwrite the one line we want to change
         lines[4*systems[console][3]+position] = f"{prefix} {game}*\n"
         # Save the changes out to file
@@ -489,9 +482,7 @@ def getGameShortcutPosition(index_path, console, game):
         xfgle_file_handle = open(xfgle_filepath, "r")
         lines = xfgle_file_handle.readlines()
         xfgle_file_handle.close()
-        prefix = 9
-        if console == "ARCADE":  # Arcade lines must be prefixed with "6", all others can be anything.
-            prefix = 6
+        prefix = getPrefixFromConsole(console)
         # see if this game is listed.  If so get its position
         savedShortcut = f"{prefix} {game}*\n"
         for i, gameShortcutLine in enumerate(lines):
@@ -523,6 +514,24 @@ def getGameShortcutPosition(index_path, console, game):
     except (OSError, IOError):
         print(f"! Failed changing the shortcut file")
         return 0
+
+#Although not required, if you don't have seperate prefixes, games with same ROM names/extension
+# e.g. Gameboy, gameboy color, and gameboy advance can get confused when loading the shortcuts in other systems.  
+def getPrefixFromConsole(console):
+    if console == "FC":  
+        return 1
+    elif console == "SFC": 
+        return 2
+    elif console == "MD":  
+        return 3
+    elif console == "GB":  
+        return 4
+    elif console == "GBC":
+        return 5
+    elif console == "GBA":
+        return 7
+    else:  
+        return 6 #Aracde NEEDS 6
 
 def findSequence(needle, haystack, offset = 0):
     # Loop through the data array starting from the offset
