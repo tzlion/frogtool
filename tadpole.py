@@ -14,6 +14,7 @@ import hashlib
 # Tadpole imports
 import frogtool
 import tadpole_functions
+from tadpoleConfig import TadpoleConfig
 from dialogs.BootConfirmDialog import BootConfirmDialog
 from dialogs.DownloadProgressDialog import DownloadProgressDialog
 from dialogs.ThumbnailDialog import ThumbnailDialog
@@ -41,6 +42,8 @@ static_TadpoleConfigFile = os.path.join(os.path.expanduser('~'), '.tadpole', 'ta
 
 #Use this to poll for SD cards, turn it to False to stop polling
 poll_drives = True
+
+tpConf = TadpoleConfig()
 
 def RunFrogTool(console):
     drive = window.combobox_drive.currentText()
@@ -102,15 +105,14 @@ def reloadDriveList(trigger = False):
     #If polling is disabled don't do anything
     if poll_drives == True:
         current_drive = window.combobox_drive.currentText()
-        old_length = len(window.combobox_drive) 
-        # Iterate through the ComboBox in reverse order to safely remove items
-        for index in reversed(range(window.combobox_drive.count())):
-            user_data = window.combobox_drive.itemData(index)
-            #let's add if any new ones showed up
-            #If the user created their own, don't remove it
-            if isinstance(user_data, str) and user_data != "localDrive":
-                window.combobox_drive.removeItem(index)
-
+        window.combobox_drive.clear()
+        localdrive = tpConf.getLocalUserDirectory()
+        if localdrive != tpConf._static_general_userDirectory_DEFAULT:
+            window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
+                                            localdrive,
+                                            localdrive)
+        
+        
         for drive in psutil.disk_partitions():
             if os.path.exists(os.path.join(drive.mountpoint, "bios", "bisrv.asd")):
                 window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
@@ -127,21 +129,16 @@ def reloadDriveList(trigger = False):
                 print("New drive detected")
                 logging.info(f"Automatically triggering drive change because a new drive connected")
                 window.combobox_drive_change()
-            #Turn on ability to copy if there is at least one other drive selected
-            if len(window.combobox_drive) > 1:
+            #Turn on ability to copy if the local drive is set
+            if tpConf.getLocalUserDirectory != tpConf._static_general_userDirectory_DEFAULT:
                 window.btn_coppy_user_selected_button.setEnabled(True)
         else:
             # disable functions if nothing is in the combobox
             window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
             window.status_bar.showMessage("No SF2000 Drive Detected. Please insert SD card and try again.", 20000)
             toggle_features(False)
+            #TODO Should probably also clear the table of the ROMs that are still listed
 
-        #If there were more drives than there are now, it means the user removed one
-        #which means we need to load the rom list to refresh it (fixes bugs when pulling out the microSD and views don't update)
-        new_length = len(window.combobox_drive)
-        if old_length > new_length:
-            RunFrogTool(window.combobox_console.currentText())
-            logging.info("SD Drive was disconnected since there were {old_length} and now there are {new_length}")
         window.combobox_drive.setCurrentText(current_drive)
 
 def toggle_features(enable: bool):
@@ -202,7 +199,7 @@ def loadROMsToTable():
             #Show picture if thumbnails in View is selected
             config = configparser.ConfigParser()
             config.read(TadpoleConfigPath)
-            if config.getboolean('thumbnails', 'view'):
+            if tpConf.getViewThumbnailsInTable():
                 cell_viewthumbnail = QTableWidgetItem()
                 cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
                 pathToROM = os.path.join(roms_path, game)
@@ -211,8 +208,8 @@ def loadROMsToTable():
                 sys_zxx_ext = '.' + frogtool.zxx_ext[system]
                 if(extension == sys_zxx_ext):
                     with open(pathToROM, "rb") as rom_file:
-                        rom_content = bytearray(rom_file.read())
-                    img = QImage(rom_content[0:((144*208)*2)], 144, 208, QImage.Format_RGB16)
+                        rom_content = bytearray(rom_file.read(((144*208)*2)))
+                    img = QImage(rom_content[0:((144*208)*2)], 144, 208, QImage.Format_RGB16) # The byte array length has been left here as a second safety to ensure we dont try to over read.
                     pimg = QPixmap()
                     icon = QIcon()
                     QPixmap.convertFromImage(pimg, img)
@@ -562,18 +559,17 @@ def DownloadOSFiles(correct_drive):
 
 def CreateTadpoleFiles():
     TadpoleFolder = os.path.join(window.combobox_drive.currentText(), "Tadpole")
-    TadpoleConfigPath = static_TadpoleConfigFile
     if not os.path.exists(TadpoleFolder):
         os.mkdir(TadpoleFolder)
-    if not os.path.isfile(TadpoleConfigPath):
-        Path(TadpoleConfigPath).touch()
+    if not os.path.isfile(static_TadpoleConfigFile):
+        Path(static_TadpoleConfigFile).touch()
     tadpole_functions.writeDefaultSettings(window.combobox_drive.currentText())
 
 def SetUserSelectedDirectory(directory, supressed=False):
+    logging.info(f"Setting local drive to ({directory})")
+    # Update the Tadole config file
+    tpConf.setLocalUserDirectory(directory)
     qm = QMessageBox()
-    old_path = window.combobox_drive.currentText()
-    #clear out the old selected directory; let's only support 1
-    window.combobox_drive.clear()
     #Supressed means we know its all good, don't give an user prompts/confirmation
     if not supressed:
         #See if it has all folders/files we need
@@ -593,40 +589,11 @@ like the root of the SD card.  Do you want us to download all the most up to dat
                 CreateTadpoleFiles()
         QMessageBox().about(window, "Working location", "When you want to go back to using an SD card, select it in the dropdown list of drives.\n\n\
 When you are ready to ovewrite that SD card, press the 'Copy to SD' button")
-    window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
-                                        directory, 'localDrive')
-    #TODO: why are some functions failing without the '/'
-    # window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
-    #                                 directory + f'/', 'localDrive')
-    # Set the current index to the newly added item
-    new_item_index = window.combobox_drive.count() - 1
-    window.combobox_drive.setCurrentIndex(new_item_index)
 
     # force a reload to build tadpole settings and such
     reloadDriveList(True)
-
-    new_drive = window.combobox_drive.currentText()
-    # save this directory to Tadpole
-    config = configparser.ConfigParser()
-    config.read(static_TadpoleConfigFile)
-    if config.has_option('file', 'user_directory'):
-        config['file']['user_directory'] = new_drive
-        with open(static_TadpoleConfigFile, 'w') as configfile:
-            config.write(configfile)   
     return True
 
-def setupUserSelectedDrive(config):
-    TadpoleConfigPath = static_TadpoleConfigFile
-    config.read(TadpoleConfigPath)
-    if config.has_option('file', 'user_directory'):
-        saved_directory = config.get('file', 'user_directory')
-        if saved_directory == 'None':
-            return
-    else:
-        return
-    #Setup the drive with this directory, we know its good
-    #Supress on the user dialogs
-    SetUserSelectedDirectory(saved_directory, True)
 
 class GameShortcutIconsDialog(QDialog):
     """
@@ -1126,7 +1093,7 @@ class MainWindow (QMainWindow):
         #selector_layout.addWidget(self.btn_user_dir)
         #self.btn_user_dir.clicked.connect(self.userSelectedDirectoryButton)
         #CopyButton
-        self.btn_coppy_user_selected_button = QPushButton("Copy to SD...")
+        self.btn_coppy_user_selected_button = QPushButton("Copy local to SD...")
         self.btn_coppy_user_selected_button.setEnabled(False)
         selector_layout.addWidget(self.btn_coppy_user_selected_button)
         self.btn_coppy_user_selected_button.clicked.connect(self.copyUserSelectedDirectoryButton)
@@ -1204,7 +1171,7 @@ class MainWindow (QMainWindow):
 
         # OS Menu
         self.menu_os = self.menuBar().addMenu("&OS")
-            #Sub-menu for updating Firmware
+        #Sub-menu for updating Firmware
         self.menu_os.menu_update = self.menu_os.addMenu("Firmware")
         action_detectOSVersion = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Detect and update firmware", self, triggered=self.detectOSVersion)
         self.menu_os.menu_update.addAction(action_detectOSVersion)
@@ -1217,7 +1184,7 @@ class MainWindow (QMainWindow):
         self.menu_os.menu_update.addAction(action_battery_fix)
         action_bootloader_patch  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Bootloader Fix - Built by commnity (Prevents device from not booting and corrupting SD card when changing files on SD card)", self, triggered=bootloaderPatch)                                                                              
         self.menu_os.menu_update.addAction(action_bootloader_patch)   
-            #Sub-menu for updating themes
+        #Sub-menu for updating themes
         self.menu_os.menu_change_theme = self.menu_os.addMenu("Theme")
         try:
             self.theme_options = tadpole_functions.get_themes()
@@ -1243,7 +1210,7 @@ class MainWindow (QMainWindow):
                                         "Update From Local File...",
                                         self,
                                         triggered=self.change_theme)) 
-           # Sub-menu for changing background music
+        # Sub-menu for changing background music
         self.menu_os.menu_change_music = self.menu_os.addMenu("Background Music")
         try:
             self.music_options = tadpole_functions.get_background_music()
@@ -1327,10 +1294,6 @@ class MainWindow (QMainWindow):
 
     def testFunction(self):
         print("Called test function. Remember to disable this before publishing")
-        try:
-            tadpole_functions.bisrv_getFirmwareVersion("C:\\Users\\OEM\\Downloads\\bisrv (1).asd")
-        except tadpole_functions.InvalidURLError:
-            print("URL did not return a valid file")
     
     def Settings(self):
         window_settings = SettingsWindow()
@@ -1564,22 +1527,6 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
     def UnderDevelopmentPopup(self):
         QMessageBox.about(self, "Development", "This feature is still under development")
         
-
-    def changeThumbnailView(self, state):
-        drive = window.combobox_drive.currentText()
-        config = configparser.ConfigParser()
-        TadpoleConfigPath = static_TadpoleConfigFile
-        config.read(TadpoleConfigPath)
-        if not config.has_section('view'):
-            config.add_section('view')
-        if config.has_option('view', 'thumbnails'):
-            config['view']['thumbnails'] = str(state)
-        else:
-            config.set('view', 'thumbnails', str(state))
-
-        with open(TadpoleConfigPath, 'w') as configfile:
-            config.write(configfile)
-        RunFrogTool(self.combobox_console.currentText())
 
     def combobox_drive_change(self):
         newDrive = self.combobox_drive.currentText()
@@ -1843,17 +1790,11 @@ same contents as the SF2000." , qm.Yes | qm.No)
         if ret == qm.No:
             return
         directory = QFileDialog.getExistingDirectory()
+        directory = os.path.normpath(directory)
+        #Check that the user actually selected a directory and didnt just close the window
         if directory == '':
             return False
-        directory = os.path.join(directory, '')
-        config = configparser.ConfigParser()
-        TadpoleConfigPath = static_TadpoleConfigFile
-        config.read(TadpoleConfigPath)
-        if config.has_option('file', 'user_directory'):
-            saved_directory = config.get('file', 'user_directory')
-            if directory == saved_directory:
-                QMessageBox.about(self, "Same directory", "You already have this folder set as your local directory.")
-                return False
+        print(f"Trying to set local dir to ({directory})")
         return SetUserSelectedDirectory(directory)
 
     def copyUserSelectedDirectoryButton(self):
@@ -1897,12 +1838,12 @@ class SettingsWindow(QDialog):
         self.layout_main = QVBoxLayout()
         self.setLayout(self.layout_main)
 
-        #Thumbnail options
+        #Thumbnail View options
         self.layout_main.addWidget(QLabel("Thumbnail options"))
         #Viewer
         thubmnailViewCheckBox = QCheckBox("View Thumbnails in ROM list")
-        ViewerCheckValue = self.GetKeyValue('thumbnails', 'view')
-        thubmnailViewCheckBox.setChecked(ViewerCheckValue == 'True')
+        view = tpConf.getViewThumbnailsInTable()
+        thubmnailViewCheckBox.setChecked(view)
         thubmnailViewCheckBox.toggled.connect(self.thumbnailViewClicked)
         self.layout_main.addWidget(thubmnailViewCheckBox)
         
@@ -1932,7 +1873,7 @@ class SettingsWindow(QDialog):
 
         #File options options
         self.layout_main.addWidget(QLabel("File Options"))
-        UserSavedDirectory = self.GetKeyValue('file', 'user_directory')
+        UserSavedDirectory = tpConf.getLocalUserDirectory()
         self.layout_main.addWidget(QLabel(f"User defined directory:"))
         self.user_directory = QLabel(UserSavedDirectory, self)
         self.layout_main.addWidget(self.user_directory)
@@ -1969,19 +1910,19 @@ class SettingsWindow(QDialog):
 
     def userSelectedDirectorySettingsButton(self):
         if window.userSelectedDirectoryButton():
+            #TODO change the structure of this function as pulling the value from the combobox doesnt seem like the right way to do this
             drive = window.combobox_drive.currentText()
             self.user_directory.setText(drive)
 
     def userSelectedDirectoryResetSettingsButton(self):
-        self.WriteValueToFile('file','user_directory', 'None')
-        self.user_directory.setText('None')
+        tpConf.setLocalUserDirectory(tpConf._static_general_userDirectory_DEFAULT)
+        self.user_directory.setText(tpConf._static_general_userDirectory_DEFAULT)
         self.user_directory.adjustSize()
-        window.combobox_drive.clear()
-        reloadDriveList(True)        
+        reloadDriveList()
+        
 
     def thumbnailViewClicked(self):
-        cbutton = self.sender()
-        self.WriteValueToFile('thumbnails', 'view', str(cbutton.isChecked()))
+        tpConf.setViewThumbnailsInTable(self.sender().isChecked())
 
     def GetKeyValue(self, section, key):
         drive = window.combobox_drive.currentText()
@@ -2023,15 +1964,11 @@ if __name__ == "__main__":
         window.combobox_console.clear()
         for console in tadpole_functions.systems.keys():
             window.combobox_console.addItem(QIcon(), console, console)
-        
 
         # Update list of drives
         window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
         #Check for Froggy SD cards
         reloadDriveList()
-
-        setupUserSelectedDrive(config)
-
         app.exec()
     except Exception as e:
         print(f"ERROR: An Exception occurred. {e}")

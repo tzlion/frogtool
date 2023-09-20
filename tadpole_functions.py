@@ -27,6 +27,8 @@ except ImportError:
     ImageDraw = None
     image_lib_avail = False
 
+# This dictionary is in the following format:
+# "System": []
 systems = {  
     "FC":     ["rdbui.tax", "fhcfg.nec", "nethn.bvs",1],
     "SFC":    ["urefs.tax", "adsnt.nec", "xvb6c.bvs",2],
@@ -40,9 +42,6 @@ systems = {
 supported_save_ext = [
     "sav", "sa0", "sa1", "sa2", "sa3"
 ] 
-
-# static_TadpoleConfigFile = os.path.join("Tadpole","tapdole.ini")
-# static_TadpoleLogFile = os.path.join("Tadpole","tadpole.log")
 
 
 class Exception_InvalidPath(Exception):
@@ -743,7 +742,7 @@ def downloadDirectoryFromGithub(location, url, progressBar):
                 print(f"creating directory {destination}")
                 #TODO: this doesn't work with formatAndDownloadOSFiles.  It isn't creating the folder
                 os.makedirs(destination, exist_ok=True)
-                downloadDirectoryFromGithub((destination), item["url"], progressBar)
+                downloadDirectoryFromGithub(destination, item["url"], progressBar)
             else:# all other cases should be files
                 filename = item["name"]
                 downloadFileFromGithub(os.path.join(location,filename), item["download_url"])
@@ -964,6 +963,8 @@ def convertPNGtoResourceRGB565(srcPNG, resourceFileName, drive):
         print(resourceFileName + " updated.")
     else:
         print("Couldn't convert file for gameshortcut")
+
+
 
 #returns a string to the current resource file for each system
 def getBackgroundResourceFileforConsole(drive, system):
