@@ -17,6 +17,8 @@ import tadpole_functions
 from tadpoleConfig import TadpoleConfig
 from dialogs.BootConfirmDialog import BootConfirmDialog
 from dialogs.DownloadProgressDialog import DownloadProgressDialog
+#from dialogs import *
+from dialogs.SettingsDialog import SettingsDialog
 from dialogs.ThumbnailDialog import ThumbnailDialog
 #feature imports
 import requests
@@ -107,10 +109,16 @@ def reloadDriveList(trigger = False):
         current_drive = window.combobox_drive.currentText()
         window.combobox_drive.clear()
         localdrive = tpConf.getLocalUserDirectory()
+        #Check whether a local drive is configured.
         if localdrive != tpConf._static_general_userDirectory_DEFAULT:
             window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
                                             localdrive,
                                             localdrive)
+        # Check if at least one frog drive is also configured. local + frog will mean at least 2 drives.
+        if localdrive != tpConf._static_general_userDirectory_DEFAULT and len(window.combobox_drive) > 1:
+            window.btn_coppy_user_selected_button.setEnabled(True)
+        else:
+            window.btn_coppy_user_selected_button.setEnabled(False)
         
         
         for drive in psutil.disk_partitions():
@@ -121,21 +129,19 @@ def reloadDriveList(trigger = False):
 
         if len(window.combobox_drive) > 0:
             toggle_features(True)
-            window.status_bar.showMessage("SF2000 Drive(s) Detected.", 20000)            
-            #If there is only one drive, then they can't copy
-            window.btn_coppy_user_selected_button.setEnabled(False)
+            
             #This force trigger is just a way to let us through polling when we need to, e.g. with a user selected directory
+            #TODO: Replace this a comparison of the list items instead.
             if(current_drive == static_NoDrives or trigger == True):
                 print("New drive detected")
+                window.status_bar.showMessage("New SF2000 Drive(s) Detected.", 2000)
                 logging.info(f"Automatically triggering drive change because a new drive connected")
                 window.combobox_drive_change()
-            #Turn on ability to copy if the local drive is set
-            if tpConf.getLocalUserDirectory != tpConf._static_general_userDirectory_DEFAULT:
-                window.btn_coppy_user_selected_button.setEnabled(True)
+                
         else:
             # disable functions if nothing is in the combobox
             window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
-            window.status_bar.showMessage("No SF2000 Drive Detected. Please insert SD card and try again.", 20000)
+            window.status_bar.showMessage("No SF2000 Drive Detected. Please insert SD card and try again.", 2000)
             toggle_features(False)
             #TODO Should probably also clear the table of the ROMs that are still listed
 
@@ -361,8 +367,6 @@ def BGM_change(source=""):
         QMessageBox.about(window, "Failure", "Something went wrong while trying to change the background music")
 
 def FirstRun():
-    #Setup settings
-    CreateTadpoleFiles()
     drive = window.combobox_drive.currentText()
     logging.info("First Run started.  This means its either brand new, deleted ini file, or something else")
     qm = QMessageBox()
@@ -521,78 +525,7 @@ If you got into a bad state without patching the bootloader, you should patch it
         bootloaderPatch()
         return True
 
-def DownloadOSFiles(correct_drive):
-        msgBox = DownloadProgressDialog()
-        msgBox.setText("Downloading Firmware Update.")
-        msgBox.show()
-        #TODO: creating folders as the refactors directory mkdirs isn't working
-        #os.mkdir(os.path.join(correct_drive,"Resources"))
-        #os.mkdir(os.path.join(correct_drive,"bios"))
-        tadpole_functions.downloadDirectoryFromGithub(correct_drive,"https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.6", msgBox.progress)
-        #Make a bunch of the other directories at github doesn't let you create empty ones
-        os.mkdir(os.path.join(correct_drive,"ARCADE"))
-        os.mkdir(os.path.join(correct_drive,"ARCADE","bin"))
-        os.mkdir(os.path.join(correct_drive,"ARCADE","save"))
-        os.mkdir(os.path.join(correct_drive,"ARCADE","skp"))
-        os.mkdir(os.path.join(correct_drive,"FC"))
-        os.mkdir(os.path.join(correct_drive,"FC","Saves"))
-        os.mkdir(os.path.join(correct_drive,"GB"))
-        os.mkdir(os.path.join(correct_drive,"GB","Saves"))
-        os.mkdir(os.path.join(correct_drive,"GBC"))
-        os.mkdir(os.path.join(correct_drive,"GBC","Saves"))
-        os.mkdir(os.path.join(correct_drive,"GBA"))
-        os.mkdir(os.path.join(correct_drive,"GBA","Saves"))
-        os.mkdir(os.path.join(correct_drive,"MD"))
-        os.mkdir(os.path.join(correct_drive,"MD","Saves"))
-        os.mkdir(os.path.join(correct_drive,"SFC"))
-        os.mkdir(os.path.join(correct_drive,"SFC","Saves"))
-        os.mkdir(os.path.join(correct_drive,"ROMS"))
-        os.mkdir(os.path.join(correct_drive,"ROMS","Saves")) 
-        #Need to delete bisrv.asd again to prevent bootloader bug      
-        if os.path.exists(os.path.join(correct_drive,"bios","bisrv.asd")):
-            os.remove(os.path.join(correct_drive,"bios","bisrv.asd"))
-        #Re-add biserv.asd
-        #TODO: Review why we are doing this
-        tadpole_functions.downloadFileFromGithub(os.path.join(correct_drive,"bios","bisrv.asd"), "https://raw.githubusercontent.com/EricGoldsteinNz/SF2000_Resources/main/OS/V1.6/bios/bisrv.asd")
-        msgBox.close()    
-        return True
 
-def CreateTadpoleFiles():
-    TadpoleFolder = os.path.join(window.combobox_drive.currentText(), "Tadpole")
-    if not os.path.exists(TadpoleFolder):
-        os.mkdir(TadpoleFolder)
-    if not os.path.isfile(static_TadpoleConfigFile):
-        Path(static_TadpoleConfigFile).touch()
-    tadpole_functions.writeDefaultSettings(window.combobox_drive.currentText())
-
-def SetUserSelectedDirectory(directory, supressed=False):
-    logging.info(f"Setting local drive to ({directory})")
-    # Update the Tadole config file
-    tpConf.setLocalUserDirectory(directory)
-    qm = QMessageBox()
-    #Supressed means we know its all good, don't give an user prompts/confirmation
-    if not supressed:
-        #See if it has all folders/files we need
-        #TODO: Do more than bios?
-        if not os.path.exists(os.path.join(directory, "bios", "bisrv.asd")):
-            ret = qm.question(window,'Working location', "This folder doesn't contain the bios folder or bisrv.as file, so it doens't look \
-like the root of the SD card.  Do you want us to download all the most up to date files to this folder instead?" , qm.Yes | qm.No)
-            #If not, we need them to fix this, start over
-            if ret == qm.No:
-                directory = QFileDialog.getExistingDirectory()
-                if directory != '':
-                    SetUserSelectedDirectory(directory)
-                return False
-            #Add all these in via the FixSF2000 function
-            if ret == qm.Yes:
-                DownloadOSFiles(directory)
-                CreateTadpoleFiles()
-        QMessageBox().about(window, "Working location", "When you want to go back to using an SD card, select it in the dropdown list of drives.\n\n\
-When you are ready to ovewrite that SD card, press the 'Copy to SD' button")
-
-    # force a reload to build tadpole settings and such
-    reloadDriveList(True)
-    return True
 
 
 class GameShortcutIconsDialog(QDialog):
@@ -1088,10 +1021,6 @@ class MainWindow (QMainWindow):
         selector_layout.addWidget(self.lbl_drive)
         selector_layout.addWidget(self.combobox_drive, stretch=3)
 
-        #User defined
-        #self.btn_user_dir = QPushButton("Select your own directory...")
-        #selector_layout.addWidget(self.btn_user_dir)
-        #self.btn_user_dir.clicked.connect(self.userSelectedDirectoryButton)
         #CopyButton
         self.btn_coppy_user_selected_button = QPushButton("Copy local to SD...")
         self.btn_coppy_user_selected_button.setEnabled(False)
@@ -1296,8 +1225,7 @@ class MainWindow (QMainWindow):
         print("Called test function. Remember to disable this before publishing")
     
     def Settings(self):
-        window_settings = SettingsWindow()
-        window_settings.exec()
+        SettingsDialog(tpConf).exec()
         if(window.combobox_drive.currentText() != 'static_NoDrives'):
             RunFrogTool(window.combobox_console.currentText())
 
@@ -1345,7 +1273,7 @@ class MainWindow (QMainWindow):
         #Check what the user has configured; upload or download
         config = configparser.ConfigParser()
         config.read(static_TadpoleConfigFile)
-        ovewrite = config.get('thumbnails', 'ovewrite')
+        ovewrite = tpConf.getThumbnailOverwrite()
         if config.get('thumbnails', 'download',fallback="0") == "0":
             directory = QFileDialog.getExistingDirectory()
             if directory == '':
@@ -1782,21 +1710,6 @@ Note: You can change in settings to either pick your own or try to downlad autom
         QMessageBox.about(self, "Success",f"Successfully deleted selected ROMs.")
         RunFrogTool(self.combobox_console.currentText())
 
-    def userSelectedDirectoryButton(self):
-        qm = QMessageBox
-        ret = qm.question(window,'Working location', "Instead of an SD card, you can define your own working location on your drive.\n\
-Once you finish working there, you'll need to 'Copy' everything over to your SD card.  Do you want to use this mode?  If so, click Yes and select the folder that has the \
-same contents as the SF2000." , qm.Yes | qm.No)
-        if ret == qm.No:
-            return
-        directory = QFileDialog.getExistingDirectory()
-        directory = os.path.normpath(directory)
-        #Check that the user actually selected a directory and didnt just close the window
-        if directory == '':
-            return False
-        print(f"Trying to set local dir to ({directory})")
-        return SetUserSelectedDirectory(directory)
-
     def copyUserSelectedDirectoryButton(self):
         source_directory = window.combobox_drive.currentText()
         qm = QMessageBox()
@@ -1823,119 +1736,6 @@ All files will be overriden, INCLUDING game saves.  Are you sure you want to con
                 QMessageBox.about(window, "Success", "Files copied successfully.")
                 return
 
-# Subclass Qidget to create a Settings window        
-class SettingsWindow(QDialog):
-    """
-        This window should be called without a parent widget so that it is created in its own window.
-    """
-    def __init__(self):
-        super().__init__()
-        
-        self.setWindowIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)))
-        self.setWindowTitle(f"Tadpole Settings")
-        
-        # Setup Main Layout
-        self.layout_main = QVBoxLayout()
-        self.setLayout(self.layout_main)
-
-        #Thumbnail View options
-        self.layout_main.addWidget(QLabel("Thumbnail options"))
-        #Viewer
-        thubmnailViewCheckBox = QCheckBox("View Thumbnails in ROM list")
-        view = tpConf.getViewThumbnailsInTable()
-        thubmnailViewCheckBox.setChecked(view)
-        thubmnailViewCheckBox.toggled.connect(self.thumbnailViewClicked)
-        self.layout_main.addWidget(thubmnailViewCheckBox)
-        
-        #Thumbnail upload style
-        self.layout_main.addWidget(QLabel("Add thumbnails by: "))
-        thubmnailAddCombo = QComboBox()
-        thubmnailAddCombo.addItems(["uploading a folder from your PC", "automatically downloading over the internet"])
-        if self.GetKeyValue('thumbnails', 'download') == '0':
-            thubmnailAddCombo.setCurrentIndex(0)
-        else:
-            thubmnailAddCombo.setCurrentIndex(1)
-        thubmnailAddCombo.currentTextChanged.connect(self.thumbnailAddChanged)
-        self.layout_main.addWidget(thubmnailAddCombo)
-
-        #Thumbnail upload style
-        self.layout_main.addWidget(QLabel("When adding thumbnails: "))
-        thubmnailAddCombo = QComboBox()
-        thubmnailAddCombo.addItems(["always overwrite all thumbnails", "Only add new thumbnails to zip files"])
-        if self.GetKeyValue('thumbnails', 'ovewrite') == 'True':
-            thubmnailAddCombo.setCurrentIndex(0)
-        else:
-            thubmnailAddCombo.setCurrentIndex(1)
-        thubmnailAddCombo.currentTextChanged.connect(self.thumbnailOverwriteChanged)
-        self.layout_main.addWidget(thubmnailAddCombo)
-
-        self.layout_main.addWidget(QLabel(" "))  # spacer
-
-        #File options options
-        self.layout_main.addWidget(QLabel("File Options"))
-        UserSavedDirectory = tpConf.getLocalUserDirectory()
-        self.layout_main.addWidget(QLabel(f"User defined directory:"))
-        self.user_directory = QLabel(UserSavedDirectory, self)
-        self.layout_main.addWidget(self.user_directory)
-        self.btn_change_user_dir = QPushButton("Select your own local directory...")
-        self.layout_main.addWidget(self.btn_change_user_dir)
-        self.btn_change_user_dir.clicked.connect(self.userSelectedDirectorySettingsButton)
-        self.btn_remove_user_dir = QPushButton("Remove your local directory from Tadpole")
-        self.layout_main.addWidget(self.btn_remove_user_dir)
-        self.btn_remove_user_dir.clicked.connect(self.userSelectedDirectoryResetSettingsButton)
-                
-        self.layout_main.addWidget(QLabel(" "))  # spacer
-
-        # Main Buttons Layout (Save/Cancel)
-        self.layout_buttons = QHBoxLayout()
-        self.layout_main.addLayout(self.layout_buttons)
-        
-        #Save Existing Cover To File Button
-        self.button_write = QPushButton("Continue")
-        self.button_write.clicked.connect(self.accept)
-        self.layout_buttons.addWidget(self.button_write)     
-
-    def thumbnailAddChanged(self):
-        ccombo = self.sender()
-        index = ccombo.currentIndex()
-        self.WriteValueToFile('thumbnails','download', str(index))
-    
-    def thumbnailOverwriteChanged(self):
-        ccombo = self.sender()
-        if ccombo.currentIndex() == 0:
-            index = "True"
-        else:
-            index = "False"
-        self.WriteValueToFile('thumbnails','ovewrite', str(index))
-
-    def userSelectedDirectorySettingsButton(self):
-        if window.userSelectedDirectoryButton():
-            #TODO change the structure of this function as pulling the value from the combobox doesnt seem like the right way to do this
-            drive = window.combobox_drive.currentText()
-            self.user_directory.setText(drive)
-
-    def userSelectedDirectoryResetSettingsButton(self):
-        tpConf.setLocalUserDirectory(tpConf._static_general_userDirectory_DEFAULT)
-        self.user_directory.setText(tpConf._static_general_userDirectory_DEFAULT)
-        self.user_directory.adjustSize()
-        reloadDriveList()
-        
-
-    def thumbnailViewClicked(self):
-        tpConf.setViewThumbnailsInTable(self.sender().isChecked())
-
-    def GetKeyValue(self, section, key):
-        drive = window.combobox_drive.currentText()
-        config.read(os.path.join(drive, static_TadpoleConfigFile))
-        if config.has_option(section, key):
-            return config.get(section, key)
-
-    def WriteValueToFile(self, section, key, value):
-        drive = window.combobox_drive.currentText()
-        if config.has_option(section, key):
-            config[section][key] = str(value)
-            with open(static_TadpoleConfigFile, 'w') as configfile:
-                config.write(configfile)   
             
 if __name__ == "__main__":
     try:

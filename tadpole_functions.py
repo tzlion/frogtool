@@ -554,16 +554,15 @@ def findSequence(needle, haystack, offset = 0):
 
     
 """
-This function is used to check if the supplied drive has relevant folders and files for an SF2000 SD card. 
+This function is used to check if the supplied path has relevant folders and files for an SF2000 SD card. 
 This should be used to prevent people from accidentally overwriting their other drives.
 If the correct files are found it will return True.
 If the correct files are not found it will return False.
-The drive should be supplied as "E:"
 """
 
 
-def checkDriveLooksFroggy(drivePath):
-    bisrvpath = os.path.join(drivePath,"bios","bisrv.asd")
+def checkDriveLooksFroggy(frogypath):
+    bisrvpath = os.path.join(frogypath,"bios","bisrv.asd")
     if os.path.exists(bisrvpath):
         return True
     return False
@@ -769,6 +768,46 @@ def downloadFileFromGithub(outFile, url):
         print(str(e))
         return False
 
+
+def DownloadOSFiles(correct_drive): 
+    # TODO: Ideally pull this out. We shouldnt have GUI in the functions file
+    msgBox = DownloadProgressDialog()
+    msgBox.setText("Downloading Firmware Update.")
+    msgBox.show()
+    downloadDirectoryFromGithub(correct_drive,"https://api.github.com/repos/EricGoldsteinNz/SF2000_Resources/contents/OS/V1.6", msgBox.progress)
+    #Make the ROM directories
+    os.mkdir(os.path.join(correct_drive,"ARCADE"))
+    os.mkdir(os.path.join(correct_drive,"ARCADE","bin"))
+    os.mkdir(os.path.join(correct_drive,"ARCADE","save"))
+    os.mkdir(os.path.join(correct_drive,"ARCADE","skp"))
+    os.mkdir(os.path.join(correct_drive,"FC"))
+    os.mkdir(os.path.join(correct_drive,"FC","Saves"))
+    os.mkdir(os.path.join(correct_drive,"GB"))
+    os.mkdir(os.path.join(correct_drive,"GB","Saves"))
+    os.mkdir(os.path.join(correct_drive,"GBC"))
+    os.mkdir(os.path.join(correct_drive,"GBC","Saves"))
+    os.mkdir(os.path.join(correct_drive,"GBA"))
+    os.mkdir(os.path.join(correct_drive,"GBA","Saves"))
+    os.mkdir(os.path.join(correct_drive,"MD"))
+    os.mkdir(os.path.join(correct_drive,"MD","Saves"))
+    os.mkdir(os.path.join(correct_drive,"SFC"))
+    os.mkdir(os.path.join(correct_drive,"SFC","Saves"))
+    os.mkdir(os.path.join(correct_drive,"ROMS"))
+    os.mkdir(os.path.join(correct_drive,"ROMS","Saves")) 
+    #Need to delete bisrv.asd again to prevent bootloader bug      
+    if os.path.exists(os.path.join(correct_drive,"bios","bisrv.asd")):
+        os.remove(os.path.join(correct_drive,"bios","bisrv.asd"))
+    #Re-add biserv.asd
+    #TODO: Review why we are doing this
+    downloadFileFromGithub(os.path.join(correct_drive,"bios","bisrv.asd"), "https://raw.githubusercontent.com/EricGoldsteinNz/SF2000_Resources/main/OS/V1.6/bios/bisrv.asd")        
+    msgBox.close()
+    return True
+
+
+
+
+
+
 def emptyFavourites(drive) -> bool:
     return emptyFile(os.path.join(drive, "Resources", "Favorites.bin"))
     
@@ -912,22 +951,6 @@ def getHumanReadableFileSize(filesize):
     else:  # Less than 1 Kilobyte
         humanReadableFileSize = f"filesize Bytes"
     return humanReadableFileSize
-
-def writeDefaultSettings(drive):
-    config = configparser.ConfigParser()
-    configPath = tadpole.static_TadpoleConfigFile
-    #Set other config file defaults
-    config.add_section('thumbnails')
-    config.add_section('versions')
-    config.add_section('file')
-    config.set('thumbnails', 'view', 'False')
-    config.set('thumbnails', 'download', '0')
-    config.set('thumbnails', 'ovewrite', 'True') #0 - manual upload, #1 - download from internet
-    config.set('versions', 'tadpole', '0.3.9.16') #TODO: this is where you change the version to force settings to delete for breaking change
-    config.set('file', 'user_directory', 'None') #TODO: this is where you change the version to force settings to delete for breaking change
-
-    with open(configPath, 'w') as configfile:
-        config.write(configfile)
 
 #Credit to OpenAI "Give me sample code to convert little endian RGB565 binary images to PNG's in python"
 def convertRGB565toPNG(inputFile):
@@ -1196,7 +1219,3 @@ class BatteryPatcher:
             print("An error occurred: %s" % str(e))
             return False
 
-
-# if __name__ == "__main__":
-#     battery_patcher = BatteryPatcher("bisrv-08_03.asd", "bisrv.asd")
-#     firmware_patcher.patch_firmware()
