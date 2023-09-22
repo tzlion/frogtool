@@ -90,7 +90,7 @@ class TadpoleConfig():
         return view == "True"
 
     def setThumbnailDownload(self, enabled: bool):
-        print(f"Setting ThumbnailOverwrite to ({enabled})")
+        print(f"Setting ThumbnailDownload to ({enabled})")
         self.setVariable(self._static_thumbnails, self._static_thumbnails_download, ("1" if enabled else "0"))
     
     def getThumbnailDownload(self):

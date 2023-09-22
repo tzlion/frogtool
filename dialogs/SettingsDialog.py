@@ -42,11 +42,11 @@ class SettingsDialog(QDialog):
 
         #Thumbnail upload style
         self.layout_main.addWidget(QLabel("When adding thumbnails: "))
-        thubmnailAddCombo = QComboBox()
-        thubmnailAddCombo.addItems(["always overwrite all thumbnails", "Only add new thumbnails to zip files"])
-        thubmnailAddCombo.setCurrentIndex(0 if tpConf.getThumbnailOverwrite() else 1)
-        thubmnailAddCombo.currentTextChanged.connect(self.thumbnailOverwriteChanged)
-        self.layout_main.addWidget(thubmnailAddCombo)
+        thubmnailOvewriteCombo = QComboBox()
+        thubmnailOvewriteCombo.addItems(["always overwrite all thumbnails", "Only add new thumbnails to zip files"])
+        thubmnailOvewriteCombo.setCurrentIndex(0 if tpConf.getThumbnailOverwrite() else 1)
+        thubmnailOvewriteCombo.currentTextChanged.connect(self.thumbnailOverwriteChanged)
+        self.layout_main.addWidget(thubmnailOvewriteCombo)
 
         self.layout_main.addWidget(QLabel(" "))  # spacer
 

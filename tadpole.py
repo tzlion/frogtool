@@ -19,6 +19,8 @@ from dialogs.DownloadProgressDialog import DownloadProgressDialog
 from dialogs.GameShortcutIconsDialog import GameShortcutIconsDialog
 from dialogs.MusicConfirmDialog import MusicConfirmDialog
 from dialogs.ReadmeDialog import ReadmeDialog
+from dialogs.PleaseWaitDialog import PleaseWaitDialog
+
 
 #feature imports
 import requests
@@ -95,7 +97,6 @@ def processGameShortcuts():
             #position is 0 based
             position = position - 1
             game = window.tbl_gamelist.item(i, 0).text()
-            #print(drive + " " + console + " " + str(position) + " "+ game)
             tadpole_functions.changeGameShortcut(drive, console, position, game)
 
 #Trigger is optional and will force a reload
@@ -272,11 +273,9 @@ def catchTableCellClicked(clickedRow, clickedColumn):
     gamename = window.tbl_gamelist.item(clickedRow, 0)
 
     if window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Thumbnail":  
-        #gamename = window.tbl_gamelist.item(clickedRow, 0).text()
-        viewThumbnail(os.path.join(drive + system, gamename.text()))
+        viewThumbnail(os.path.join(drive, system, gamename.text()))
     elif window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Delete ROM": 
-        #gamename = window.tbl_gamelist.item(clickedRow, 0).text()
-        deleteROM(os.path.join(drive + system, gamename.text()))
+        deleteROM(os.path.join(drive, system, gamename.text()))
     #Only enable deleting when selcted
     if clickedColumn == 0:
         selected = window.tbl_gamelist.selectedItems()
@@ -567,23 +566,7 @@ If you got into a bad state without patching the bootloader, you should patch it
         return True
 
 
-class PleaseWaitDialog(QMainWindow):
-    """
-    Dialog used to stop interaction while something is happening from program root.
-    """
-    def __init__(self, message: str = ""):
-        super().__init__()
 
-        self.setWindowTitle("Please Wait")
-        self.setWindowIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation))
-        
-        self.lbl = QLabel(self)
-        #self.text_edit.setFixedSize(500, 500)
-        self.setCentralWidget(self.lbl)
-        self.lbl.setText(message)
-        
-    def setMessage(self, message: str = ""):
-        self.lbl.setText(message)
 
 # SubClass QMainWindow to create a Tadpole general interface
 class MainWindow (QMainWindow):
@@ -1239,14 +1222,15 @@ It is recommended to save it somewhere other than your SD card used with the SF2
                 #Additoinal safety to make sure this file exists...
                 try: 
                     if os.path.isfile(filename):
-                        shutil.copy(filename, drive + console)
-                        print (filename + " added to " + drive + console)
+                        consolePath = os.path.join(drive, console)
+                        shutil.copy(filename, consolePath)
+                        print (filename + " added to " + consolePath)
                 except Exception as e:
                     logging.error("Can't copy because {e}")
                     continue
             msgBox.close()
             qm = QMessageBox
-            ret = qm.question(self,'Add Thumbnails?', f"Added " + str(len(filenames)) + " ROMs to " + drive + console + "\n\nDo you want to add thumbnails?\n\n\
+            ret = qm.question(self,'Add Thumbnails?', f"Added " + str(len(filenames)) + " ROMs to " + consolePath + "\n\nDo you want to add thumbnails?\n\n\
 Note: You can change in settings to either pick your own or try to downlad automatically.", qm.Yes | qm.No)
             if ret == qm.Yes:
                 MainWindow.addBoxart(self)
@@ -1289,7 +1273,8 @@ Note: You can change in settings to either pick your own or try to downlad autom
             return
         for item in window.tbl_gamelist.selectedItems():
             try:
-                os.remove(self.combobox_drive.currentText() + self.combobox_console.currentText() + "/" + item.text())
+                romPATH = os.path.join(self.combobox_drive.currentText(), self.combobox_console.currentText(), item.text())
+                os.remove(romPATH)
             except Exception:
                 QMessageBox.about(window, "Error","Could not delete ROM.")
         QMessageBox.about(self, "Success",f"Successfully deleted selected ROMs.")

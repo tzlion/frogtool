@@ -675,7 +675,8 @@ def changeTheme(drive_path: str, url: str = "", file: str = "", progressBar: QPr
                     progress += 1
                     progressBar.setValue(progress)
                     QApplication.processEvents()
-                    zip.extract(zip_info, drive_path + "Resources")
+                    resourcePath = os.path.join(drive_path, "Resources")
+                    zip.extract(zip_info, resourcePath)
                     #Cleanup temp zip file
             if os.path.exists(zip_file):
                     os.remove(zip_file)   
@@ -700,7 +701,8 @@ def changeTheme(drive_path: str, url: str = "", file: str = "", progressBar: QPr
                     progressBar.setValue(progress)
                     QApplication.processEvents()
                     #TODO validate this is a real theme...maybe just check a set of files?
-                    zip.extract(zip_info, drive_path + "Resources")
+                    resourcePath =  os.path.join(drive_path, "Resources")
+                    zip.extract(zip_info, resourcePath)
             return True
         except:
             return False
@@ -952,7 +954,8 @@ def convertRGB565toPNG(inputFile):
 def convertPNGtoResourceRGB565(srcPNG, resourceFileName, drive):
     tempRawBackground = resourceFileName + ".raw"
     if frogtool.rgb565_convert(srcPNG, tempRawBackground, dest_size=(640, 480)):
-        shutil.copy(tempRawBackground, drive + "/Resources/" + resourceFileName)
+        background = os.path.join(drive, 'Resources', resourceFileName)
+        shutil.copy(tempRawBackground, background)
         os.remove(srcPNG)
         os.remove(tempRawBackground)
         print(resourceFileName + " updated.")
@@ -965,25 +968,32 @@ def convertPNGtoResourceRGB565(srcPNG, resourceFileName, drive):
 def getBackgroundResourceFileforConsole(drive, system):
     if system == "SFC":
         resourceFile = "drivr.ers"
-        return (drive + "/Resources/" + resourceFile)
+        resourcePath = os.path.join(drive, 'Resources', resourceFile)
+        return (resourcePath)
     elif system == "FC":
         resourceFile = "fixas.ctp"
-        return (drive + "/Resources/" + resourceFile)
+        resourcePath = os.path.join(drive, 'Resources', resourceFile)
+        return (resourcePath)
     elif system == "MD":
         resourceFile = "icuin.cpl"
-        return (drive + "/Resources/" + resourceFile)
+        resourcePath = os.path.join(drive, 'Resources', resourceFile)
+        return (resourcePath)
     elif system == "GB":
         resourceFile = "xajkg.hsp"
-        return (drive + "/Resources/" + resourceFile)
+        resourcePath = os.path.join(drive, 'Resources', resourceFile)
+        return (resourcePath)
     elif system == "GBC":
         resourceFile = "qwave.bke"
-        return (drive + "/Resources/" + resourceFile)
+        resourcePath = os.path.join(drive, 'Resources', resourceFile)
+        return (resourcePath)
     elif system == "GBA":
         resourceFile = "irftp.ctp"
-        return (drive + "/Resources/" + resourceFile)
+        resourcePath = os.path.join(drive, 'Resources', resourceFile)
+        return (resourcePath)
     elif system == "ARCADE":
         resourceFile = "hctml.ers"
-        return (drive + "/Resources/" + resourceFile)
+        resourcePath = os.path.join(drive, 'Resources', resourceFile)
+        return (resourcePath)
 
 def copy_files(source, destination, progressBar):
     total_files = 0
@@ -1032,8 +1042,9 @@ def addThumbnail(rom_path, drive, system, new_thumbnail, ovewrite):
             elif romExtension in frogtool.supported_zip_ext:
                 changeZIPThumbnail(rom_path, new_thumbnail, system)
             #If its the supported system .z** pass to frogtool
-            elif romExtension == sys_zxx_ext and ovewrite == 'True':
-                changeZXXThumbnail(rom_path, new_thumbnail)
+            elif romExtension == sys_zxx_ext:
+                if ovewrite == True:
+                    changeZXXThumbnail(rom_path, new_thumbnail)
             #Finally that means its supported but not zip, let's zip it up
             else:
                 new_zipped_rom_path = os.path.join(drive, system, romName + '.zip')
