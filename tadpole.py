@@ -852,10 +852,8 @@ class MainWindow (QMainWindow):
         msgBox = DownloadProgressDialog()
 
         #Check what the user has configured; upload or download
-        config = configparser.ConfigParser()
-        config.read(static_TadpoleConfigFile)
         ovewrite = tpConf.getThumbnailOverwrite()
-        if config.get('thumbnails', 'download',fallback="0") == "0":
+        if not self.tpConf.getThumbnailDownload():
             directory = QFileDialog.getExistingDirectory()
             if directory == '':
                     return
@@ -877,7 +875,7 @@ class MainWindow (QMainWindow):
                             tadpole_functions.addThumbnail(rom_full_path, drive, system, newThumbnailPath, ovewrite)
                 msgBox.showProgress(i, True)
         #User wants to download romart from internet
-        if config.get('thumbnails', 'download',fallback="0") == "1":
+        else:
             QMessageBox.about(self, "Add Thumbnails", "You have Tadpole configured to download thumbnails automatically. \
 For this to work, your roms must be in ZIP files and the name of that zip must match their common released English US localized \
 name.  Please refer to https://github.com/EricGoldsteinNz/libretro-thumbnails/tree/master if Tadpole isn't finding \
