@@ -113,18 +113,18 @@ def reloadDriveList(trigger = False):
             window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
                                             localdrive,
                                             localdrive)
-        # Check if at least one frog drive is also configured. local + frog will mean at least 2 drives.
-        if localdrive != tpConf._static_general_userDirectory_DEFAULT and len(window.combobox_drive) > 1:
-            window.btn_coppy_user_selected_button.setEnabled(True)
-        else:
-            window.btn_coppy_user_selected_button.setEnabled(False)
-        
         
         for drive in psutil.disk_partitions():
             if os.path.exists(os.path.join(drive.mountpoint, "bios", "bisrv.asd")):
                 window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
                                             drive.mountpoint,
                                             drive.mountpoint)
+
+        # Check if at least one frog drive is also configured. local + frog will mean at least 2 drives.
+        if localdrive != tpConf._static_general_userDirectory_DEFAULT and len(window.combobox_drive) > 1:
+            window.btn_coppy_user_selected_button.setEnabled(True)
+        else:
+            window.btn_coppy_user_selected_button.setEnabled(False)
 
         if len(window.combobox_drive) > 0:
             toggle_features(True)
