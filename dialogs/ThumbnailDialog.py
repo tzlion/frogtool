@@ -61,7 +61,7 @@ class ThumbnailDialog(QDialog):
         file_extension = file_extension = os.path.splitext(filepath)[1]
         if file_extension == '.zfb' or file_extension == '.zfc' or file_extension == '.zgb' or \
                                     file_extension == '.zmd' or file_extension == '.zsf': 
-            self.current_viewer.load_from_ROM(filepath)
+            self.current_viewer.load_from_ROM_inMemory(filepath)
         
     def WriteImgToFile(self):
         newCoverFileName = QFileDialog.getSaveFileName(self,
@@ -111,7 +111,7 @@ class ROMCoverViewer(QLabel):
             if len(file_name) > 0:  # confirm if user selected a file
                 self.load_image(file_name)
 
-    def load_from_ROM(self, pathToROM: str):
+    def load_from_ROM_inMemory(self, pathToROM: str):
         """
         Extracts image from the bios and passes to load image function.
 
@@ -121,11 +121,14 @@ class ROMCoverViewer(QLabel):
         basedir = os.path.dirname(__file__)
         print(f"loading cover from {pathToROM}")
         with open(pathToROM, "rb") as rom_file:
-            rom_content = bytearray(rom_file.read())
-        with open(os.path.join(basedir, "temp_rom_cover.raw"), "wb") as image_file:
-            image_file.write(rom_content[0:((144*208)*2)])
-
-        self.load_image(os.path.join(basedir, "temp_rom_cover.raw"))
+            rom_content = bytearray(rom_file.read((144*208)*2))
+        img = QImage(rom_content[0:((144*208)*2)], 144, 208, QImage.Format_RGB16)
+        self.setPixmap(QPixmap().fromImage(img))
+        print("Successfully pulled thumbnail in memory")
+        if self.changeable:  # only enable saving for changeable dialogs; prevents enabling with load from bios
+            self.parent().button_save.setDisabled(False)
+        return True 
+        
 
     def load_image(self, path: str) -> bool:
         """
