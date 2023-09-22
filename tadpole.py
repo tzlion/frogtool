@@ -433,6 +433,56 @@ Consult https://github.com/vonmillhausen/sf2000#bootloader-bug or ask for help o
         config['bootloader'] = {'patchapplied': False}
         return
 
+def FixSF2000BootLight():
+        drive = window.combobox_drive.currentText()
+        on_sd_bisrv_path = os.path.join(drive, 'bios', 'bisrv.asd')
+        temp_bisrv_path =  os.path.join(static_TadpoleDir, 'bisrv.asd')
+        qm = QMessageBox
+        ret = qm.question(window, "SF2000 not booting", "If your SF2000 won't boot, you likely hit the bootloader bug or have broken some critical files.  This process attempts to restore your SF2000.\n\n\
+This only works on the Windows OS.\n\nDo you want to continue?")
+        if ret == qm.No:
+            return
+        if not os.path.exists(on_sd_bisrv_path):
+            logging.error("No bisrv.asd detected")
+            QMessageBox.about(window, "Error", "We cannot find the bisrv file on your SD card.  You need to reformat and install OS files.\n\n\
+Sending you to that option now.")
+            FixSF2000Boot()
+            return
+        #Instructions from Dteyn on Discord to roll FAT entry forward
+        #copy bisrv off of SD
+        shutil.copy(on_sd_bisrv_path, temp_bisrv_path)
+        #delete bisrv off SD
+        os.remove(on_sd_bisrv_path)
+        #Copy it back to the microSD to roll the FAT entry forward
+        shutil.copy(temp_bisrv_path, on_sd_bisrv_path)
+        #Ask to plug in and test
+        ret = qm.question(window, "Ready to test", "Please take out the SD card and plug it into the SF2000 and turn it on.\n\n\
+Did it boot?")
+        if ret == qm.Yes:
+            QMessageBox.about(window, "Success", "Please apply the bootloader fix now to avoid this issue again.  Sending you there now")
+            bootloaderPatch()
+            if os.path.exists(temp_bisrv_path):
+                os.remove(temp_bisrv_path)
+            return
+        if ret == qm.No: 
+            #If no, repeat step 2 and 3
+            os.remove(on_sd_bisrv_path)
+            shutil.copy(temp_bisrv_path, on_sd_bisrv_path)
+            ret = qm.question(window, "Try again", "We attempted one more fix at replacing the bisrv.asd file.  Please take out the SD card now and try one more time\n\n\
+Did it boot this time?")
+            if ret == qm.Yes:
+                QMessageBox.about(window, "Success", "Please apply the bootloader fix now to avoid this issue again.  Sending you there now")
+                bootloaderPatch()
+                if os.path.exists(temp_bisrv_path):
+                    os.remove(temp_bisrv_path)
+                return
+            if ret == qm.No: 
+                QMessageBox.about(window, "Error", "The simple fix did not succeed.  You need to reformat and install OS files.\n\n\
+    Sending you to that option now")
+                FixSF2000Boot()
+                if os.path.exists(temp_bisrv_path):
+                    os.remove(temp_bisrv_path)
+                return
 def FixSF2000Boot():
         qm = QMessageBox
         ret = qm.question(window, "SF2000 not booting", "If your SF2000 won't boot, you likely hit the bootloader bug or have broken some critical files.  This process attempts to restore your SF2000.\n\n\
@@ -1198,6 +1248,8 @@ class MainWindow (QMainWindow):
         self.menu_roms.addAction(BackupAllSaves_action)     
         # Help Menu
         self.menu_help = self.menuBar().addMenu("&Help")
+        action_sf2000_boot_light  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Fix SF2000 not booting - Attemps to fix only the firmaware file (bisrv.asd) ", self, triggered=FixSF2000BootLight)                                                                              
+        self.menu_help.addAction(action_sf2000_boot_light)
         action_sf2000_boot  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Fix SF2000 not booting - Reformats SD card and reinstalls all OS files", self, triggered=FixSF2000Boot)                                                                              
         self.menu_help.addAction(action_sf2000_boot)
         self.menu_help.addSeparator()
