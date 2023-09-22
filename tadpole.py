@@ -1,29 +1,29 @@
 # GUI imports
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
-from PyQt5.QtMultimedia import QSoundEffect
-from PyQt5.QtCore import Qt, QTimer, QUrl, QSize
+from PyQt5.QtCore import Qt, QTimer, QSize
 # OS imports - these should probably be moved somewhere else
 import os
 import sys
-import string
-import threading
-import queue
 import shutil
 import hashlib
 # Tadpole imports
 import frogtool
 import tadpole_functions
 from tadpoleConfig import TadpoleConfig
-from dialogs.BootConfirmDialog import BootConfirmDialog
-from dialogs.DownloadProgressDialog import DownloadProgressDialog
 #from dialogs import *
 from dialogs.SettingsDialog import SettingsDialog
 from dialogs.ThumbnailDialog import ThumbnailDialog
+from dialogs.BootConfirmDialog import BootConfirmDialog
+from dialogs.DownloadProgressDialog import DownloadProgressDialog
+from dialogs.GameShortcutIconsDialog import GameShortcutIconsDialog
+from dialogs.MusicConfirmDialog import MusicConfirmDialog
+from dialogs.ReadmeDialog import ReadmeDialog
+from dialogs.PleaseWaitDialog import PleaseWaitDialog
+
+
 #feature imports
 import requests
-import wave
-from io import BytesIO
 import psutil
 import json
 from bs4 import BeautifulSoup
@@ -97,7 +97,6 @@ def processGameShortcuts():
             #position is 0 based
             position = position - 1
             game = window.tbl_gamelist.item(i, 0).text()
-            #print(drive + " " + console + " " + str(position) + " "+ game)
             tadpole_functions.changeGameShortcut(drive, console, position, game)
 
 #Trigger is optional and will force a reload
@@ -155,9 +154,6 @@ def toggle_features(enable: bool):
                 window.combobox_console,
                 window.combobox_drive,
                 window.menu_os,
-                #window.menu_bgm,
-                #window.menu_consoleLogos,
-                #window.menu_boxart,
                 window.menu_roms,
                 window.tbl_gamelist]
     for feature in features:
@@ -277,11 +273,9 @@ def catchTableCellClicked(clickedRow, clickedColumn):
     gamename = window.tbl_gamelist.item(clickedRow, 0)
 
     if window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Thumbnail":  
-        #gamename = window.tbl_gamelist.item(clickedRow, 0).text()
-        viewThumbnail(os.path.join(drive + system, gamename.text()))
+        viewThumbnail(os.path.join(drive, system, gamename.text()))
     elif window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Delete ROM": 
-        #gamename = window.tbl_gamelist.item(clickedRow, 0).text()
-        deleteROM(os.path.join(drive + system, gamename.text()))
+        deleteROM(os.path.join(drive, system, gamename.text()))
     #Only enable deleting when selcted
     if clickedColumn == 0:
         selected = window.tbl_gamelist.selectedItems()
@@ -433,6 +427,65 @@ Consult https://github.com/vonmillhausen/sf2000#bootloader-bug or ask for help o
         config['bootloader'] = {'patchapplied': False}
         return
 
+def FixSF2000BootLight():
+        drive = window.combobox_drive.currentText()
+        temp_file_bios_path = os.path.join(drive, 'bios', 'file.tmp')
+        #on_sd_bisrv_path = os.path.join(drive, 'bios', 'bisrv.asd')
+        #temp_bisrv_path =  os.path.join(static_TadpoleDir, 'bisrv.asd')
+        qm = QMessageBox
+        ret = qm.question(window, "SF2000 not booting", "If your SF2000 won't boot, you likely hit the bootloader bug or have broken some critical files.  This process attempts to restore your SF2000.\n\n\
+This only works on the Windows OS.\n\nDo you want to continue?")
+        if ret == qm.No:
+            return
+#         if not os.path.exists(on_sd_bisrv_path):
+#             logging.error("No bisrv.asd detected")
+#             QMessageBox.about(window, "Error", "We cannot find the bisrv file on your SD card.  You need to reformat and install OS files.\n\n\
+# Sending you to that option now.")
+#             FixSF2000Boot()
+#             return
+        #create a new file in bios
+        Path.touch(temp_file_bios_path)
+        #delete that file
+        os.remove(temp_file_bios_path)
+        # #Instructions from Dteyn on Discord to roll FAT entry forward
+        # #copy bisrv off of SD
+        # shutil.copy(on_sd_bisrv_path, temp_bisrv_path)
+        # #delete bisrv off SD
+        # os.remove(on_sd_bisrv_path)
+        # #Copy it back to the microSD to roll the FAT entry forward
+        # shutil.copy(temp_bisrv_path, on_sd_bisrv_path)
+        # #Ask to plug in and test
+        ret = qm.question(window, "Ready to test", "Please take out the SD card and plug it into the SF2000 and turn it on.\n\n\
+Did it boot?")
+        if ret == qm.Yes:
+            QMessageBox.about(window, "Success", "Please apply the bootloader fix now to avoid this issue again.  Sending you there now")
+            bootloaderPatch()
+            # if os.path.exists(temp_bisrv_path):
+            #     os.remove(temp_bisrv_path)
+            return
+        if ret == qm.No: 
+            #If no, repeat
+            #create a new file in bios
+            Path.touch(temp_file_bios_path)
+            #delete that file
+            os.remove(temp_file_bios_path)
+            # os.remove(on_sd_bisrv_path)
+            # shutil.copy(temp_bisrv_path, on_sd_bisrv_path)
+            ret = qm.question(window, "Try again", "We attempted one more fix at replacing the bisrv.asd file.  Please take out the SD card now and try one more time\n\n\
+Did it boot this time?")
+            if ret == qm.Yes:
+                QMessageBox.about(window, "Success", "Please apply the bootloader fix now to avoid this issue again.  Sending you there now")
+                bootloaderPatch()
+                # if os.path.exists(temp_bisrv_path):
+                #     os.remove(temp_bisrv_path)
+                return
+            if ret == qm.No: 
+                QMessageBox.about(window, "Error", "The simple fix did not succeed.  You need to reformat and install OS files.\n\n\
+Sending you to that option now")
+                FixSF2000Boot()
+                # if os.path.exists(temp_bisrv_path):
+                #     os.remove(temp_bisrv_path)
+                return
 def FixSF2000Boot():
         qm = QMessageBox
         ret = qm.question(window, "SF2000 not booting", "If your SF2000 won't boot, you likely hit the bootloader bug or have broken some critical files.  This process attempts to restore your SF2000.\n\n\
@@ -513,467 +566,6 @@ If you got into a bad state without patching the bootloader, you should patch it
         return True
 
 
-
-
-class GameShortcutIconsDialog(QDialog):
-    """
-    Dialog used to upload game shortcut with the ability to view existing selection and replacement.
-
-    Args:
-        drive (str): Path to root of froggy drive.
-    """
-    def __init__(self):
-        super().__init__()
-        self.drive = window.combobox_drive.currentText()
-        self.console = window.combobox_console.currentText()
-        self.roms_path = os.path.join(self.drive, self.console)
-        #This is the file we will use while modifying the existing resource file
-        self.workingPNGPath = 'currentBackground.temp.png'
-        #This is the working image we will use while modifying existing resource files
-        self.backgroundImage = QLabel(self)
-        #Setup a variable to access the current game shortcuts on the system
-        self.game_shortcut_list = ["No Game", "No Game", "No Game", "No Game"]
-        #Set UI on dialog
-        self.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
-        self.setWindowTitle("Game Shortcut Icon Selection")
-        self.setWindowIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)))
-        # Load game shortcuts
-        files = frogtool.getROMList(self.roms_path)
-        # need a temp list for us to work while iterating
-        temp_game_shortcut_list = [''] * 4
-        #found = False
-        window.tbl_gamelist.setRowCount(len(files))
-        files.sort()
-        for i, shortcut in enumerate(self.game_shortcut_list): 
-            for j, game in enumerate(files):
-                # set previously saved shortcuts
-                position = tadpole_functions.getGameShortcutPosition(self.drive, self.console, game)
-                # save this list globally beacuse we want to use it in other places
-                if position != 0:
-                    temp_game_shortcut_list[position-1] = game.rsplit( ".", 1 )[ 0 ]
-                    #found = True
-                    #break
-        #Just scan through and replace  
-            for i, shortcut in enumerate(temp_game_shortcut_list):
-                if shortcut == '':
-                    temp_game_shortcut_list[i] = "No Game Shortcut"
-            #if it didn't find a current game, it must be blank
-        #save temp to final list
-        self.game_shortcut_list = temp_game_shortcut_list.copy()
-
-        # Now load Current Preview image before we do anything else
-        self.load_from_Resources()
-        
-        #ask user if they want to use this list to find files automatically
-        qm = QMessageBox()
-        ret = qm.question(self, "Find shorcuts?", "Do you want Tadpole to try to find your game shortcut icons automatically \
-by matching the name of the game and a folder you select?  You can change the icons it finds before it gets saved.")
-        if ret == qm.Yes:
-            directory = QFileDialog.getExistingDirectory()
-            if len(directory) > 0:  # confirm if user selected a file
-                for i, gameName in enumerate(self.game_shortcut_list):
-                    gameName = os.path.basename(gameName)
-                    for file in os.listdir(directory):
-                        file_stripped = frogtool.strip_file_extension(file)
-                        if gameName == file_stripped:
-                            gameIcon = os.path.join(directory, file)
-                            self.ovewrite_background_and_reload(gameIcon, i+1)
-                            continue
-
-        # Setup Main Layout
-        # TODO...I should have used Grid but here we are
-        self.layout_main_vertical = QVBoxLayout()
-        self.layout_current_viewer = QVBoxLayout()
-        self.setLayout(self.layout_main_vertical)
-        self.layout_main_vertical.addLayout(self.layout_current_viewer)
-        # set up the main preview
-        self.layout_current_viewer.addWidget(self.backgroundImage)
-        # Setup Game Shortcut Name Labels
-        self.shortcut_game_labels = QHBoxLayout()
-        self.layout_main_vertical.addLayout(self.shortcut_game_labels)
-        # Setup buttons to change the icons
-        self.shortcut_buttons = QHBoxLayout()
-        self.layout_main_vertical.addLayout(self.shortcut_buttons)
-        #Gameshortcut Icons 1
-        self.button_icon1 = QPushButton("Change Icon 1")
-        self.button_icon1.setFixedSize(100,100)
-        self.button_icon1.clicked.connect(self.addShortcut)
-        self.shortcut_buttons.addWidget(self.button_icon1)
-
-        self.label1 = QLabel((self.game_shortcut_list[0]), self)
-        self.label1.setWordWrap(True)  
-        self.label1.setAlignment(Qt.AlignCenter)
-        self.shortcut_game_labels.addWidget(self.label1, Qt.AlignCenter)
-        #Gameshortcut Icons 2
-        self.button_icon2 = QPushButton("Change Icon 2")
-        self.button_icon2.setFixedSize(100,100)
-        self.button_icon2.clicked.connect(self.addShortcut)
-        self.shortcut_buttons.addWidget(self.button_icon2)
-
-        self.label2 = QLabel((self.game_shortcut_list[1]), self)
-        self.label2.setWordWrap(True)  
-        self.label2.setAlignment(Qt.AlignCenter)
-        self.shortcut_game_labels.addWidget(self.label2, Qt.AlignCenter)
-        #Gameshortcut Icons 3
-        self.button_icon3 = QPushButton("Change Icon 3")
-        self.button_icon3.setFixedSize(100,100)
-        self.button_icon3.clicked.connect(self.addShortcut)
-        self.shortcut_buttons.addWidget(self.button_icon3)
-
-        self.label3 = QLabel((self.game_shortcut_list[2]), self)
-        self.label3.setWordWrap(True)  
-        self.label3.setAlignment(Qt.AlignCenter)
-        self.shortcut_game_labels.addWidget(self.label3, Qt.AlignCenter)
-        
-        #Gameshortcut Icons 4
-        self.button_icon4 = QPushButton("Change Icon 4")
-        self.button_icon4.setFixedSize(100,100)
-        self.button_icon4.clicked.connect(self.addShortcut)
-        self.shortcut_buttons.addWidget(self.button_icon4)
-
-        self.label4 = QLabel((self.game_shortcut_list[3]), self)
-        self.label4.setWordWrap(True)  
-        self.label4.setAlignment(Qt.AlignCenter)
-        self.shortcut_game_labels.addWidget(self.label4, Qt.AlignCenter)
-        # Main Buttons Layout (Save/Cancel)
-        self.layout_buttons = QHBoxLayout()
-        self.layout_main_vertical.addLayout(self.layout_buttons)
-        # Save Button
-        self.button_save = QPushButton("Save")
-        self.button_save.setDefault(True)
-        #self.button_save.setDisabled(True)  # set disabled by default; need to wait for user to select at least new image
-        self.button_save.clicked.connect(self.Finish)
-        self.layout_buttons.addWidget(self.button_save)
-        # Cancel Button
-        self.button_cancel = QPushButton("Cancel")
-        self.button_cancel.clicked.connect(self.reject)
-        self.layout_buttons.addWidget(self.button_cancel)
-    
-    #thanks to doggyworld from discord Retro Handhelds to imrpove the icon shapes and sizes
-    def round_corner(self, radius, fill):
-        """Draw a round corner"""
-        corner = Image.new('RGBA', (radius, radius), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(corner)
-        draw.pieslice((0, 0, radius * 2, radius * 2), 180, 270, fill=fill)
-        return corner
-    
-    def round_rectangle(self, size, radius, fill):
-        """Draw a rounded rectangle"""
-        width, height = size
-        rectangle = Image.new('RGBA', size, fill)
-        corner = self.round_corner(radius, fill)
-        rectangle.paste(corner, (0, 0))
-        rectangle.paste(corner.rotate(90), (0, height - radius)) # Rotate the corner and paste it
-        rectangle.paste(corner.rotate(180), (width - radius, height - radius))
-        rectangle.paste(corner.rotate(270), (width - radius, 0))
-        return rectangle
-    
-    def resize_for_shortcut(self, game):
-        # This will resample down to 60x60 and then back up to 120x120 for better thumbnails
-        game = game.convert('RGBA')
-        game = game.resize((60, 60), Image.Resampling.LANCZOS)
-        new_image = Image.new('RGB', (60, 60), (255,255,255,0))
-        new_image.paste(game, (0, 0), game)
-
-        game = new_image.resize((120, 120), Image.Resampling.NEAREST)
-
-        # Create rectangles for white borders with fillet
-        white_rounded_rect = self.round_rectangle((124,124), 8, "white")
-
-        white_rounded_rect.paste(game, (2,2))
-        game = white_rounded_rect
-
-        white_rounded_rect2 = self.round_rectangle((124,124), 8, "white")
-        black_rounded_rect2 = self.round_rectangle((120,120), 8, "black")
-        white_rounded_rect2.paste(black_rounded_rect2, (2,2), black_rounded_rect2)
-
-        datas = white_rounded_rect2.getdata()
-
-        img_data = white_rounded_rect.getdata()
-
-        newData = []
-        new_imgData = []
-        for idx,item in enumerate(datas):
-            if item[3] == 0:
-                new_imgData.append((255, 255, 255, 0))
-            else:
-                new_imgData.append(img_data[idx])
-
-            if item[0] == 0 and item[1] == 0 and item[2] == 0:
-                newData.append((255, 255, 255, 0))
-            else:
-                newData.append(item)
-
-        white_rounded_rect2.putdata(newData)
-        game.putdata(new_imgData)
-        game.paste(white_rounded_rect2, (0,0), white_rounded_rect2)
-        return game
-    
-    def ovewrite_background_and_reload(self, path, icon):
-        #Following techniques by Zerter at view-source:https://zerter555.github.io/sf2000-collection/mainMenuIcoEditor.html
-        #Add this to the temporary PNG
-        try:
-            game = Image.open(path, 'r')
-            game = self.resize_for_shortcut(game)
-            workingPNG = Image.open(self.workingPNGPath)
-            if icon == 1:
-                workingPNG.paste(game, (42,290))
-            if icon == 2:
-                workingPNG.paste(game, (186,290))
-            if icon == 3:
-                workingPNG.paste(game, (330,290))
-            if icon == 4:
-                workingPNG.paste(game, (474,290))
-        except:
-            logging.error("Failed to open {game}")
-            return
-        #Add to preview and save it
-        workingPNG.save(self.workingPNGPath)
-        img = QImage(self.workingPNGPath)
-        #Update image
-        self.backgroundImage.setPixmap(QPixmap().fromImage(img))
-        logging.info("Added {game} to the background image")
-
-        return True
-
-    def load_from_Resources(self):
-        ResourcePath = tadpole_functions.getBackgroundResourceFileforConsole(self.drive, self.console)
-        tadpole_functions.convertRGB565toPNG(ResourcePath)
-        self.workingPNGPath
-        img = QImage(self.workingPNGPath)
-        if (img.width(), img.height()) != (640, 480): 
-            img = img.scaled(640, 480, Qt.IgnoreAspectRatio, Qt.SmoothTransformation) #Rescale new boot logo to correct size
-        #Update image
-        self.backgroundImage.setPixmap(QPixmap().fromImage(img))
-        return True
-    
-    def addShortcut(self):
-        sending_button = self.sender()
-        #get the icon number
-        file_path = QFileDialog.getOpenFileName(self, 'Open file', '',
-                                            "Images (*.jpg *.png *.webp);;RAW (RGB565 Little Endian) Images (*.raw)")[0]
-        if len(file_path) > 0:  # confirm if user selected a file
-            #Add it to be processed
-            if sending_button.text() == "Change Icon 1":
-                #load into preview image
-                self.ovewrite_background_and_reload(file_path, 1)
-            elif sending_button.text() == "Change Icon 2":
-                #load into preview image
-                self.ovewrite_background_and_reload(file_path, 2)
-            elif sending_button.text() == "Change Icon 3":
-                #load into preview image
-                self.ovewrite_background_and_reload(file_path, 3)           
-            elif sending_button.text() == "Change Icon 4":
-                #load into preview image
-                self.ovewrite_background_and_reload(file_path, 4)   
-            else:
-                print(sending_button.text() + ": icon not found")
-            return True #it completed
-        return False #User cancelled
-                
-    def Finish(self):
-        #Save this working TMP PNG to the right resource file
-        if self.console == "SFC":
-            resourceFile = "drivr.ers"
-            tadpole_functions.convertPNGtoResourceRGB565(self.workingPNGPath, resourceFile, self.drive)
-        elif self.console == "FC":
-            resourceFile = "fixas.ctp"
-            tadpole_functions.convertPNGtoResourceRGB565(self.workingPNGPath, resourceFile, self.drive)
-        elif self.console == "MD":
-            resourceFile = "icuin.cpl"
-            tadpole_functions.convertPNGtoResourceRGB565(self.workingPNGPath, resourceFile, self.drive)
-        elif self.console == "GB":
-            resourceFile = "xajkg.hsp"
-            tadpole_functions.convertPNGtoResourceRGB565(self.workingPNGPath, resourceFile, self.drive)
-        elif self.console == "GBC":
-            resourceFile = "qwave.bke"
-            tadpole_functions.convertPNGtoResourceRGB565(self.workingPNGPath, resourceFile, self.drive)
-        elif self.console == "GBA":
-            resourceFile = "irftp.ctp"
-            tadpole_functions.convertPNGtoResourceRGB565(self.workingPNGPath, resourceFile, self.drive)
-        elif self.console == "ARCADE":
-            resourceFile = "hctml.ers"
-            tadpole_functions.convertPNGtoResourceRGB565(self.workingPNGPath, resourceFile, self.drive)
-        #Last thing, let's get rid of the text under the icons.
-        #The user has confirmed they want these and now they aren't the same
-        #TODO: Confirm users are happy removing shortcut labels some beta testing
-        #If so, just leave this
-        tadpole_functions.stripShortcutText(self.drive)
-        #Close dialog as we're all done
-        self.accept()
-
-class PleaseWaitDialog(QMainWindow):
-    """
-    Dialog used to stop interaction while something is happening from program root.
-    """
-    def __init__(self, message: str = ""):
-        super().__init__()
-
-        self.setWindowTitle("Please Wait")
-        self.setWindowIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation))
-        
-        self.lbl = QLabel(self)
-        #self.text_edit.setFixedSize(500, 500)
-        self.setCentralWidget(self.lbl)
-        self.lbl.setText(message)
-        
-    def setMessage(self, message: str = ""):
-        self.lbl.setText(message)
-
-class ReadmeDialog(QMainWindow):
-    """
-    Dialog used to display README.md file from program root.
-    """
-    def __init__(self):
-        super().__init__()
-        logging.info("User opened ReadMeDialog")
-        self.setWindowTitle("Read Me")
-        self.setWindowIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarContextHelpButton))
-
-        self.text_edit = QTextEdit(self)
-        self.text_edit.setReadOnly(True)
-        self.text_edit.setMinimumSize(500, 500)
-        self.setCentralWidget(self.text_edit)
-        try:
-            with open(os.path.join(basedir, "README.md"), "r") as readme_file:
-                self.text_edit.setMarkdown(readme_file.read())
-        except FileNotFoundError:  # gracefully fail if file not present
-            self.text_edit.setText(f"Unable to locate README.md file in program root folder {basedir}.")
-
-
-class MusicConfirmDialog(QDialog):
-    """Dialog used to confirm or load music selection with the ability to preview selection by listening to the music.
-    If neither music_name nor music_url are provided, allows import from local file.
-
-        Args:
-            music_name (str) : Name of the music file; used only to show name in dialog
-            music_url (str) : URL to a raw music file; should be formatted for use on SF2000 (raw signed 16-bit PCM,
-                mono, little-endian, 22050 hz)
-    """
-    def __init__(self, music_name: str = "", music_url: str = ""):
-        super().__init__()
-
-        # Save Arguments
-        self.music_name = music_name
-        self.music_url = music_url
-        self.music_file = ""  # used to store filename for local files
-
-        # Configure Window
-        self.setWindowTitle("Change Background Music")
-        self.setWindowIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolume)))
-        self.sound = QSoundEffect(self)  # Used to Play Music File
-
-        # Setup Main Layout
-        self.layout_main = QVBoxLayout()
-        self.setLayout(self.layout_main)
-
-        # Main Text
-        self.label_confirm = QLabel("<h3>Change Background Music</h3><a href='#'>Select File</a>", self)
-        if self.music_name == "" and self.music_url == "":
-            self.label_confirm.linkActivated.connect(self.load_from_file)
-            pass
-        self.label_confirm.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-
-        self.layout_main.addWidget(self.label_confirm)
-
-        # Music Preview Button
-        self.button_play = QPushButton(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)),
-                                       " Preview",
-                                       self)
-        self.button_play.setDisabled(True)  # disable by default
-
-        self.layout_main.addWidget(self.button_play)
-        self.button_play.clicked.connect(self.toggle_audio)
-
-        # Main Buttons Layout (Save/Cancel)
-        self.layout_buttons = QHBoxLayout()
-        self.layout_main.addLayout(self.layout_buttons)
-
-        # Save Button
-        self.button_save = QPushButton("Save")
-        self.button_save.setDisabled(True)  # disable by default
-        self.button_save.clicked.connect(self.accept)
-        self.layout_buttons.addWidget(self.button_save)
-
-        # Cancel Button
-        self.button_cancel = QPushButton("Cancel")
-        self.button_cancel.clicked.connect(self.reject)
-        self.layout_buttons.addWidget(self.button_cancel)
-
-        if music_name and music_url:  # enable features only if using preset options
-            self.label_confirm.setText("<h3>Change Background Music</h3><em>{}</em>".format(self.music_name))
-            self.button_save.setEnabled(True)
-            self.button_play.setEnabled(True)
-
-    def toggle_audio(self) -> bool:
-        """toggles music preview on or off
-
-            Returns:
-                bool: True if file is playing; false if not
-        """
-        if self.sound.isPlaying():
-            self.sound.stop()
-            self.button_play.setIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)))
-            self.button_play.setText(" Preview")
-            return False
-
-        else:
-            if not self.sound.source().path():  # fetch and convert raw file if not already done
-                self.button_play.setDisabled(True)  # disable button while processing
-                file_data = self.get_and_format_music_file()
-                if file_data[0]:  # fetch/conversion succeeds
-                    self.sound.setSource(QUrl.fromLocalFile(file_data[1]))
-                    self.button_play.setEnabled(True)
-                    self.button_save.setEnabled(True)  # enable saving as well since file seems OK
-                else:  # fetch/conversion fails
-                    self.button_play.setText(file_data[1])
-                    self.button_play.setIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical)))
-                    return False
-
-            # format button and play
-            self.button_play.setIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaStop)))
-            self.button_play.setText(" Stop")
-            self.sound.setLoopCount(1000)
-            self.sound.play()
-            return True
-
-    def get_and_format_music_file(self) -> (bool, str):
-        """Downloads/loads and re-formats the raw music file as wav.
-
-            Returns:
-                tuple (bool, str): True or false based on success in fetching/converting file, and path to resulting
-                    temporary wav file, error message if failed.
-        """
-        if self.music_url:  # handle internet downloads
-            try:
-                r = requests.get(self.music_url)
-                if r.status_code == 200:  # download succeeds
-                    raw_data = BytesIO(r.content)  # read raw file into memory
-            except requests.exceptions.RequestException:  # catches exceptions for multiple reasons
-                return False, "Download Failed"
-        else:  # handle local files
-            with open(self.music_file, "rb") as mf:
-                raw_data = BytesIO(mf.read())
-
-        wav_filename = os.path.join(basedir, "preview.wav")
-        with wave.open(wav_filename, "wb") as wav_file:
-            wav_file.setparams((1, 2, 22050, 0, 'NONE', 'NONE'))
-            wav_file.writeframes(raw_data.read())
-            if wav_file.getnframes() > (22050*90):  # check that file length does not exceed 90 seconds (max for Froggy)
-                return False, "Duration Too Long (90s max)"
-        return True, wav_filename
-
-    def load_from_file(self) -> bool:
-        file_name = QFileDialog.getOpenFileName(self, 'Open file', '',
-                                                "Raw Signed 16-bit PCM - Mono, Little-Endian, 22050hz (*.*)")[0]
-        if file_name:
-            self.music_file = file_name
-            self.music_name = os.path.split(file_name)[-1]
-            self.label_confirm.setText("<h3>Change Background Music</h3><em>{}</em>".format(self.music_name))
-            self.button_play.setEnabled(True)
-            self.toggle_audio()
-            return True
-        return False
 
 
 # SubClass QMainWindow to create a Tadpole general interface
@@ -1198,6 +790,8 @@ class MainWindow (QMainWindow):
         self.menu_roms.addAction(BackupAllSaves_action)     
         # Help Menu
         self.menu_help = self.menuBar().addMenu("&Help")
+        action_sf2000_boot_light  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Fix SF2000 not booting - Attemps to fix only the firmaware file (bisrv.asd) ", self, triggered=FixSF2000BootLight)                                                                              
+        self.menu_help.addAction(action_sf2000_boot_light)
         action_sf2000_boot  = QAction(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)), "Fix SF2000 not booting - Reformats SD card and reinstalls all OS files", self, triggered=FixSF2000Boot)                                                                              
         self.menu_help.addAction(action_sf2000_boot)
         self.menu_help.addSeparator()
@@ -1369,7 +963,8 @@ the thumbnail for you. ")
                 BGM_change(d.music_file)
             else:
                 BGM_change(self.music_options[self.sender().text()])
-
+        if os.path.exists(os.path.join(static_TadpoleDir, 'preview.wav' )):
+            os.remove(os.path.join(static_TadpoleDir, 'preview.wav'))
     def about(self):
         QMessageBox.about(self, "About Tadpole", 
                                 "Tadpole was created by EricGoldstein based on the original work \
@@ -1458,7 +1053,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         RunFrogTool(console)
 
     def show_readme(self):
-        self.readme_dialog = ReadmeDialog()
+        self.readme_dialog = ReadmeDialog(basedir)
         self.readme_dialog.show()
 
     def UpdatetoV1_5(self):
@@ -1627,14 +1222,15 @@ It is recommended to save it somewhere other than your SD card used with the SF2
                 #Additoinal safety to make sure this file exists...
                 try: 
                     if os.path.isfile(filename):
-                        shutil.copy(filename, drive + console)
-                        print (filename + " added to " + drive + console)
+                        consolePath = os.path.join(drive, console)
+                        shutil.copy(filename, consolePath)
+                        print (filename + " added to " + consolePath)
                 except Exception as e:
                     logging.error("Can't copy because {e}")
                     continue
             msgBox.close()
             qm = QMessageBox
-            ret = qm.question(self,'Add Thumbnails?', f"Added " + str(len(filenames)) + " ROMs to " + drive + console + "\n\nDo you want to add thumbnails?\n\n\
+            ret = qm.question(self,'Add Thumbnails?', f"Added " + str(len(filenames)) + " ROMs to " + consolePath + "\n\nDo you want to add thumbnails?\n\n\
 Note: You can change in settings to either pick your own or try to downlad automatically.", qm.Yes | qm.No)
             if ret == qm.Yes:
                 MainWindow.addBoxart(self)
@@ -1657,7 +1253,10 @@ Note: You can change in settings to either pick your own or try to downlad autom
         return
     
     def addShortcutImages(self):
-        dialog = GameShortcutIconsDialog()
+        drive = self.combobox_drive.currentText()
+        console = self.combobox_console.currentText()
+        table = window.tbl_gamelist
+        dialog = GameShortcutIconsDialog(drive, console, table)
         status = dialog.exec()
         if status:
             QMessageBox.about(self, "Game Shortcuts",f"Updated your game shortcut icons.")
@@ -1674,7 +1273,8 @@ Note: You can change in settings to either pick your own or try to downlad autom
             return
         for item in window.tbl_gamelist.selectedItems():
             try:
-                os.remove(self.combobox_drive.currentText() + self.combobox_console.currentText() + "/" + item.text())
+                romPATH = os.path.join(self.combobox_drive.currentText(), self.combobox_console.currentText(), item.text())
+                os.remove(romPATH)
             except Exception:
                 QMessageBox.about(window, "Error","Could not delete ROM.")
         QMessageBox.about(self, "Success",f"Successfully deleted selected ROMs.")
