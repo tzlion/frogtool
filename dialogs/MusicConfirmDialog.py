@@ -9,8 +9,6 @@ import wave
 from io import BytesIO
 import requests
 
-basedir = os.path.dirname(__file__)
-
 class MusicConfirmDialog(QDialog):
     """Dialog used to confirm or load music selection with the ability to preview selection by listening to the music.
     If neither music_name nor music_url are provided, allows import from local file.
@@ -124,7 +122,7 @@ class MusicConfirmDialog(QDialog):
         else:  # handle local files
             with open(self.music_file, "rb") as mf:
                 raw_data = BytesIO(mf.read())
-
+        basedir = os.path.dirname(__file__)
         wav_filename = os.path.join(basedir, "preview.wav")
         with wave.open(wav_filename, "wb") as wav_file:
             wav_file.setparams((1, 2, 22050, 0, 'NONE', 'NONE'))

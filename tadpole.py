@@ -18,6 +18,7 @@ from dialogs.BootConfirmDialog import BootConfirmDialog
 from dialogs.DownloadProgressDialog import DownloadProgressDialog
 from dialogs.GameShortcutIconsDialog import GameShortcutIconsDialog
 from dialogs.MusicConfirmDialog import MusicConfirmDialog
+from dialogs.ReadmeDialog import ReadmeDialog
 
 #feature imports
 import requests
@@ -584,26 +585,6 @@ class PleaseWaitDialog(QMainWindow):
     def setMessage(self, message: str = ""):
         self.lbl.setText(message)
 
-class ReadmeDialog(QMainWindow):
-    """
-    Dialog used to display README.md file from program root.
-    """
-    def __init__(self):
-        super().__init__()
-        logging.info("User opened ReadMeDialog")
-        self.setWindowTitle("Read Me")
-        self.setWindowIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarContextHelpButton))
-
-        self.text_edit = QTextEdit(self)
-        self.text_edit.setReadOnly(True)
-        self.text_edit.setMinimumSize(500, 500)
-        self.setCentralWidget(self.text_edit)
-        try:
-            with open(os.path.join(basedir, "README.md"), "r") as readme_file:
-                self.text_edit.setMarkdown(readme_file.read())
-        except FileNotFoundError:  # gracefully fail if file not present
-            self.text_edit.setText(f"Unable to locate README.md file in program root folder {basedir}.")
-
 # SubClass QMainWindow to create a Tadpole general interface
 class MainWindow (QMainWindow):
     def __init__(self):
@@ -999,7 +980,8 @@ the thumbnail for you. ")
                 BGM_change(d.music_file)
             else:
                 BGM_change(self.music_options[self.sender().text()])
-
+        if os.path.exists(os.path.join(basedir, 'preview.wav')):
+            os.remove('preview.wav')
     def about(self):
         QMessageBox.about(self, "About Tadpole", 
                                 "Tadpole was created by EricGoldstein based on the original work \
@@ -1088,7 +1070,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         RunFrogTool(console)
 
     def show_readme(self):
-        self.readme_dialog = ReadmeDialog()
+        self.readme_dialog = ReadmeDialog(basedir)
         self.readme_dialog.show()
 
     def UpdatetoV1_5(self):
