@@ -831,7 +831,7 @@ class MainWindow (QMainWindow):
 
         #Check what the user has configured; upload or download
         ovewrite = tpConf.getThumbnailOverwrite()
-        if not self.tpConf.getThumbnailDownload():
+        if not tpConf.getThumbnailDownload():
             directory = QFileDialog.getExistingDirectory()
             if directory == '':
                     return
