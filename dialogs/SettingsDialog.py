@@ -103,7 +103,7 @@ same contents as the SF2000." , qm.Yes | qm.No)
 like the root of the SD card.  Do you want us to download all the most up to date files to this folder instead?" , qm.Yes | qm.No)
             #Add all these in via the FixSF2000 function
             if ret == qm.Yes:
-                tadpole_functionsDownloadOSFiles(directory)
+                tadpole_functions.DownloadOSFiles(directory)
         QMessageBox().about(self, "Working location", "When you want to go back to using an SD card, select it in the dropdown list of drives.\n\n\When you are ready to ovewrite that SD card, press the 'Copy to SD' button")
 
         #Set the dialog displayed local User Direcotry to the new value

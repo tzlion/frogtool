@@ -6,7 +6,6 @@ from PyQt5.QtCore import Qt, QTimer, QUrl, QSize
 # OS imports - these should probably be moved somewhere else
 import os
 import tadpole_functions
-import frogtool
 
 # Subclass Qidget to create a thumbnail viewing window        
 class ThumbnailDialog(QDialog):
