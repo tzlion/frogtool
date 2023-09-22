@@ -6,9 +6,6 @@ from PyQt5.QtCore import Qt, QTimer, QUrl, QSize
 # OS imports - these should probably be moved somewhere else
 import os
 import sys
-import string
-import threading
-import queue
 import shutil
 import hashlib
 # Tadpole imports

@@ -7,17 +7,12 @@ import os
 import shutil
 import hashlib
 import zipfile
-# Tadpole imports
-import tadpole
 #feature imports
 import struct
 import frogtool
 import requests
 import json
 import re
-import configparser
-import logging
-
 
 try:
     from PIL import Image
@@ -43,10 +38,31 @@ supported_save_ext = [
     "sav", "sa0", "sa1", "sa2", "sa3"
 ] 
 
+# hash, versionName
+versionDictionary = {
+    "1cd37343576a6584565884fcbbe2ffaf18b50466144b356aa0b885cd9cf10484": "2023.04.20 (V1.5)",
+    "334c8f0a8584db07078d7dfc940e540e6538dde948cb6fdbf50754e4e113d6bc": "2023.08.03 (V1.6)"
+}
+
+ROMART_baseURL = "https://raw.githubusercontent.com/EricGoldsteinNz/libretro-thumbnails/master/"
+
+ROMArt_console = {  
+    "FC":     "Nintendo - Nintendo Entertainment System",
+    "SFC":    "Nintendo - Super Nintendo Entertainment System",
+    "MD":     "Sega - Mega Drive - Genesis",
+    "GB":     "Nintendo - Game Boy",
+    "GBC":    "Nintendo - Game Boy Color",
+    "GBA":    "Nintendo - Game Boy Advance", 
+    "ARCADE": ""
+}
+
+offset_logo_presequence = [0x62, 0x61, 0x64, 0x5F, 0x65, 0x78, 0x63, 0x65, 0x70, 0x74, 0x69, 0x6F, 0x6E, 0x00, 0x00, 0x00]
+offset_buttonMap_presequence = [0x00, 0x00, 0x00, 0x71, 0xDB, 0x8E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+offset_buttonMap_postsequence = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00]
+
 
 class Exception_InvalidPath(Exception):
     pass    
-
 
 class Exception_StopExecution(Exception):
     pass   
@@ -122,13 +138,6 @@ def QImageToRGB565Logo(inputQImage):
             rgb565Data.append(pxValue)
     print("Finished converting image to boot logo format")
     return rgb565Data   
-
-
-# hash, versionName
-versionDictionary = {
-    "1cd37343576a6584565884fcbbe2ffaf18b50466144b356aa0b885cd9cf10484": "2023.04.20 (V1.5)",
-    "334c8f0a8584db07078d7dfc940e540e6538dde948cb6fdbf50754e4e113d6bc": "2023.08.03 (V1.6)"
-}
 
 def changeZIPThumbnail(romPath, newImpagePath, system):
     newLogoPath = os.path.dirname(romPath)
@@ -287,11 +296,6 @@ def getImageData565(src_filename, dest_size=None):
             rgb = (r << 11) | (g << 5) | b
             rgb565Data.append(struct.pack('H', rgb))
     return rgb565Data
-
-offset_logo_presequence = [0x62, 0x61, 0x64, 0x5F, 0x65, 0x78, 0x63, 0x65, 0x70, 0x74, 0x69, 0x6F, 0x6E, 0x00, 0x00, 0x00]
-offset_buttonMap_presequence = [0x00, 0x00, 0x00, 0x71, 0xDB, 0x8E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-offset_buttonMap_postsequence = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00]
-
 
 def bisrv_getFirmwareVersion(index_path):
     print(f"trying to read {index_path}")
@@ -843,18 +847,6 @@ def GBABIOSFix(drive: str):
         print("! Failed to copy GBA BIOS.")
         print(error)
         raise Exception_InvalidPath
-
-
-ROMART_baseURL = "https://raw.githubusercontent.com/EricGoldsteinNz/libretro-thumbnails/master/"
-ROMArt_console = {  
-    "FC":     "Nintendo - Nintendo Entertainment System",
-    "SFC":    "Nintendo - Super Nintendo Entertainment System",
-    "MD":     "Sega - Mega Drive - Genesis",
-    "GB":     "Nintendo - Game Boy",
-    "GBC":    "Nintendo - Game Boy Color",
-    "GBA":    "Nintendo - Game Boy Advance", 
-    "ARCADE": ""
-}
  
 def downloadROMArt(console : str, ROMpath : str, game : str, artType: str, realname : str):
 
@@ -865,16 +857,6 @@ def downloadROMArt(console : str, ROMpath : str, game : str, artType: str, realn
     else:
         print(' Could not downlaod ' + realname + ' ' + ' thumbnail')
         return True  
-    # #TODO eventually make this a lot cleaner and even user decided priority of locale
-    # #Always try to download USA version, otherwise, stick with whatever hits next
-    # if downloadFileFromGithub(outFile,ROMART_baseURL + ROMArt_console[console] + artType + realname + " (USA).png"):
-    #     print(' Downloaded ' + realname + ' ' + ' thumbnail')
-    #     return True   
-    # elif downloadFileFromGithub(outFile,ROMART_baseURL + ROMArt_console[console] + artType + game):
-    #     print(' Downloaded ' + realname + ' ' + ' thumbnail')
-    #     return True    
-    # else:
-    #     return False
     
 def stripShortcutText(drive: str):
     if drive == "???" or drive == "":
