@@ -12,7 +12,6 @@ import struct
 import frogtool
 import requests
 import json
-import re
 
 try:
     from PIL import Image
@@ -913,8 +912,10 @@ def createSaveBackup(drive: str, zip_file_name):
         return False
                      
 def check_is_save_file(filename):
-    file_regex = ".+\\.(" + "|".join(supported_save_ext) + ")$"
-    return re.search(file_regex, filename.lower())    
+    for ext in supported_save_ext:
+        if filename.lower().endswith(ext):
+            return True
+    return False
         
 def getHumanReadableFileSize(filesize):
     humanReadableFileSize = "ERROR"          
