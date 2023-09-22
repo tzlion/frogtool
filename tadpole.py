@@ -980,8 +980,8 @@ the thumbnail for you. ")
                 BGM_change(d.music_file)
             else:
                 BGM_change(self.music_options[self.sender().text()])
-        if os.path.exists(os.path.join(basedir, 'preview.wav')):
-            os.remove('preview.wav')
+        if os.path.exists(os.path.join(static_TadpoleDir, 'preview.wav' )):
+            os.remove(os.path.join(static_TadpoleDir, 'preview.wav'))
     def about(self):
         QMessageBox.about(self, "About Tadpole", 
                                 "Tadpole was created by EricGoldstein based on the original work \

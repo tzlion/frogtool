@@ -9,6 +9,9 @@ import wave
 from io import BytesIO
 import requests
 
+static_TadpoleDir = os.path.join(os.path.expanduser('~'), '.tadpole')
+
+
 class MusicConfirmDialog(QDialog):
     """Dialog used to confirm or load music selection with the ability to preview selection by listening to the music.
     If neither music_name nor music_url are provided, allows import from local file.
@@ -122,8 +125,7 @@ class MusicConfirmDialog(QDialog):
         else:  # handle local files
             with open(self.music_file, "rb") as mf:
                 raw_data = BytesIO(mf.read())
-        basedir = os.path.dirname(__file__)
-        wav_filename = os.path.join(basedir, "preview.wav")
+        wav_filename = os.path.join(static_TadpoleDir, "preview.wav")
         with wave.open(wav_filename, "wb") as wav_file:
             wav_file.setparams((1, 2, 22050, 0, 'NONE', 'NONE'))
             wav_file.writeframes(raw_data.read())
@@ -139,6 +141,6 @@ class MusicConfirmDialog(QDialog):
             self.music_name = os.path.split(file_name)[-1]
             self.label_confirm.setText("<h3>Change Background Music</h3><em>{}</em>".format(self.music_name))
             self.button_play.setEnabled(True)
-            self.toggle_audio()
+            self.toggle_audio(self)
             return True
         return False
