@@ -1,8 +1,7 @@
 # GUI imports
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
-from PyQt5.QtMultimedia import QSoundEffect
-from PyQt5.QtCore import Qt, QTimer, QUrl, QSize
+from PyQt5.QtCore import Qt, QTimer, QSize
 # OS imports - these should probably be moved somewhere else
 import os
 import sys
@@ -12,17 +11,16 @@ import hashlib
 import frogtool
 import tadpole_functions
 from tadpoleConfig import TadpoleConfig
-from dialogs.BootConfirmDialog import BootConfirmDialog
-from dialogs.DownloadProgressDialog import DownloadProgressDialog
-from dialogs.GameShortcutIconsDialog import GameShortcutIconsDialog
-
 #from dialogs import *
 from dialogs.SettingsDialog import SettingsDialog
 from dialogs.ThumbnailDialog import ThumbnailDialog
+from dialogs.BootConfirmDialog import BootConfirmDialog
+from dialogs.DownloadProgressDialog import DownloadProgressDialog
+from dialogs.GameShortcutIconsDialog import GameShortcutIconsDialog
+from dialogs.MusicConfirmDialog import MusicConfirmDialog
+
 #feature imports
 import requests
-import wave
-from io import BytesIO
 import psutil
 import json
 from bs4 import BeautifulSoup
@@ -431,53 +429,62 @@ Consult https://github.com/vonmillhausen/sf2000#bootloader-bug or ask for help o
 
 def FixSF2000BootLight():
         drive = window.combobox_drive.currentText()
-        on_sd_bisrv_path = os.path.join(drive, 'bios', 'bisrv.asd')
-        temp_bisrv_path =  os.path.join(static_TadpoleDir, 'bisrv.asd')
+        temp_file_bios_path = os.path.join(drive, 'bios', 'file.tmp')
+        #on_sd_bisrv_path = os.path.join(drive, 'bios', 'bisrv.asd')
+        #temp_bisrv_path =  os.path.join(static_TadpoleDir, 'bisrv.asd')
         qm = QMessageBox
         ret = qm.question(window, "SF2000 not booting", "If your SF2000 won't boot, you likely hit the bootloader bug or have broken some critical files.  This process attempts to restore your SF2000.\n\n\
 This only works on the Windows OS.\n\nDo you want to continue?")
         if ret == qm.No:
             return
-        if not os.path.exists(on_sd_bisrv_path):
-            logging.error("No bisrv.asd detected")
-            QMessageBox.about(window, "Error", "We cannot find the bisrv file on your SD card.  You need to reformat and install OS files.\n\n\
-Sending you to that option now.")
-            FixSF2000Boot()
-            return
-        #Instructions from Dteyn on Discord to roll FAT entry forward
-        #copy bisrv off of SD
-        shutil.copy(on_sd_bisrv_path, temp_bisrv_path)
-        #delete bisrv off SD
-        os.remove(on_sd_bisrv_path)
-        #Copy it back to the microSD to roll the FAT entry forward
-        shutil.copy(temp_bisrv_path, on_sd_bisrv_path)
-        #Ask to plug in and test
+#         if not os.path.exists(on_sd_bisrv_path):
+#             logging.error("No bisrv.asd detected")
+#             QMessageBox.about(window, "Error", "We cannot find the bisrv file on your SD card.  You need to reformat and install OS files.\n\n\
+# Sending you to that option now.")
+#             FixSF2000Boot()
+#             return
+        #create a new file in bios
+        Path.touch(temp_file_bios_path)
+        #delete that file
+        os.remove(temp_file_bios_path)
+        # #Instructions from Dteyn on Discord to roll FAT entry forward
+        # #copy bisrv off of SD
+        # shutil.copy(on_sd_bisrv_path, temp_bisrv_path)
+        # #delete bisrv off SD
+        # os.remove(on_sd_bisrv_path)
+        # #Copy it back to the microSD to roll the FAT entry forward
+        # shutil.copy(temp_bisrv_path, on_sd_bisrv_path)
+        # #Ask to plug in and test
         ret = qm.question(window, "Ready to test", "Please take out the SD card and plug it into the SF2000 and turn it on.\n\n\
 Did it boot?")
         if ret == qm.Yes:
             QMessageBox.about(window, "Success", "Please apply the bootloader fix now to avoid this issue again.  Sending you there now")
             bootloaderPatch()
-            if os.path.exists(temp_bisrv_path):
-                os.remove(temp_bisrv_path)
+            # if os.path.exists(temp_bisrv_path):
+            #     os.remove(temp_bisrv_path)
             return
         if ret == qm.No: 
-            #If no, repeat step 2 and 3
-            os.remove(on_sd_bisrv_path)
-            shutil.copy(temp_bisrv_path, on_sd_bisrv_path)
+            #If no, repeat
+            #create a new file in bios
+            Path.touch(temp_file_bios_path)
+            #delete that file
+            os.remove(temp_file_bios_path)
+            # os.remove(on_sd_bisrv_path)
+            # shutil.copy(temp_bisrv_path, on_sd_bisrv_path)
             ret = qm.question(window, "Try again", "We attempted one more fix at replacing the bisrv.asd file.  Please take out the SD card now and try one more time\n\n\
 Did it boot this time?")
             if ret == qm.Yes:
                 QMessageBox.about(window, "Success", "Please apply the bootloader fix now to avoid this issue again.  Sending you there now")
                 bootloaderPatch()
-                if os.path.exists(temp_bisrv_path):
-                    os.remove(temp_bisrv_path)
+                # if os.path.exists(temp_bisrv_path):
+                #     os.remove(temp_bisrv_path)
                 return
             if ret == qm.No: 
                 QMessageBox.about(window, "Error", "The simple fix did not succeed.  You need to reformat and install OS files.\n\n\
-    Sending you to that option now")
+Sending you to that option now")
                 FixSF2000Boot()
-                if os.path.exists(temp_bisrv_path):
-                    os.remove(temp_bisrv_path)
+                # if os.path.exists(temp_bisrv_path):
+                #     os.remove(temp_bisrv_path)
                 return
 def FixSF2000Boot():
         qm = QMessageBox
@@ -596,142 +603,6 @@ class ReadmeDialog(QMainWindow):
                 self.text_edit.setMarkdown(readme_file.read())
         except FileNotFoundError:  # gracefully fail if file not present
             self.text_edit.setText(f"Unable to locate README.md file in program root folder {basedir}.")
-
-
-class MusicConfirmDialog(QDialog):
-    """Dialog used to confirm or load music selection with the ability to preview selection by listening to the music.
-    If neither music_name nor music_url are provided, allows import from local file.
-
-        Args:
-            music_name (str) : Name of the music file; used only to show name in dialog
-            music_url (str) : URL to a raw music file; should be formatted for use on SF2000 (raw signed 16-bit PCM,
-                mono, little-endian, 22050 hz)
-    """
-    def __init__(self, music_name: str = "", music_url: str = ""):
-        super().__init__()
-
-        # Save Arguments
-        self.music_name = music_name
-        self.music_url = music_url
-        self.music_file = ""  # used to store filename for local files
-
-        # Configure Window
-        self.setWindowTitle("Change Background Music")
-        self.setWindowIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolume)))
-        self.sound = QSoundEffect(self)  # Used to Play Music File
-
-        # Setup Main Layout
-        self.layout_main = QVBoxLayout()
-        self.setLayout(self.layout_main)
-
-        # Main Text
-        self.label_confirm = QLabel("<h3>Change Background Music</h3><a href='#'>Select File</a>", self)
-        if self.music_name == "" and self.music_url == "":
-            self.label_confirm.linkActivated.connect(self.load_from_file)
-            pass
-        self.label_confirm.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-
-        self.layout_main.addWidget(self.label_confirm)
-
-        # Music Preview Button
-        self.button_play = QPushButton(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)),
-                                       " Preview",
-                                       self)
-        self.button_play.setDisabled(True)  # disable by default
-
-        self.layout_main.addWidget(self.button_play)
-        self.button_play.clicked.connect(self.toggle_audio)
-
-        # Main Buttons Layout (Save/Cancel)
-        self.layout_buttons = QHBoxLayout()
-        self.layout_main.addLayout(self.layout_buttons)
-
-        # Save Button
-        self.button_save = QPushButton("Save")
-        self.button_save.setDisabled(True)  # disable by default
-        self.button_save.clicked.connect(self.accept)
-        self.layout_buttons.addWidget(self.button_save)
-
-        # Cancel Button
-        self.button_cancel = QPushButton("Cancel")
-        self.button_cancel.clicked.connect(self.reject)
-        self.layout_buttons.addWidget(self.button_cancel)
-
-        if music_name and music_url:  # enable features only if using preset options
-            self.label_confirm.setText("<h3>Change Background Music</h3><em>{}</em>".format(self.music_name))
-            self.button_save.setEnabled(True)
-            self.button_play.setEnabled(True)
-
-    def toggle_audio(self) -> bool:
-        """toggles music preview on or off
-
-            Returns:
-                bool: True if file is playing; false if not
-        """
-        if self.sound.isPlaying():
-            self.sound.stop()
-            self.button_play.setIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)))
-            self.button_play.setText(" Preview")
-            return False
-
-        else:
-            if not self.sound.source().path():  # fetch and convert raw file if not already done
-                self.button_play.setDisabled(True)  # disable button while processing
-                file_data = self.get_and_format_music_file()
-                if file_data[0]:  # fetch/conversion succeeds
-                    self.sound.setSource(QUrl.fromLocalFile(file_data[1]))
-                    self.button_play.setEnabled(True)
-                    self.button_save.setEnabled(True)  # enable saving as well since file seems OK
-                else:  # fetch/conversion fails
-                    self.button_play.setText(file_data[1])
-                    self.button_play.setIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical)))
-                    return False
-
-            # format button and play
-            self.button_play.setIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaStop)))
-            self.button_play.setText(" Stop")
-            self.sound.setLoopCount(1000)
-            self.sound.play()
-            return True
-
-    def get_and_format_music_file(self) -> (bool, str):
-        """Downloads/loads and re-formats the raw music file as wav.
-
-            Returns:
-                tuple (bool, str): True or false based on success in fetching/converting file, and path to resulting
-                    temporary wav file, error message if failed.
-        """
-        if self.music_url:  # handle internet downloads
-            try:
-                r = requests.get(self.music_url)
-                if r.status_code == 200:  # download succeeds
-                    raw_data = BytesIO(r.content)  # read raw file into memory
-            except requests.exceptions.RequestException:  # catches exceptions for multiple reasons
-                return False, "Download Failed"
-        else:  # handle local files
-            with open(self.music_file, "rb") as mf:
-                raw_data = BytesIO(mf.read())
-
-        wav_filename = os.path.join(basedir, "preview.wav")
-        with wave.open(wav_filename, "wb") as wav_file:
-            wav_file.setparams((1, 2, 22050, 0, 'NONE', 'NONE'))
-            wav_file.writeframes(raw_data.read())
-            if wav_file.getnframes() > (22050*90):  # check that file length does not exceed 90 seconds (max for Froggy)
-                return False, "Duration Too Long (90s max)"
-        return True, wav_filename
-
-    def load_from_file(self) -> bool:
-        file_name = QFileDialog.getOpenFileName(self, 'Open file', '',
-                                                "Raw Signed 16-bit PCM - Mono, Little-Endian, 22050hz (*.*)")[0]
-        if file_name:
-            self.music_file = file_name
-            self.music_name = os.path.split(file_name)[-1]
-            self.label_confirm.setText("<h3>Change Background Music</h3><em>{}</em>".format(self.music_name))
-            self.button_play.setEnabled(True)
-            self.toggle_audio()
-            return True
-        return False
-
 
 # SubClass QMainWindow to create a Tadpole general interface
 class MainWindow (QMainWindow):
