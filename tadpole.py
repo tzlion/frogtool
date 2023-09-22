@@ -830,8 +830,8 @@ class MainWindow (QMainWindow):
         msgBox = DownloadProgressDialog()
 
         #Check what the user has configured; upload or download
-        ovewrite = self.tpConf.getThumbnailOverwrite()
-        if not self.tpConf.getThumbnailDownload():
+        ovewrite = tpConf.getThumbnailOverwrite()
+        if not tpConf.getThumbnailDownload():
             directory = QFileDialog.getExistingDirectory()
             if directory == '':
                     return
