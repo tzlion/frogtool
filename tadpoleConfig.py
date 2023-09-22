@@ -11,7 +11,7 @@ class TadpoleConfig():
     # [thumbnails]
     _static_thumbnails = "Thumbnails"
     _static_thumbnails_view = "ViewInTable"
-    _static_thumbnails_view_DEFAULT = "True"
+    _static_thumbnails_view_DEFAULT = "False"
     _static_thumbnails_overwrite = "overwrite"
     _static_thumbnails_overwrite_DEFAULT = "False"
     _static_thumbnails_download = "download"

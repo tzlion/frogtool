@@ -309,12 +309,14 @@ def viewThumbnail(rom_path):
         if newLogoFileName is None or newLogoFileName == "":
             print("user cancelled image select")
             return
-        if tadpole_functions.addThumbnail(rom_path, drive, system, newLogoFileName, True):
-            QMessageBox.about(window, "Change ROM Logo", "ROM cover successfully changed")
+        failedConversions = tadpole_functions.addThumbnail(rom_path, drive, system, newLogoFileName, True)
+        if failedConversions == 0:
+            QMessageBox.about(window, "Change ROM Logo", "ROM thumbnails successfully changed")
             RunFrogTool(window.combobox_console.currentText())
             return True
         else:
-            QMessageBox.about(window, "Change ROM Cover", "An error occurred.")
+            QMessageBox.about(window, "Change ROM Cover", "Adding thumbnails completed, but " + str(failedConversions) + " failed to convert.")
+            RunFrogTool(window.combobox_console.currentText())
             return False
 
 def deleteROM(rom_path):
@@ -828,7 +830,7 @@ class MainWindow (QMainWindow):
         rom_path = os.path.join(drive,system)
         romList = frogtool.getROMList(rom_path)
         msgBox = DownloadProgressDialog()
-
+        failedConversions = 0
         #Check what the user has configured; upload or download
         ovewrite = tpConf.getThumbnailOverwrite()
         if not tpConf.getThumbnailDownload():
@@ -850,7 +852,8 @@ class MainWindow (QMainWindow):
                         romName = os.path.splitext(rom)[0]
                         if newThumbnailName == romName:
                             rom_full_path = os.path.join(rom_path, rom)
-                            tadpole_functions.addThumbnail(rom_full_path, drive, system, newThumbnailPath, ovewrite)
+                            if not tadpole_functions.addThumbnail(rom_full_path, drive, system, newThumbnailPath, ovewrite):
+                                failedConversions += 1
                 msgBox.showProgress(i, True)
         #User wants to download romart from internet
         else:
@@ -907,25 +910,20 @@ the thumbnail for you. ")
                             rom_full_path = os.path.join(rom_path, rom)
                             #If it finds it, download it and add it
                             if tadpole_functions.downloadFileFromGithub(newThumbnailPath, rom_png_url):
-                                tadpole_functions.addThumbnail(rom_full_path, drive, system, newThumbnailPath, ovewrite)
+                                if not tadpole_functions.addThumbnail(rom_full_path, drive, system, newThumbnailPath, ovewrite): 
+                                    failedConversions += 1
                 msgBox.showProgress(i, True)
-
-            # for file in zip_files:
-            #     game = os.path.splitext(file.name)
-            #     outFile = os.path.join(os.path.dirname(file.path),f"{game[0]}.png")
-
-            #     msgBox.progress.setValue(games_total)
-            #     QApplication.processEvents()
-            #     if not os.path.exists(outFile):
-            #         for x in png_files:
-            #             if game[0] in x:
-            #                 tadpole_functions.downloadROMArt(system,file.path,x,art_Type,game[0])
-            #                 games_total += 1
-            #                 break
         msgBox.close()
         RunFrogTool(window.combobox_console.currentText())
-        QMessageBox.about(self, "Add Thumbnails", "Successfully downloaded thumbnails for " + system)
-
+        if failedConversions == 0:
+            QMessageBox.about(window, "Add thubmnails", "ROM thumbnails successfully changed")
+            RunFrogTool(window.combobox_console.currentText())
+            return True
+        else:
+            QMessageBox.about(window, "Add thubmnails", "Adding thumbnails completed, but " + str(failedConversions) + " failed to convert.")
+            RunFrogTool(window.combobox_console.currentText())
+            return False
+        
     def change_background_music(self):
         """event to change background music"""
         if self.sender().text() == "Upload from Local File...":  # handle local file option

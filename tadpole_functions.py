@@ -12,6 +12,7 @@ import struct
 import frogtool
 import requests
 import json
+import logging
 
 try:
     from PIL import Image
@@ -139,26 +140,27 @@ def QImageToRGB565Logo(inputQImage):
     return rgb565Data   
 
 def changeZIPThumbnail(romPath, newImpagePath, system):
-    newLogoPath = os.path.dirname(romPath)
-    newLogoName = os.path.basename(newImpagePath)
-    romFile = os.path.basename(romPath)
-    new_romPath = os.path.dirname(romPath)
-    newLogoFile = os.path.join(newLogoPath,newLogoName)
-    shutil.copyfile(newImpagePath, newLogoFile)
-    sys_zxx_ext = frogtool.zxx_ext[system]
-    zxx_file_name = f"{frogtool.strip_file_extension(romFile)}.{sys_zxx_ext}"
-    zxx_file_path = os.path.join(new_romPath,zxx_file_name)
-    converted = frogtool.rgb565_convert(newLogoFile, zxx_file_path, (144, 208))
-    if not converted:
-        return False
     try:
+        newLogoPath = os.path.dirname(romPath)
+        newLogoName = os.path.basename(newImpagePath)
+        romFile = os.path.basename(romPath)
+        new_romPath = os.path.dirname(romPath)
+        newLogoFile = os.path.join(newLogoPath,newLogoName)
+        shutil.copyfile(newImpagePath, newLogoFile)
+        sys_zxx_ext = frogtool.zxx_ext[system]
+        zxx_file_name = f"{frogtool.strip_file_extension(romFile)}.{sys_zxx_ext}"
+        zxx_file_path = os.path.join(new_romPath,zxx_file_name)
+        converted = frogtool.rgb565_convert(newLogoFile, zxx_file_path, (144, 208))
+        if not converted:
+            return False
         zxx_file_handle = open(zxx_file_path, "ab")
         zip_file_handle = open(romPath, "rb")
         zxx_file_handle.write(zip_file_handle.read())
         zxx_file_handle.close()
         zip_file_handle.close()
-    except (OSError, IOError):
-        print(f"! Failed appending zip file to {zxx_file_name}")
+    except Exception as e:
+        print(f"! Failed changing zip file")
+        logging.error("Could not change thumbnail" + str(e))
         return False
 
     try:
@@ -1032,33 +1034,36 @@ def addThumbnail(rom_path, drive, system, new_thumbnail, ovewrite):
             #Check if this rom type is supported
             romFullName = os.path.basename(rom_path)
             romName, romExtension = os.path.splitext(romFullName)
+            #Set a variable to tell the user it didn't complete succeessfully
+            FailedConversion = 0
             #Strip the . as frogtool doesn't use it in its statics
             romExtension = romExtension.lstrip('.')
             sys_zxx_ext = frogtool.zxx_ext[system]
             #If its not supported, return
             if romExtension not in frogtool.supported_rom_ext:
-                #QMessageBox.about(window, "Change ROM Cover", "File format " + romExtension + "Not supported")
                 return False
             #If its zip pass to frogtool
             elif romExtension in frogtool.supported_zip_ext:
-                changeZIPThumbnail(rom_path, new_thumbnail, system)
+                if not changeZIPThumbnail(rom_path, new_thumbnail, system):
+                    FailedConversion += 1
             #If its the supported system .z** pass to frogtool
             elif romExtension == sys_zxx_ext:
                 if ovewrite == True:
-                    changeZXXThumbnail(rom_path, new_thumbnail)
+                    if not changeZXXThumbnail(rom_path, new_thumbnail):
+                        FailedConversion += 1
             #Finally that means its supported but not zip, let's zip it up
             else:
                 new_zipped_rom_path = os.path.join(drive, system, romName + '.zip')
                 zip_file(rom_path, new_zipped_rom_path)
-                if not changeZIPThumbnail(new_zipped_rom_path, new_thumbnail, system):
-                    #QMessageBox.about(window, "Change ROM Cover", "An error occurred.")
-                    return False
+                if not changeZIPThumbnail(new_zipped_rom_path, new_thumbnail, system): 
+                    FailedConversion += 1
                 #Frogtool takes care of the zip, we need to remove the base ROM to not confuse the user
-                os.remove(rom_path)
-            return True
+                if os.path.exists(rom_path):
+                    os.remove(rom_path)
+            return FailedConversion
         except Exception_InvalidPath:
             #QMessageBox.about(window, "Change ROM Cover", "An error occurred.")
-            return False
+            return FailedConversion
 
 #Thanks to Dteyn for putting the python together from here: https://github.com/Dteyn/SF2000_Battery_Level_Patcher/blob/master/main.py
 #Thanks to OpenAI for writing the class and converting logging to prints
