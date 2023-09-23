@@ -3,7 +3,8 @@ import string
 import configparser
 
 class TadpoleConfig():
-    _static_TadpoleConfigFile = os.path.join(os.path.expanduser('~'), '.tadpole', 'tadpole.ini')
+    _static_TadpoleFolder = os.path.join(os.path.expanduser('~'), '.tadpole')
+    _static_TadpoleConfigFile = os.path.join(_static_TadpoleFolder, 'tadpole.ini')
     # [tadpole]
     _static_general = "tadpole"
     _static_general_userDirectory = "user_directory"
@@ -22,6 +23,8 @@ class TadpoleConfig():
         super().__init__()
         print(f"establishing tadpole config")
         self.config = configparser.ConfigParser()
+        #if not os.path.exists(self._static_TadpoleFolder):
+        #    os.makedirs(self._static_TadpoleFolder, exist_ok=True)
         # Check if config file exists on the device
         if not os.path.exists(self._static_TadpoleConfigFile):
             #Config file not found, create a new one            

@@ -1,9 +1,25 @@
+import os
+import logging
+static_TadpoleDir = os.path.join(os.path.expanduser('~'), '.tadpole')
+static_LoggingPath = os.path.join(static_TadpoleDir, 'tadpole.log')
+static_TadpoleConfigFile = os.path.join(static_TadpoleDir, 'tadpole.ini')
+if __name__ == "__main__":
+        # Per logger documentation, create logging as soon as possible before other hreads    
+        if not os.path.exists(static_TadpoleDir):
+            os.mkdir(static_TadpoleDir)
+        logging.basicConfig(filename=static_LoggingPath,
+                        filemode='a',
+                        format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                        datefmt='%H:%M:%S',
+                        level=logging.DEBUG)
+        logging.info("Tadpole Started")
+        
 # GUI imports
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt, QTimer, QSize
 # OS imports - these should probably be moved somewhere else
-import os
+
 import sys
 import shutil
 import hashlib
@@ -32,15 +48,12 @@ from datetime import datetime
 from pathlib import Path
 import configparser
 import webbrowser
-import logging
 import subprocess
 
 basedir = os.path.dirname(__file__)
 static_NoDrives = "N/A"
 static_AllSystems = "ALL"
-static_TadpoleDir = os.path.join(os.path.expanduser('~'), '.tadpole')
-static_LoggingPath = os.path.join(os.path.expanduser('~'), '.tadpole', 'tadpole.log')
-static_TadpoleConfigFile = os.path.join(os.path.expanduser('~'), '.tadpole', 'tadpole.ini')
+
 
 #Use this to poll for SD cards, turn it to False to stop polling
 poll_drives = True
