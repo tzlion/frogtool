@@ -309,13 +309,12 @@ def viewThumbnail(rom_path):
         if newLogoFileName is None or newLogoFileName == "":
             print("user cancelled image select")
             return
-        failedConversions = tadpole_functions.addThumbnail(rom_path, drive, system, newLogoFileName, True)
-        if failedConversions == 0:
+        if tadpole_functions.addThumbnail(rom_path, drive, system, newLogoFileName, True):
             QMessageBox.about(window, "Change ROM Logo", "ROM thumbnails successfully changed")
             RunFrogTool(window.combobox_console.currentText())
             return True
         else:
-            QMessageBox.about(window, "Change ROM Cover", "Adding thumbnails completed, but " + str(failedConversions) + " failed to convert.")
+            QMessageBox.about(window, "Change ROM Cover", "Unable to convert thumbnail for ROM")
             RunFrogTool(window.combobox_console.currentText())
             return False
 
