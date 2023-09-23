@@ -1034,8 +1034,6 @@ def addThumbnail(rom_path, drive, system, new_thumbnail, ovewrite):
             #Check if this rom type is supported
             romFullName = os.path.basename(rom_path)
             romName, romExtension = os.path.splitext(romFullName)
-            #Set a variable to tell the user it didn't complete succeessfully
-            FailedConversion = 0
             #Strip the . as frogtool doesn't use it in its statics
             romExtension = romExtension.lstrip('.')
             sys_zxx_ext = frogtool.zxx_ext[system]
@@ -1045,25 +1043,25 @@ def addThumbnail(rom_path, drive, system, new_thumbnail, ovewrite):
             #If its zip pass to frogtool
             elif romExtension in frogtool.supported_zip_ext:
                 if not changeZIPThumbnail(rom_path, new_thumbnail, system):
-                    FailedConversion += 1
+                    return False
             #If its the supported system .z** pass to frogtool
             elif romExtension == sys_zxx_ext:
                 if ovewrite == True:
                     if not changeZXXThumbnail(rom_path, new_thumbnail):
-                        FailedConversion += 1
+                        return False
             #Finally that means its supported but not zip, let's zip it up
             else:
                 new_zipped_rom_path = os.path.join(drive, system, romName + '.zip')
                 zip_file(rom_path, new_zipped_rom_path)
                 if not changeZIPThumbnail(new_zipped_rom_path, new_thumbnail, system): 
-                    FailedConversion += 1
+                    return False
                 #Frogtool takes care of the zip, we need to remove the base ROM to not confuse the user
                 if os.path.exists(rom_path):
                     os.remove(rom_path)
-            return FailedConversion
+            return True
         except Exception_InvalidPath:
             #QMessageBox.about(window, "Change ROM Cover", "An error occurred.")
-            return FailedConversion
+            return False
 
 #Thanks to Dteyn for putting the python together from here: https://github.com/Dteyn/SF2000_Battery_Level_Patcher/blob/master/main.py
 #Thanks to OpenAI for writing the class and converting logging to prints
