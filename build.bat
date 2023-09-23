@@ -1,5 +1,5 @@
 @echo off
-set ver=0.4.1
+set ver=0.4.2
 rem build script for the distributable versions of tadpole
 if not exist "venv\" (
     py -m venv venv

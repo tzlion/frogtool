@@ -141,6 +141,6 @@ class MusicConfirmDialog(QDialog):
             self.music_name = os.path.split(file_name)[-1]
             self.label_confirm.setText("<h3>Change Background Music</h3><em>{}</em>".format(self.music_name))
             self.button_play.setEnabled(True)
-            self.toggle_audio(self)
+            self.toggle_audio()
             return True
         return False
