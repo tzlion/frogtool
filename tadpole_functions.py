@@ -434,6 +434,11 @@ def changeGameShortcut(index_path, console, position, game):
         lines = xfgle_file_handle.readlines()
         xfgle_file_handle.close()
         prefix = getPrefixFromConsole(console)
+        # Bug fix: Arcade shortcuts point to the ZIP file not the zfb file
+        if console == 'ARCADE':
+            # Rename the file to its zip
+            #TODO: the zips are not the same name as the ZFB's so this won't work :( )
+            game = game.replace(".zfb", f".zip")
         # Overwrite the one line we want to change
         lines[4*systems[console][3]+position] = f"{prefix} {game}*\n"
         # Save the changes out to file
