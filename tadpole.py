@@ -1,5 +1,7 @@
 import os
 import logging
+
+from sf2000ROM import sf2000ROM
 static_TadpoleDir = os.path.join(os.path.expanduser('~'), '.tadpole')
 static_LoggingPath = os.path.join(static_TadpoleDir, 'tadpole.log')
 static_TadpoleConfigFile = os.path.join(static_TadpoleDir, 'tadpole.ini')
@@ -93,71 +95,10 @@ def RunFrogTool(console):
             result = frogtool.process_sys(drive, console, False)
             print("Result " + result)      
         #Always reload the table now that the folders are all cleaned up
-        loadROMsToTable()
+        window.loadROMsToTable()
     except frogtool.StopExecution:
         pass
 
-def processGameShortcuts():
-    drive = window.combobox_drive.currentText()
-    console = window.combobox_console.currentText()
-    for i in range(window.tbl_gamelist.rowCount()):
-        comboBox = window.tbl_gamelist.cellWidget(i, 3)
-        #if its blank, it doesn't have a position so move on
-        if comboBox.currentText() == '':
-            continue
-        else:
-            position = int(comboBox.currentText())
-            #position is 0 based
-            position = position - 1
-            game = window.tbl_gamelist.item(i, 0).text()
-            tadpole_functions.changeGameShortcut(drive, console, position, game)
-
-#Trigger is optional and will force a reload
-#TODO: Eric, sorry its an optional argument and I couldn't find a better way to foce the polling
-#forcing polling to only go through its flow with new user selected drive
-def reloadDriveList(trigger = False):
-    #If polling is disabled don't do anything
-    if poll_drives == True:
-        current_drive = window.combobox_drive.currentText()
-        window.combobox_drive.clear()
-        localdrive = tpConf.getLocalUserDirectory()
-        #Check whether a local drive is configured.
-        if localdrive != tpConf._static_general_userDirectory_DEFAULT:
-            window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
-                                            localdrive,
-                                            localdrive)
-        
-        for drive in psutil.disk_partitions():
-            if os.path.exists(os.path.join(drive.mountpoint, "bios", "bisrv.asd")):
-                window.combobox_drive.addItem(QIcon(window.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
-                                            drive.mountpoint,
-                                            drive.mountpoint)
-
-        # Check if at least one frog drive is also configured. local + frog will mean at least 2 drives.
-        if localdrive != tpConf._static_general_userDirectory_DEFAULT and len(window.combobox_drive) > 1:
-            window.btn_coppy_user_selected_button.setEnabled(True)
-        else:
-            window.btn_coppy_user_selected_button.setEnabled(False)
-
-        if len(window.combobox_drive) > 0:
-            toggle_features(True)
-            
-            #This force trigger is just a way to let us through polling when we need to, e.g. with a user selected directory
-            #TODO: Replace this a comparison of the list items instead.
-            if(current_drive == static_NoDrives or trigger == True):
-                print("New drive detected")
-                window.status_bar.showMessage("New SF2000 Drive(s) Detected.", 2000)
-                logging.info(f"Automatically triggering drive change because a new drive connected")
-                window.combobox_drive_change()
-                
-        else:
-            # disable functions if nothing is in the combobox
-            window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
-            window.status_bar.showMessage("No SF2000 Drive Detected. Please insert SD card and try again.", 2000)
-            toggle_features(False)
-            #TODO Should probably also clear the table of the ROMs that are still listed
-
-        window.combobox_drive.setCurrentText(current_drive)
 
 def toggle_features(enable: bool):
     """Toggles program features on or off"""
@@ -172,144 +113,7 @@ def toggle_features(enable: bool):
     for feature in features:
         feature.setEnabled(enable)
 
-#NOTE: this function refreshes the ROM table.  If you run this AND NOT FROG_TOOL, you can get your window out of sync
-#So don't run loadROMsToTable, instead run FrogTool(console)
-#TODO: move this into mainWindow
-def loadROMsToTable():
-    drive = window.combobox_drive.currentText()
-    system = window.combobox_console.currentText()
-    print(f"loading roms to table for ({drive}) ({system})")
-    logging.info(f"loading roms to table for ({drive}) ({system})")
-    msgBox = DownloadProgressDialog()
-    msgBox.setText(" Loading "+ system + " ROMS...")
-    if drive == static_NoDrives or system == "???" or system == static_AllSystems:
-        #TODO: should load ALL ROMs to the table rather than none
-        window.tbl_gamelist.setRowCount(0)
-        return
-    roms_path = os.path.join(drive, system)
-    try:
-        files = frogtool.getROMList(roms_path)
-        msgBox.progress.reset()
-        msgBox.progress.setMaximum(len(files))
-        msgBox.show()
-        QApplication.processEvents()
-        window.tbl_gamelist.setRowCount(len(files))
-        print(f"Found {len(files)} ROMs")
-        #sort the list aphabetically before we go through it
-        files = sorted(files)
-        for i,game in enumerate(files):
-            filesize = os.path.getsize(os.path.join(roms_path, game))
-            humanReadableFileSize = tadpole_functions.getHumanReadableFileSize(filesize)
-            # Filename
-            cell_filename = QTableWidgetItem(f"{game}")
-            cell_filename.setTextAlignment(Qt.AlignVCenter)
-            cell_filename.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
-            window.tbl_gamelist.setItem(i, 0, cell_filename)  
-            #Filesize
-            cell_fileSize = QTableWidgetItem(f"{humanReadableFileSize}")
-            cell_fileSize.setTextAlignment(Qt.AlignCenter)
-            cell_fileSize.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
-            window.tbl_gamelist.setItem(i, 1, cell_fileSize) 
-            # View Thumbnail 
-            #Show picture if thumbnails in View is selected
-            if tpConf.getViewThumbnailsInTable():
-                cell_viewthumbnail = QTableWidgetItem()
-                cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
-                pathToROM = os.path.join(roms_path, game)
-                extension = Path(pathToROM).suffix
-                #only show thumbnails of the .z** files 
-                sys_zxx_ext = '.' + frogtool.zxx_ext[system]
-                if(extension == sys_zxx_ext):
-                    with open(pathToROM, "rb") as rom_file:
-                        rom_content = bytearray(rom_file.read(((144*208)*2)))
-                    img = QImage(rom_content[0:((144*208)*2)], 144, 208, QImage.Format_RGB16) # The byte array length has been left here as a second safety to ensure we dont try to over read.
-                    pimg = QPixmap()
-                    icon = QIcon()
-                    QPixmap.convertFromImage(pimg, img)
-                    QIcon.addPixmap(icon, pimg)
-                    cell_viewthumbnail.setIcon(icon)
-                    size = QSize(144, 208)
-                    window.tbl_gamelist.setIconSize(size)
-                    cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
-                    window.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)
-                else:
-                    cell_viewthumbnail = QTableWidgetItem(f"\nNo thumbnail\n Click to edit\n")
-                    cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
-                    cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
-                    window.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)   
-            else:
-                cell_viewthumbnail = QTableWidgetItem(f"View")
-                cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
-                cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
-                window.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)   
-            # Add to Shortcuts-
-            shortcut_comboBox = QComboBox()
-            shortcut_comboBox.addItem("")
-            shortcut_comboBox.addItem("1")
-            shortcut_comboBox.addItem("2")
-            shortcut_comboBox.addItem("3")
-            shortcut_comboBox.addItem("4")
-            # set previously saved shortcuts
-            position = tadpole_functions.getGameShortcutPosition(drive, system, game)
-            shortcut_comboBox.setCurrentIndex(position)
-            # get a callback to make sure the user isn't setting the same shortcut twice
-            window.tbl_gamelist.setCellWidget(i, 3, shortcut_comboBox)
-            shortcut_comboBox.activated.connect(window.validateGameShortcutComboBox)
 
-            # View Delete Button 
-            cell_delete = QTableWidgetItem(f"Delete")
-            cell_delete.setTextAlignment(Qt.AlignCenter)
-            cell_delete.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
-            window.tbl_gamelist.setItem(i, 4, cell_delete)
-            # Update progressbar
-            msgBox.showProgress(i, False)
-        window.tbl_gamelist.resizeRowsToContents()
-
-        print("finished loading roms to table")    
-    except frogtool.StopExecution:
-        # Empty the table
-        window.tbl_gamelist.setRowCount(0)
-        print("frogtool stop execution on table load caught")
-    msgBox.close()  
-    window.tbl_gamelist.scrollToTop()
-    window.tbl_gamelist.show()
-
-def RebuildClicked(self):
-    console = window.combobox_console.currentText()
-    RunFrogTool(console)
-    return
-
-def catchTableCellClicked(clickedRow, clickedColumn):
-    print(f"clicked view thumbnail for {clickedRow},{clickedColumn}")
-    drive = window.combobox_drive.currentText()
-    system = window.combobox_console.currentText()
-    gamename = window.tbl_gamelist.item(clickedRow, 0)
-
-    if window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Thumbnail":  
-        viewThumbnail(os.path.join(drive, system, gamename.text()))
-    elif window.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == "Delete ROM": 
-        deleteROM(os.path.join(drive, system, gamename.text()))
-    #Only enable deleting when selcted
-    if clickedColumn == 0:
-        selected = window.tbl_gamelist.selectedItems()
-        if selected:
-            window.btn_delete_roms.setEnabled(True)
-        else:
-            window.btn_delete_roms.setEnabled(False)
-    else:
-        window.btn_delete_roms.setEnabled(False)
-
-
-def headerClicked(column):
-    #Only enable deleting when selcted
-    if column == 0:
-        selected = window.tbl_gamelist.selectedItems()
-        if selected:
-            window.btn_delete_roms.setEnabled(True)
-        else:
-            window.btn_delete_roms.setEnabled(False)
-    else:
-        window.btn_delete_roms.setEnabled(False)
 
 def viewThumbnail(rom_path):
     window.window_thumbnail = ThumbnailDialog(rom_path)  
@@ -568,6 +372,19 @@ If you got into a bad state without patching the bootloader, you should patch it
 
 # SubClass QMainWindow to create a Tadpole general interface
 class MainWindow (QMainWindow):
+    _static_columns_GameName    = "Name"
+    _static_columns_Size        = "Size"
+    _static_columns_Thumbnail   = "Thumbnail"
+    _static_columns_Shortcut   = "Shortcut Slot"
+    _static_columns_Delete   = "Delete ROM"
+    columns = [_static_columns_GameName, 
+               _static_columns_Size, 
+               _static_columns_Thumbnail,
+               _static_columns_Shortcut,
+               _static_columns_Delete]
+
+    ROMList = []
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Tadpole - SF2000 Tool")
@@ -638,16 +455,17 @@ class MainWindow (QMainWindow):
 
         # Game Table Widget
         self.tbl_gamelist = QTableWidget()
-        self.tbl_gamelist.setColumnCount(5)
-        self.tbl_gamelist.setHorizontalHeaderLabels(["Name", "Size", "Thumbnail", "Shortcut Slot", "Delete ROM"])
+        self.tbl_gamelist.setColumnCount(len(self.columns))
+        self.tbl_gamelist.setHorizontalHeaderLabels(self.columns)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(0, QHeaderView.Interactive)
         self.tbl_gamelist.horizontalHeader().resizeSection(0, 300) 
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
         self.tbl_gamelist.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
-        self.tbl_gamelist.cellClicked.connect(catchTableCellClicked)
-        self.tbl_gamelist.horizontalHeader().sectionClicked.connect(headerClicked)
+        self.tbl_gamelist.cellClicked.connect(self.catchTableCellClicked)
+        self.tbl_gamelist.cellChanged.connect(self.catchTableCellChanged)
+        self.tbl_gamelist.horizontalHeader().sectionClicked.connect(self.headerClicked)
 
         layout.addWidget(self.tbl_gamelist)
         
@@ -657,7 +475,7 @@ class MainWindow (QMainWindow):
         # Ideally we would hook this into a trigger rather than polling for changes.
         # The resource cost of polling seems to be quite low though
         self.timer = QTimer()
-        self.timer.timeout.connect(reloadDriveList)
+        self.timer.timeout.connect(self.reloadDriveList)
         self.timer.start(1000)
 
     
@@ -800,17 +618,123 @@ class MainWindow (QMainWindow):
         self.menu_help.addSeparator()
         self.menu_help.addAction(self.about_action)
 
+
+    def catchTableCellChanged(self,changedRow,changedColumn):
+        print(f"Changed Cell for ({changedRow},{changedColumn})")
+        if self.columns[changedColumn] == self._static_columns_GameName:
+            # Update the game name
+            self.ROMList[changedRow].setTitle(self.sender().itemAt(changedColumn,changedRow).text())
+
+    def catchTableCellClicked(self, clickedRow, clickedColumn):
+        print(f"clicked Cell for ({clickedRow},{clickedColumn})")
+        drive = self.combobox_drive.currentText()
+        system = self.combobox_console.currentText() 
+        gamename = self.tbl_gamelist.item(clickedRow, 0)
+
+        if self.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == self._static_columns_Thumbnail:  
+            viewThumbnail(os.path.join(drive, system, gamename.text()))
+        elif self.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == self._static_columns_Delete: 
+            deleteROM(os.path.join(drive, system, gamename.text()))
+        #Only enable deleting when selcted
+        if clickedColumn == 0:
+            selected = self.tbl_gamelist.selectedItems()
+            if selected:
+                self.btn_delete_roms.setEnabled(True)
+            else:
+                self.btn_delete_roms.setEnabled(False)
+        else:
+            self.btn_delete_roms.setEnabled(False)
+
+
+    def headerClicked(self, column):
+        #Only enable deleting when selcted
+        if column == 0:
+            selected = window.tbl_gamelist.selectedItems()
+            if selected:
+                self.btn_delete_roms.setEnabled(True)
+            else:
+                self.btn_delete_roms.setEnabled(False)
+        else:
+            self.btn_delete_roms.setEnabled(False)
+        
+    def processGameShortcuts(self):
+        drive = self.combobox_drive.currentText()
+        console = self.combobox_console.currentText()
+        for i in range(self.tbl_gamelist.rowCount()):
+            comboBox = self.tbl_gamelist.cellWidget(i, 3)
+            #if its blank, it doesn't have a position so move on
+            if comboBox.currentText() == '':
+                continue
+            else:
+                position = int(comboBox.currentText())
+                #position is 0 based
+                position = position - 1
+                game = self.tbl_gamelist.item(i, 0).text()
+                tadpole_functions.changeGameShortcut(drive, console, position, game)
+    
+
+
+
+    """
+    Reloads the drive list to check whether there have been any changes
+    i.e current drive unplugged, new drives added, etc
+    """
+    def reloadDriveList(self):
+        #If polling is disabled don't do anything
+        if poll_drives == True:
+            current_drive = self.combobox_drive.currentText()
+            self.combobox_drive.clear()
+            localdrive = tpConf.getLocalUserDirectory()
+            #Check whether a local drive is configured.
+            if localdrive != tpConf._static_general_userDirectory_DEFAULT:
+                self.combobox_drive.addItem(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
+                                                localdrive,
+                                                localdrive)
+            
+            for drive in psutil.disk_partitions():
+                if os.path.exists(os.path.join(drive.mountpoint, "bios", "bisrv.asd")):
+                    self.combobox_drive.addItem(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
+                                                drive.mountpoint,
+                                                drive.mountpoint)
+
+            # Check if at least one frog drive is also configured. local + frog will mean at least 2 drives.
+            if localdrive != tpConf._static_general_userDirectory_DEFAULT and len(self.combobox_drive) > 1:
+                self.btn_coppy_user_selected_button.setEnabled(True)
+            else:
+                self.btn_coppy_user_selected_button.setEnabled(False)
+
+            if len(self.combobox_drive) > 0:
+                toggle_features(True)
+                
+                #TODO: Replace this a comparison of the list items instead.
+                if(current_drive == static_NoDrives):
+                    print("New drive detected")
+                    self.status_bar.showMessage("New SF2000 Drive(s) Detected.", 2000)
+                    logging.info(f"Automatically triggering drive change because a new drive connected")
+                    self.combobox_drive_change()
+                    
+            else:
+                # disable functions if nothing is in the combobox
+                self.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
+                self.status_bar.showMessage("No SF2000 Drive Detected. Please insert SD card and try again.", 2000)
+                toggle_features(False)
+                #TODO Should probably also clear the table of the ROMs that are still listed
+
+            self.combobox_drive.setCurrentText(current_drive)
+
+
+
     def testFunction(self):
         print("Called test function. Remember to disable this before publishing")
     
     def Settings(self):
         SettingsDialog(tpConf).exec()
-        if(window.combobox_drive.currentText() != static_NoDrives):
-            RunFrogTool(window.combobox_console.currentText())
+        if(self.combobox_drive.currentText() != static_NoDrives):
+            RunFrogTool(self.combobox_console.currentText())
 
     def detectOSVersion(self):
         print("Tadpole~DetectOSVersion: Trying to read bisrv hash")
-        drive = window.combobox_drive.currentText()
+        drive = self.combobox_drive.currentText()
         msg_box = DownloadProgressDialog()
         msg_box.setText("Detecting firmware version")
         msg_box.show()
@@ -825,7 +749,7 @@ class MainWindow (QMainWindow):
                 qm = QMessageBox
                 ret = qm.question(self,"Detected OS Version", f"Detected version: "+ detectedVersion + "\nDo you want to update to the latest firmware?" , qm.Yes | qm.No)
                 if ret == qm.Yes:
-                    MainWindow.Updateto20230803(self)
+                    self.Updateto20230803()
                 else:
                     return False
             elif detectedVersion == "2023.08.03 (V1.6)":
@@ -839,12 +763,12 @@ class MainWindow (QMainWindow):
 
         except Exception as e:
             msg_box.close()
-            QMessageBox.about("tadpole~detectOSVersion: Error occured while trying to find OS Version" + str(e))
+            logging.error("tadpole~detectOSVersion: Error occured while trying to find OS Version" + str(e))
             return
     
     def addBoxart(self):
-        drive = window.combobox_drive.currentText()
-        system = window.combobox_console.currentText()
+        drive = self.combobox_drive.currentText()
+        system = self.combobox_console.currentText()
         rom_path = os.path.join(drive,system)
         romList = frogtool.getROMList(rom_path)
         msgBox = DownloadProgressDialog()
@@ -932,14 +856,14 @@ the thumbnail for you. ")
                                     failedConversions += 1
                 msgBox.showProgress(i, True)
         msgBox.close()
-        RunFrogTool(window.combobox_console.currentText())
+        RunFrogTool(self.combobox_console.currentText())
         if failedConversions == 0:
-            QMessageBox.about(window, "Add thubmnails", "ROM thumbnails successfully changed")
-            RunFrogTool(window.combobox_console.currentText())
+            QMessageBox.about(self, "Add thubmnails", "ROM thumbnails successfully changed")
+            RunFrogTool(self.combobox_console.currentText())
             return True
         else:
-            QMessageBox.about(window, "Add thubmnails", "Adding thumbnails completed, but " + str(failedConversions) + " failed to convert.")
-            RunFrogTool(window.combobox_console.currentText())
+            QMessageBox.about(self, "Add thubmnails", "Adding thumbnails completed, but " + str(failedConversions) + " failed to convert.")
+            RunFrogTool(self.combobox_console.currentText())
             return False
         
     def change_background_music(self):
@@ -963,7 +887,7 @@ the thumbnail for you. ")
 from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieves for many amazing improvements")
 
     def GBABIOSFix(self):
-        drive = window.combobox_drive.currentText()
+        drive = self.combobox_drive.currentText()
         try:
             tadpole_functions.GBABIOSFix(drive)
         except tadpole_functions.Exception_InvalidPath:
@@ -977,7 +901,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         msgBox.setText(" Loading current boot logo...")
         msgBox.show()
         msgBox.showProgress(50, True)
-        dialog = BootConfirmDialog(window.combobox_drive.currentText(), basedir)
+        dialog = BootConfirmDialog(self.combobox_drive.currentText(), basedir)
         msgBox.close()
         change = dialog.exec()
         if change:
@@ -991,7 +915,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
                 msgBox.setText("Updating boot logo...")
                 msgBox.show()
                 msgBox.showProgress(10, True)
-                success = tadpole_functions.changeBootLogo(os.path.join(window.combobox_drive.currentText(),
+                success = tadpole_functions.changeBootLogo(os.path.join(self.combobox_drive.currentText(),
                                                               "bios",
                                                               "bisrv.asd"),
                                                  newLogoFileName, msgBox)
@@ -1004,27 +928,6 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
                 QMessageBox.about(self, "Change Boot Logo", "Boot logo successfully changed")
             else:
                 QMessageBox.about(self, "Change Boot Logo", "Could not update boot logo.  Have you changed the firmware with another tool?  Tadpole only supports stock firmware files")
-
-      
-    # def changeGameShortcuts(self):
-    #     drive = window.combobox_drive.currentText()
-    #     # Open a new modal to change the shortcuts for a specific gamename
-    #     window.window_shortcuts = changeGameShortcutsWindow()
-    #     window.window_shortcuts.setDrive(drive)
-    #     window.window_shortcuts.show()
-    
-    # def removeShortcutLabels(self):
-    #     drive = window.combobox_drive.currentText()
-    #     if tadpole_functions.stripShortcutText(drive):
-    #         QMessageBox.about(window, "Success", "Successfully removed Shortcut Labels")
-    #     else:
-    #         QMessageBox.about(window, "Something went wrong", "An error occured. Please contact EricGoldstein via the RetroHandheld Discord to look into it.")
-        
-    # def ConsoleLogos_RestoreDefault(self):
-    #     self.ConsoleLogos_change("https://github.com/EricGoldsteinNz/SF2000_Resources/raw/main/ConsoleLogos/default/sfcdr.cpl")
-    
-    # def ConsoleLogos_WesternLogos(self):
-    #     self.ConsoleLogos_change("https://github.com/EricGoldsteinNz/SF2000_Resources/raw/main/ConsoleLogos/western_console_logos/sfcdr.cpl")
 
     def UnderDevelopmentPopup(self):
         QMessageBox.about(self, "Development", "This feature is still under development")
@@ -1058,27 +961,21 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
 
     def Battery_fix(self):
         qm = QMessageBox()
-        ret = qm.question(window,'Patch Firmware?', "Are you sure you want to patch the firmware? The system will also check if the latest firmware is on the SD card, so make sure you are up to date." , qm.Yes | qm.No)
+        ret = qm.question(self,'Patch Firmware?', "Are you sure you want to patch the firmware? The system will also check if the latest firmware is on the SD card, so make sure you are up to date." , qm.Yes | qm.No)
         if ret == qm.No:
             return
-        Drive = window.combobox_drive.currentText()
-        BisrvLocation = os.path.join(Drive,"bios","bisrv.asd")
-        battery_patcher = tadpole_functions.BatteryPatcher(BisrvLocation, BisrvLocation)
-
-        with open(BisrvLocation, 'rb') as f:
-                bisrv_data = bytearray(f.read())
-                print("File '%s' opened successfully." % BisrvLocation)
-        if battery_patcher.check_patch_applied(bisrv_data):
+        battery_patcher = tadpole_functions.BatteryPatcher(os.path.join(self.combobox_drive.currentText(),"bios","bisrv.asd"))
+        if battery_patcher.check_patch_applied():
             QMessageBox.about(self, "Status","You already have the battery patch applied")
             return
         #Order matters, if they are on patch, they will fail so do this second
-        elif not battery_patcher.check_latest_firmware(bisrv_data):
+        elif not battery_patcher.check_latest_firmware():
             qm = QMessageBox()
-            ret = qm.question(window,'Status', "You need to be on the latest released firmware for the patched battery.  Do you want to downlaod it now?" , qm.Yes | qm.No)
+            ret = qm.question(self,'Status', "This version of tadpole only supports battery patching of v1.6 firmware.  Do you want to downlaod it now?" , qm.Yes | qm.No)
             if ret == qm.No:
                 return
             else:
-                window.Updateto20230803()
+                self.Updateto20230803()
         #get some progress for the user
         UpdateMsgBox = DownloadProgressDialog()
         UpdateMsgBox.setText("Patching firmware...")
@@ -1091,7 +988,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         UpdateMsgBox.close()
 
     def UpdateDevice(self, url):
-        drive = window.combobox_drive.currentText()
+        drive = self.combobox_drive.currentText()
         msgBox = QMessageBox()
 
         msgBox = DownloadProgressDialog()
@@ -1107,10 +1004,10 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
 
     def change_theme(self, url):
         qm = QMessageBox()
-        ret = qm.question(window,'Heads up', "Changing themes will ovewrite your game shortcut icons.  You can change them again after the theme is applied.  Are you sure you want to change your theme?" , qm.Yes | qm.No)
+        ret = qm.question(self,'Heads up', "Changing themes will ovewrite your game shortcut icons.  You can change them again after the theme is applied.  Are you sure you want to change your theme?" , qm.Yes | qm.No)
         if ret == qm.No:
             return
-        drive = window.combobox_drive.currentText()
+        drive = self.combobox_drive.currentText()
         #TODO error handling
         if not self.sender().text() == "Update From Local File...":
             url =  self.theme_options[self.sender().text()]
@@ -1126,21 +1023,21 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
                 result = tadpole_functions.changeTheme(drive, "", theme_zip[0], msgBox.progress)
                 msgBox.close()
                 if result:
-                    QMessageBox.about(window, "Success", "Theme changed successfully")
+                    QMessageBox.about(self, "Success", "Theme changed successfully")
                 else:
-                    QMessageBox.about(window, "Failure", "Something went wrong while trying to change the theme")
+                    QMessageBox.about(self, "Failure", "Something went wrong while trying to change the theme")
 
         elif url[0:4] == "http":  # internet-based
                 result = tadpole_functions.changeTheme(drive,url, "", msgBox.progress)
                 msgBox.close()
-                QMessageBox.about(window, "Success", "Theme changed successfully")
+                QMessageBox.about(self, "Success", "Theme changed successfully")
         else:
-            QMessageBox.about(window, "Failure", "Something went wrong while trying to change the theme")
+            QMessageBox.about(self, "Failure", "Something went wrong while trying to change the theme")
 
     def download_bootlogo(self):
         status = True
         url = self.boot_logos[self.sender().text()]
-        drive = window.combobox_drive.currentText()
+        drive = self.combobox_drive.currentText()
         index_path = os.path.join(drive,"bios","bisrv.asd")
         bootlogo_file = "bootlogo.tmp"
         msgBox = DownloadProgressDialog()
@@ -1150,10 +1047,10 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         if not tadpole_functions.downloadFileFromGithub(bootlogo_file, url):
             status = False
         if tadpole_functions.changeBootLogo(index_path, bootlogo_file, msgBox):
-            QMessageBox.about(window, "Success", "The boot logo was updated to " + self.sender().text())
+            QMessageBox.about(self, "Success", "The boot logo was updated to " + self.sender().text())
             status = True
         else:
-            QMessageBox.about(window, "Failure", "Something went wrong while trying to change the theme")
+            QMessageBox.about(self, "Failure", "Something went wrong while trying to change the theme")
             status = True
         os.remove(bootlogo_file)
         return status
@@ -1163,7 +1060,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
         return
 
     def createSaveBackup(self):
-        drive = window.combobox_drive.currentText()
+        drive = self.combobox_drive.currentText()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         QMessageBox.about(self, "Select location",f"Select where you want to save your backup, \
 or cancel to save in the same directory as Tadpole.\n\n\
@@ -1193,6 +1090,7 @@ It is recommended to save it somewhere other than your SD card used with the SF2
         console = window.combobox_console.currentText()
         #ARCADE is special, only ZIP's are supported
         if(console == 'ARCADE'):
+            
             filenames, _ = QFileDialog.getOpenFileNames(self,"Select ROMs",'',"ROM files (*.zip *.bkp)")
         else:
             filenames, _ = QFileDialog.getOpenFileNames(self,"Select ROMs",'',"ROM files (*.zip *.bkp \
@@ -1231,29 +1129,29 @@ It is recommended to save it somewhere other than your SD card used with the SF2
             ret = qm.question(self,'Add Thumbnails?', f"Added " + str(len(filenames)) + " ROMs to " + consolePath + "\n\nDo you want to add thumbnails?\n\n\
 Note: You can change in settings to either pick your own or try to downlad automatically.", qm.Yes | qm.No)
             if ret == qm.Yes:
-                MainWindow.addBoxart(self)
-        RunFrogTool(window.combobox_console.currentText())
+                self.addBoxart()
+        RunFrogTool(console)
 
             
     def validateGameShortcutComboBox(self):
         currentComboBox = self.sender() 
         if currentComboBox.currentText() == '':
-            QMessageBox.about(window, "Game Shortcut","You can't really remove a game shortcut slot on SF2000.\n\nIf you don't pick another game, this game will stay as a shortcut when you switch systems or make other changes.")
-        if currentComboBox.currentText() != '':
+            QMessageBox.about(self, "Game Shortcut","You can't really remove a game shortcut slot on SF2000.\n\nIf you don't pick another game, this game will stay as a shortcut when you switch systems or make other changes.")
+        else:
             for i in range(self.tbl_gamelist.rowCount()):
-                comboBox = window.tbl_gamelist.cellWidget(i, 3)
+                comboBox = self.tbl_gamelist.cellWidget(i, 3)
                 if comboBox == currentComboBox:
                     continue
                 if comboBox.currentText() == currentComboBox.currentText():
-                    QMessageBox.about(window, "Error","You had the shortcut: " + comboBox.currentText() + " assigned to " + window.tbl_gamelist.item(i, 0).text()+ "\nChanging it to the newly selected game.")
+                    QMessageBox.about(self, "Error","You had the shortcut: " + comboBox.currentText() + " assigned to " + window.tbl_gamelist.item(i, 0).text()+ "\nChanging it to the newly selected game.")
                     comboBox.setCurrentIndex(0)
-        processGameShortcuts()
+        self.processGameShortcuts()
         return
     
     def addShortcutImages(self):
         drive = self.combobox_drive.currentText()
         console = self.combobox_console.currentText()
-        table = window.tbl_gamelist
+        table = self.tbl_gamelist
         dialog = GameShortcutIconsDialog(drive, console, table)
         status = dialog.exec()
         if status:
@@ -1265,12 +1163,12 @@ Note: You can change in settings to either pick your own or try to downlad autom
             os.remove('currentBackground.temp.png')
 
     def deleteROMs(self):
-        drive = window.combobox_drive.currentText()
+        drive = self.combobox_drive.currentText()
         qm = QMessageBox
-        ret = qm.question(window,'Delete ROMs?', "Are you sure you want to delete all selected ROMs?" , qm.Yes | qm.No)
+        ret = qm.question(self,'Delete ROMs?', "Are you sure you want to delete all selected ROMs?" , qm.Yes | qm.No)
         if ret == qm.No:
             return
-        for item in window.tbl_gamelist.selectedItems():
+        for item in self.tbl_gamelist.selectedItems():
             try:
                 romPATH = os.path.join(self.combobox_drive.currentText(), self.combobox_console.currentText(), item.text())
                 if console == 'ARCADE':
@@ -1279,35 +1177,145 @@ Note: You can change in settings to either pick your own or try to downlad autom
                     os.remove(arcadeZIPPath)
                 os.remove(romPATH)
             except Exception:
-                QMessageBox.about(window, "Error","Could not delete ROM.")
+                QMessageBox.about(self, "Error","Could not delete ROM.")
         QMessageBox.about(self, "Success",f"Successfully deleted selected ROMs.")
         RunFrogTool(self.combobox_console.currentText())
 
     def copyUserSelectedDirectoryButton(self):
-        source_directory = window.combobox_drive.currentText()
+        source_directory = self.combobox_drive.currentText()
         qm = QMessageBox()
-        ret = qm.question(window, "Copy?", "Do you want to copy your entire folder over to the SD?\n\n\
-All files will be overriden, INCLUDING game saves.  Are you sure you want to continue?")
+        ret = qm.question(self, "Copy?", "Do you want to copy your entire folder over to the SD?\n\n\
+                          All files will be overriden, INCLUDING game saves.  Are you sure you want to continue?")
         if ret == qm.No:
             return
         for drive in psutil.disk_partitions():
             #TODO: should we check if it has more?
             if os.path.exists(os.path.join(drive.mountpoint, "bios", "bisrv.asd")):
                 #TODO: what happens if we run out of space?
-                ret = qm.question(window, "SD Card", "Froggy files found on " + drive.mountpoint + "\n\nAre you sure you want to copy and overwrite all files, including saves?")
+                ret = qm.question(self, "SD Card", "Froggy files found on " + drive.mountpoint + "\n\nAre you sure you want to copy and overwrite all files, including saves?")
                 if ret == qm.No:
-                    return
-
-                destination_directory = drive.mountpoint
-                
+                    return              
                 progressMsgBox = DownloadProgressDialog()
                 progressMsgBox.setText("Copying files")
                 progressMsgBox.show()
-                progressMsgBox.progress.setMaximum
-                tadpole_functions.copy_files(source_directory, destination_directory, progressMsgBox.progress)
+                tadpole_functions.copy_files(source_directory, drive.mountpoint, progressMsgBox.progress)
                 progressMsgBox.close()
-                QMessageBox.about(window, "Success", "Files copied successfully.")
+                QMessageBox.about(self, "Success", "Files copied successfully.")
                 return
+    
+    
+    #NOTE: this function refreshes the ROM table.  If you run this AND NOT FROG_TOOL, you can get your window out of sync
+    #So don't run loadROMsToTable, instead run FrogTool(console)
+    def loadROMsToTable(self):
+        drive = self.combobox_drive.currentText()
+        system = self.combobox_console.currentText()
+        print(f"loading roms to table for ({drive}) ({system})")
+        logging.info(f"loading roms to table for ({drive}) ({system})")
+        msgBox = DownloadProgressDialog()
+        msgBox.setText(" Loading "+ system + " ROMS...")
+        if drive == static_NoDrives or system == "???" or system == static_AllSystems:
+            #TODO: should load ALL ROMs to the table rather than none
+            self.tbl_gamelist.setRowCount(0)
+            return
+        roms_path = os.path.join(drive, system)
+        try:
+            files = frogtool.getROMList(roms_path)
+            self.ROMList = []
+
+            msgBox.progress.reset()
+            msgBox.progress.setMaximum(len(files))
+            msgBox.show()
+            QApplication.processEvents()
+            #Disable signals from firing from these changes
+            self.tbl_gamelist.cellChanged.disconnect(self.catchTableCellChanged)
+            self.tbl_gamelist.setRowCount(len(files))
+            print(f"Found {len(files)} ROMs")
+            #sort the list aphabetically before we go through it
+            files = sorted(files)
+            for i,game in enumerate(files):
+                objGame = sf2000ROM(os.path.join(roms_path, game))
+                self.ROMList.append(objGame)
+                humanReadableFileSize = tadpole_functions.getHumanReadableFileSize(objGame.getFileSize())
+                # Filename
+                cell_filename = QTableWidgetItem(f"{objGame.title}")
+                cell_filename.setTextAlignment(Qt.AlignVCenter)
+                #cell_filename.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
+                self.tbl_gamelist.setItem(i, 0, cell_filename)  
+                #Filesize
+                cell_fileSize = QTableWidgetItem(f"{humanReadableFileSize}")
+                cell_fileSize.setTextAlignment(Qt.AlignCenter)
+                cell_fileSize.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
+                self.tbl_gamelist.setItem(i, 1, cell_fileSize) 
+                # View Thumbnail 
+                #Show picture if thumbnails in View is selected
+                if tpConf.getViewThumbnailsInTable():
+                    cell_viewthumbnail = QTableWidgetItem()
+                    cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
+                    pathToROM = os.path.join(roms_path, game)
+                    extension = Path(pathToROM).suffix
+                    #only show thumbnails of the .z** files 
+                    sys_zxx_ext = '.' + frogtool.zxx_ext[system]
+                    if(extension == sys_zxx_ext):
+                        with open(pathToROM, "rb") as rom_file:
+                            rom_content = bytearray(rom_file.read(((144*208)*2)))
+                        img = QImage(rom_content[0:((144*208)*2)], 144, 208, QImage.Format_RGB16) # The byte array length has been left here as a second safety to ensure we dont try to over read.
+                        pimg = QPixmap()
+                        icon = QIcon()
+                        QPixmap.convertFromImage(pimg, img)
+                        QIcon.addPixmap(icon, pimg)
+                        cell_viewthumbnail.setIcon(icon)
+                        size = QSize(144, 208)
+                        self.tbl_gamelist.setIconSize(size)
+                        cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
+                        self.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)
+                    else:
+                        cell_viewthumbnail = QTableWidgetItem(f"\nNo thumbnail\n Click to edit\n")
+                        cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
+                        cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
+                        self.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)   
+                else:
+                    cell_viewthumbnail = QTableWidgetItem(f"View")
+                    cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
+                    cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
+                    self.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)   
+                # Add to Shortcuts-
+                shortcut_comboBox = QComboBox()
+                shortcut_comboBox.addItem("")
+                shortcut_comboBox.addItem("1")
+                shortcut_comboBox.addItem("2")
+                shortcut_comboBox.addItem("3")
+                shortcut_comboBox.addItem("4")
+                # set previously saved shortcuts
+                position = tadpole_functions.getGameShortcutPosition(drive, system, game)
+                shortcut_comboBox.setCurrentIndex(position)
+                # get a callback to make sure the user isn't setting the same shortcut twice
+                self.tbl_gamelist.setCellWidget(i, 3, shortcut_comboBox)
+                shortcut_comboBox.activated.connect(self.validateGameShortcutComboBox)
+
+                # View Delete Button 
+                cell_delete = QTableWidgetItem(f"Delete")
+                cell_delete.setTextAlignment(Qt.AlignCenter)
+                cell_delete.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
+                self.tbl_gamelist.setItem(i, 4, cell_delete)
+                # Update progressbar
+                msgBox.showProgress(i, False)
+            self.tbl_gamelist.resizeRowsToContents()
+            #Restore signals
+            self.tbl_gamelist.cellChanged.connect(self.catchTableCellChanged)
+            print("finished loading roms to table")    
+        except frogtool.StopExecution:
+            # Empty the table
+            self.tbl_gamelist.setRowCount(0)
+            print("frogtool stop execution on table load caught")
+        msgBox.close()  
+        self.tbl_gamelist.scrollToTop()
+        self.tbl_gamelist.show()
+
+    def RebuildClicked(self):
+        RunFrogTool(self.combobox_console.currentText())
+        return
+
+
 
             
 if __name__ == "__main__":
@@ -1341,7 +1349,7 @@ if __name__ == "__main__":
         # Update list of drives
         window.combobox_drive.addItem(QIcon(), static_NoDrives, static_NoDrives)
         #Check for Froggy SD cards
-        reloadDriveList()
+        window.reloadDriveList()
         app.exec()
     except Exception as e:
         print(f"ERROR: An Exception occurred. {e}")

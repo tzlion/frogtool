@@ -1148,12 +1148,12 @@ def addThumbnail(rom_path, drive, system, new_thumbnail, ovewrite):
 #Thanks to Dteyn for putting the python together from here: https://github.com/Dteyn/SF2000_Battery_Level_Patcher/blob/master/main.py
 #Thanks to OpenAI for writing the class and converting logging to prints
 class BatteryPatcher:
-    def __init__(self, firmware_file, patched_file):
+    def __init__(self, firmware_file):
 
         # Filename of original firmware file to open
         self.firmware_file = firmware_file
         # Filename of patched firmware file to save
-        self.patched_file = patched_file
+        self.patched_file = firmware_file
 
         # Define voltage values for each battery level (user can modify these)
         self.VOLTAGE_LEVELS = {
@@ -1220,26 +1220,33 @@ class BatteryPatcher:
 
         return c
 
-    def check_patch_applied(self, bisrv_data):
+    def check_patch_applied(self):
+        with open(self.firmware_file, 'rb') as f:
+            bisrv_data = bytearray(f.read())
+            logging.info("File '%s' opened successfully." % self.firmware_file)
+        # TODO add error checking
         for addr, expected_value in zip(self.ADDRESSES, self.BATTERY_FIX_VALUES):
             if bisrv_data[addr] != expected_value:
                 print("The firmware does not match the expected battery patched versions at offset %X. "
                             "Please check the offsets." %addr)
                 return False
-        print("The firmware matched the expected battery patched versions at offset %X." %addr)
+        logging.info("The firmware matched the expected battery patched versions at offset %X." %addr)
         return True
 
 
-    def check_latest_firmware(self, bisrv_data):
+    def check_latest_firmware(self):
         """
         Check if the firmware matches the patched values
         """
+        with open(self.firmware_file, 'rb') as f:
+            bisrv_data = bytearray(f.read())
+            logging.info("File '%s' opened successfully." % self.firmware_file)
         for addr, expected_value in zip(self.ADDRESSES, self.STOCK_VALUES):
             if bisrv_data[addr] != expected_value:
                 print("The firmware does not match the expected '08.03' version at offset %X. "
                               "Please check the offsets." %addr)
                 return False
-        print("The firmware matched the expected firmware versions at offset %X." %addr)
+        logging.info("The firmware matched the expected firmware versions at offset %X." %addr)
         return True
 
     def patch_firmware(self, progressIndicator):
@@ -1254,7 +1261,7 @@ class BatteryPatcher:
             print("File '%s' opened successfully." % self.firmware_file)
 
             # Perform sanity check
-            if not self.check_latest_firmware(bisrv_data):
+            if not self.check_latest_firmware():
                 return
 
             # Patch the battery values
