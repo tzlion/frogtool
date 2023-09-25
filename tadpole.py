@@ -332,14 +332,20 @@ def viewThumbnail(rom_path):
             return False
 
 def deleteROM(rom_path):
+    console = window.combobox_console.currentText()
+    drive = window.combobox_drive.currentData()
     qm = QMessageBox
     ret = qm.question(window,'Delete ROM?', "Are you sure you want to delete " + rom_path +" and rebuild the ROM list? " , qm.Yes | qm.No)
     if ret == qm.Yes:
         try:
+            if console == 'ARCADE':
+                arcadeZIPROM = tadpole_functions.extractFileNameFromZFB(rom_path)
+                arcadeZIPPath = os.path.join(drive, console, 'bin', arcadeZIPROM)
+                os.remove(arcadeZIPPath)
             os.remove(rom_path)
         except Exception:
             QMessageBox.about(window, "Error","Could not delete file.")
-        RunFrogTool(window.combobox_console.currentText())
+        RunFrogTool(console)
     return
 
 def addToShortcuts(rom_path):
@@ -1185,11 +1191,11 @@ It is recommended to save it somewhere other than your SD card used with the SF2
     def copyRoms(self):
         drive = window.combobox_drive.currentText()
         console = window.combobox_console.currentText()
-
-        if(console == "ALL"):
-            QMessageBox.about(self, "Action needed",f"Please select a console in the dropdown")
-            return
-        filenames, _ = QFileDialog.getOpenFileNames(self,"Select ROMs",'',"ROM files (*.zip *.bkp \
+        #ARCADE is special, only ZIP's are supported
+        if(console == 'ARCADE'):
+            filenames, _ = QFileDialog.getOpenFileNames(self,"Select ROMs",'',"ROM files (*.zip *.bkp)")
+        else:
+            filenames, _ = QFileDialog.getOpenFileNames(self,"Select ROMs",'',"ROM files (*.zip *.bkp \
                                                     *.zfc *.zsf *.zmd *.zgb *.zfb *.smc *.fig *.sfc *.gd3 *.gd7 *.dx2 *.bsx *.swc \
                                                     *.nes *.nfc *.fds *.unf *.gbc *.gb *.sgb *.gba *.agb *.gbz *.bin *.md *.smd *.gen *.sms)")
         if len(filenames) == 0:
@@ -1208,7 +1214,13 @@ It is recommended to save it somewhere other than your SD card used with the SF2
                 #Additoinal safety to make sure this file exists...
                 try: 
                     if os.path.isfile(filename):
-                        consolePath = os.path.join(drive, console)
+                        #Arcade needs the zip file in the /bin folder and we create the ZFB for it
+                        if console == 'ARCADE':
+                            consolePath = os.path.join(drive, console, 'bin')
+                            #Arcade also needs up to create the ZFB as its just the thumbnail + filename
+                            tadpole_functions.createZFBFile(drive, '', filename)
+                        else:
+                            consolePath = os.path.join(drive, console)
                         shutil.copy(filename, consolePath)
                         print (filename + " added to " + consolePath)
                 except Exception as e:
@@ -1253,6 +1265,7 @@ Note: You can change in settings to either pick your own or try to downlad autom
             os.remove('currentBackground.temp.png')
 
     def deleteROMs(self):
+        drive = window.combobox_drive.currentText()
         qm = QMessageBox
         ret = qm.question(window,'Delete ROMs?', "Are you sure you want to delete all selected ROMs?" , qm.Yes | qm.No)
         if ret == qm.No:
@@ -1260,6 +1273,10 @@ Note: You can change in settings to either pick your own or try to downlad autom
         for item in window.tbl_gamelist.selectedItems():
             try:
                 romPATH = os.path.join(self.combobox_drive.currentText(), self.combobox_console.currentText(), item.text())
+                if console == 'ARCADE':
+                    arcadeZIPROM = tadpole_functions.extractFileNameFromZFB(romPATH)
+                    arcadeZIPPath = os.path.join(drive, console, 'bin', arcadeZIPROM)
+                    os.remove(arcadeZIPPath)
                 os.remove(romPATH)
             except Exception:
                 QMessageBox.about(window, "Error","Could not delete ROM.")
