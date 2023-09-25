@@ -418,7 +418,7 @@ position is a 0-based index of the short. values 0 to 3 are considered valid.
 game should be the file name including extension. ie Final Fantasy Tactics Advance (USA).zgb
 """
 
-def changeGameShortcut(index_path, console, position, game):
+def changeGameShortcut(drive, console, position, game):
     # Check the passed variables for validity
     if not(0 <= position <= 3):
         raise Exception_InvalidPath
@@ -429,16 +429,17 @@ def changeGameShortcut(index_path, console, position, game):
         trimmedGameName = frogtool.strip_file_extension(game)
         #print(f"Filename trimmed to: {trimmedGameName}")
         #Read in all the existing shortcuts from file
-        xfgle_filepath = os.path.join(index_path, "Resources", "xfgle.hgp")
+        xfgle_filepath = os.path.join(drive, "Resources", "xfgle.hgp")
         xfgle_file_handle = open(xfgle_filepath, "r")
         lines = xfgle_file_handle.readlines()
         xfgle_file_handle.close()
         prefix = getPrefixFromConsole(console)
         # Bug fix: Arcade shortcuts point to the ZIP file not the zfb file
         if console == 'ARCADE':
-            # Rename the file to its zip
-            #TODO: the zips are not the same name as the ZFB's so this won't work :( )
-            game = game.replace(".zfb", f".zip")
+            #Arcade is special as its location is embedded in the ZFB
+            #so we need to go get it
+            ROM_path = os.path.join(drive, console, game)
+            game = extractFileNameFromZFB(ROM_path)
         # Overwrite the one line we want to change
         lines[4*systems[console][3]+position] = f"{prefix} {game}*\n"
         # Save the changes out to file
@@ -452,48 +453,54 @@ def changeGameShortcut(index_path, console, position, game):
   
     return -1
 
-def deleteGameShortcut(index_path, console, position, game):
-    # Check the passed variables for validity
-    if not(0 <= position <= 3):
-        raise Exception_InvalidPath
-    if not (console in systems.keys()):
-        raise Exception_InvalidConsole
+# NOTE: this doesn't really work as the shortcuts persist visually so removing
+# will just mean the links don't go to anything
+# def deleteGameShortcut(index_path, console, position, game):
+#     # Check the passed variables for validity
+#     if not(0 <= position <= 3):
+#         raise Exception_InvalidPath
+#     if not (console in systems.keys()):
+#         raise Exception_InvalidConsole
         
-    try:
-        trimmedGameName = frogtool.strip_file_extension(game)
-        #print(f"Filename trimmed to: {trimmedGameName}")
-        #Read in all the existing shortcuts from file
-        xfgle_filepath = os.path.join(index_path, "Resources", "xfgle.hgp")
-        xfgle_file_handle = open(xfgle_filepath, "r")
-        lines = xfgle_file_handle.readlines()
-        xfgle_file_handle.close()
-        prefix = getPrefixFromConsole(console)
-        # Overwrite the one line we want to change
-        lines[4*systems[console][3]+position] = f"{prefix} {game}*\n"
-        # Save the changes out to file
-        xfgle_file_handle = open(xfgle_filepath, "w")
-        for line in lines:
-            if line.strip("\n") != f"{prefix} {game}*":
-                xfgle_file_handle.write(line)
-        xfgle_file_handle.close()       
-    except (OSError, IOError):
-        print(f"! Failed changing the shortcut file")
-        return False
+#     try:
+#         trimmedGameName = frogtool.strip_file_extension(game)
+#         #print(f"Filename trimmed to: {trimmedGameName}")
+#         #Read in all the existing shortcuts from file
+#         xfgle_filepath = os.path.join(index_path, "Resources", "xfgle.hgp")
+#         xfgle_file_handle = open(xfgle_filepath, "r")
+#         lines = xfgle_file_handle.readlines()
+#         xfgle_file_handle.close()
+#         prefix = getPrefixFromConsole(console)
+#         # Overwrite the one line we want to change
+#         lines[4*systems[console][3]+position] = f"{prefix} {game}*\n"
+#         # Save the changes out to file
+#         xfgle_file_handle = open(xfgle_filepath, "w")
+#         for line in lines:
+#             if line.strip("\n") != f"{prefix} {game}*":
+#                 xfgle_file_handle.write(line)
+#         xfgle_file_handle.close()       
+#     except (OSError, IOError):
+#         print(f"! Failed changing the shortcut file")
+#         return False
   
-    return -1
+#     return -1
 
 #returns the position of the game's shortcut on the main screen.  If it isn't a shortcut, it returns 0  
-def getGameShortcutPosition(index_path, console, game):
+def getGameShortcutPosition(drive, console, game):
         
     try:
+        gamePath = os.path.join(drive, console, game)
         #Read in all the existing shortcuts from file
-        xfgle_filepath = os.path.join(index_path, "Resources", "xfgle.hgp")
+        xfgle_filepath = os.path.join(drive, "Resources", "xfgle.hgp")
         xfgle_file_handle = open(xfgle_filepath, "r")
         lines = xfgle_file_handle.readlines()
         xfgle_file_handle.close()
         prefix = getPrefixFromConsole(console)
-        # see if this game is listed.  If so get its position
+        #Arcade is special; the actual game name is embedded in the ZFB
+        if(console == "ARCADE" ):
+            game = extractFileNameFromZFB(gamePath)             
         savedShortcut = f"{prefix} {game}*\n"
+        # see if this game is listed.  If so get its position
         for i, gameShortcutLine in enumerate(lines):
             if gameShortcutLine == savedShortcut:
                 print("Found " + savedShortcut + "as shortcut")
@@ -828,13 +835,40 @@ def emptyFile(path) -> bool:
 def emptyHistory(drive) -> bool:
     return emptyFile(os.path.join(drive, "Resources", "History.bin"))
 
+#Thanks Von Millhausen
+#The first 59,905 bytes are for the thumbnail image (208px * 144px, stored in RGB565 format which is two bytes per pixel),
+# then there's four null bytes, then there's the name of a .zip file with no path (presumably /ARCADE/bin/ is hardcoded), and then finally two null bytes 
+def extractFileNameFromZFB(romFilePath):
+    try:
+        with open(romFilePath, "rb") as rom_file:
+            #get past the RAW image
+            rom_file.seek(59908)
+            #need to now go until we find the null bytes
+            rom_file_end = rom_file.read()
+            rom_name_content = bytearray()
+            i = 0
+            while i < len(rom_file_end):
+                if rom_file_end[i] == 0x00 and rom_file_end[i+1] == 0x00:
+                    break
+                rom_name_content.append(rom_file_end[i])
+                i += 1
+            #rom_content = bytearray(rom_file.read(907))
+            fileName = rom_name_content.decode()
+            logging.info(fileName + 'decoded from RAW')
+            #hex_string = ''.join([f'{b:02X}' for b in rom_content])
+            #fileName = bytes.fromhex(hex_string)
+            return fileName
+    except Exception as e:
+        logging.error(romFilePath +  'not found')
+        return ''
 
 def extractImgFromROM(romFilePath, outfilePath):
     with open(romFilePath, "rb") as rom_file:
+
         rom_content = bytearray(rom_file.read())
         img = QImage(rom_content[0:((144*208)*2)], 144, 208, QImage.Format_RGB16)
         img.save(outfilePath)
-        
+
         
 def GBABIOSFix(drive: str):
     if drive == "???":
