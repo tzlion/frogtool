@@ -213,13 +213,13 @@ by matching the name of the game and a folder you select?  You can change the ic
             game = self.resize_for_shortcut(game)
             workingPNG = Image.open(self.workingPNGPath)
             if icon == 1:
-                workingPNG.paste(game, (42,290))
+                workingPNG.paste(game, (42,290), game)
             if icon == 2:
-                workingPNG.paste(game, (186,290))
+                workingPNG.paste(game, (186,290), game)
             if icon == 3:
-                workingPNG.paste(game, (330,290))
+                workingPNG.paste(game, (330,290), game)
             if icon == 4:
-                workingPNG.paste(game, (474,290))
+                workingPNG.paste(game, (474,290), game)
         except:
             logging.error("Failed to open {game}")
             return
