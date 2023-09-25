@@ -855,12 +855,55 @@ def extractFileNameFromZFB(romFilePath):
             #rom_content = bytearray(rom_file.read(907))
             fileName = rom_name_content.decode()
             logging.info(fileName + 'decoded from RAW')
-            #hex_string = ''.join([f'{b:02X}' for b in rom_content])
-            #fileName = bytes.fromhex(hex_string)
             return fileName
     except Exception as e:
         logging.error(romFilePath +  'not found')
         return ''
+
+#Thanks DTeyn for the code!: https://github.com/Dteyn/ZFBTool/blob/master/ZFBTool.pyw
+def createZFBFile(drive, pngPath, romPath):
+    """Creates a .ZFB file with input .PNG file and ARCADE ROM .ZIP name"""
+    # Define the size of the thumbnail
+    thumb_size = (144, 208)
+    try:
+        #if its blank, just give it 1's as raw data for the first bytes
+        if pngPath == '': 
+            raw_data_bytes = bytes(b'\x01' * 59904)
+        else:
+            with Image.open(pngPath) as img:
+                img = img.resize(thumb_size)
+                img = img.convert("RGB")
+                raw_data = []
+                # Convert image to RGB565
+                for y in range(thumb_size[1]):
+                    for x in range(thumb_size[0]):
+                        r, g, b = img.getpixel((x, y))
+                        rgb = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
+                        raw_data.append(struct.pack('H', rgb))
+                raw_data_bytes = b''.join(raw_data)
+        # Create .zfb filename
+        ZIPName = os.path.basename(romPath)
+        ROMName = os.path.splitext(ZIPName)[0]
+        zfb_file = os.path.join(drive, 'ARCADE', ROMName + '.zfb')
+        
+        # Now we write the entire ZFB file
+        with open(zfb_file, 'wb') as zfb:
+            # Write the image data to the .zfb file
+            zfb.write(raw_data_bytes)
+
+            # Write four 00 bytes
+            zfb.write(b'\x00\x00\x00\x00')
+
+            # Write the ROM filename
+            zfb.write(ZIPName.encode())
+
+            # Write two 00 bytes
+            zfb.write(b'\x00\x00')
+        logging.info(f"ZFB file created successfully.")
+        return True
+    except Exception as e:
+        logging.error(f"An error occurred while creating the ZFB file: {str(e)}")
+        return False
 
 def extractImgFromROM(romFilePath, outfilePath):
     with open(romFilePath, "rb") as rom_file:
