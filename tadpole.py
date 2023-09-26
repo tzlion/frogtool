@@ -630,11 +630,11 @@ class MainWindow (QMainWindow):
         drive = self.combobox_drive.currentText()
         system = self.combobox_console.currentText() 
         gamename = self.tbl_gamelist.item(clickedRow, 0)
-
+        objGame = self.ROMList[clickedRow]
         if self.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == self._static_columns_Thumbnail:  
-            viewThumbnail(os.path.join(drive, system, gamename.text()))
+            viewThumbnail(objGame.ROMlocation)
         elif self.tbl_gamelist.horizontalHeaderItem(clickedColumn).text() == self._static_columns_Delete: 
-            deleteROM(os.path.join(drive, system, gamename.text()))
+            deleteROM(objGame.ROMlocation)
         #Only enable deleting when selcted
         if clickedColumn == 0:
             selected = self.tbl_gamelist.selectedItems()
@@ -1162,24 +1162,26 @@ Note: You can change in settings to either pick your own or try to downlad autom
         if os.path.exists('currentBackground.temp.png'):
             os.remove('currentBackground.temp.png')
 
-    def deleteROMs(self):
+    def deleteROMs(self):       
         drive = self.combobox_drive.currentText()
+        console = self.combobox_console.currentText()
         qm = QMessageBox
         ret = qm.question(self,'Delete ROMs?', "Are you sure you want to delete all selected ROMs?" , qm.Yes | qm.No)
         if ret == qm.No:
             return
         for item in self.tbl_gamelist.selectedItems():
             try:
-                romPATH = os.path.join(self.combobox_drive.currentText(), self.combobox_console.currentText(), item.text())
+                objGame = self.ROMList[item.row()]
+                romPATH = os.path.join(drive, console, item.text())
                 if console == 'ARCADE':
-                    arcadeZIPROM = tadpole_functions.extractFileNameFromZFB(romPATH)
+                    arcadeZIPROM = tadpole_functions.extractFileNameFromZFB(objGame.ROMlocation)
                     arcadeZIPPath = os.path.join(drive, console, 'bin', arcadeZIPROM)
                     os.remove(arcadeZIPPath)
-                os.remove(romPATH)
+                os.remove(objGame.ROMlocation)
             except Exception:
                 QMessageBox.about(self, "Error","Could not delete ROM.")
         QMessageBox.about(self, "Success",f"Successfully deleted selected ROMs.")
-        RunFrogTool(self.combobox_console.currentText())
+        RunFrogTool(console)
 
     def copyUserSelectedDirectoryButton(self):
         source_directory = self.combobox_drive.currentText()
@@ -1251,7 +1253,8 @@ Note: You can change in settings to either pick your own or try to downlad autom
                 if tpConf.getViewThumbnailsInTable():
                     cell_viewthumbnail = QTableWidgetItem()
                     cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
-                    pathToROM = os.path.join(roms_path, game)
+                    #pathToROM = os.path.join(roms_path, game)
+                    pathToROM = objGame.ROMlocation
                     extension = Path(pathToROM).suffix
                     #only show thumbnails of the .z** files 
                     sys_zxx_ext = '.' + frogtool.zxx_ext[system]
