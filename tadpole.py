@@ -237,18 +237,15 @@ Did the update complete successfully?", qm.Yes | qm.No)
 Tadpole. Major thanks to osaka#9664 on RetroHandhelds Discords for this fix!\n\n\
 Remember, you only need to apply the bootloader fix once to your SF2000.  Unlike other changes affecting the SD card, this changes the code running on the SF2000.")
             logging.info("Bootloader installed correctly...or so the user says")
-            config['bootloader'] = {'patchapplied': True}
             return
         else:
             QMessageBox().about(window, "Update not successful", "Based on your answer, the update did not complete successfully.\n\n\
 Consult https://github.com/vonmillhausen/sf2000#bootloader-bug or ask for help on Discord https://discord.gg/retrohandhelds. ")
             logging.error("Bootloader failed to install...or so the user says")
-            config['bootloader'] = {'patchapplied': False}
             return
     else:
         QMessageBox().about(window, "Download did not complete", "Please ensure you have internet and retry the fix")
         logging.error("Bootloader failed to download")
-        config['bootloader'] = {'patchapplied': False}
         return
 
 def FixSF2000BootLight():
@@ -690,7 +687,8 @@ class MainWindow (QMainWindow):
                 self.combobox_drive.addItem(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
                                                 localdrive,
                                                 localdrive)
-            
+            #Load in all mounted partitions that have a bisrv.asd
+            # TODO migrate this to use looksFroggy
             for drive in psutil.disk_partitions():
                 if os.path.exists(os.path.join(drive.mountpoint, "bios", "bisrv.asd")):
                     self.combobox_drive.addItem(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon)),
@@ -719,7 +717,6 @@ class MainWindow (QMainWindow):
                 self.status_bar.showMessage("No SF2000 Drive Detected. Please insert SD card and try again.", 2000)
                 toggle_features(False)
                 #TODO Should probably also clear the table of the ROMs that are still listed
-
             self.combobox_drive.setCurrentText(current_drive)
 
 
@@ -1037,8 +1034,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
     def download_bootlogo(self):
         status = True
         url = self.boot_logos[self.sender().text()]
-        drive = self.combobox_drive.currentText()
-        index_path = os.path.join(drive,"bios","bisrv.asd")
+        index_path = os.path.join(self.combobox_drive.currentText(),"bios","bisrv.asd")
         bootlogo_file = "bootlogo.tmp"
         msgBox = DownloadProgressDialog()
         msgBox.setText("Downloading Boot Logo...")
@@ -1050,7 +1046,7 @@ from tzlion on frogtool. Special thanks also goes to wikkiewikkie & Jason Grieve
             QMessageBox.about(self, "Success", "The boot logo was updated to " + self.sender().text())
             status = True
         else:
-            QMessageBox.about(self, "Failure", "Something went wrong while trying to change the theme")
+            QMessageBox.about(self, "Failure", "Something went wrong while trying to change the Boot logo")
             status = True
         os.remove(bootlogo_file)
         return status
@@ -1089,8 +1085,7 @@ It is recommended to save it somewhere other than your SD card used with the SF2
         drive = window.combobox_drive.currentText()
         console = window.combobox_console.currentText()
         #ARCADE is special, only ZIP's are supported
-        if(console == 'ARCADE'):
-            
+        if(console == 'ARCADE'):          
             filenames, _ = QFileDialog.getOpenFileNames(self,"Select ROMs",'',"ROM files (*.zip *.bkp)")
         else:
             filenames, _ = QFileDialog.getOpenFileNames(self,"Select ROMs",'',"ROM files (*.zip *.bkp \
@@ -1131,7 +1126,6 @@ Note: You can change in settings to either pick your own or try to downlad autom
             if ret == qm.Yes:
                 self.addBoxart()
         RunFrogTool(console)
-
             
     def validateGameShortcutComboBox(self):
         currentComboBox = self.sender() 
@@ -1172,7 +1166,6 @@ Note: You can change in settings to either pick your own or try to downlad autom
         for item in self.tbl_gamelist.selectedItems():
             try:
                 objGame = self.ROMList[item.row()]
-                romPATH = os.path.join(drive, console, item.text())
                 if console == 'ARCADE':
                     arcadeZIPROM = tadpole_functions.extractFileNameFromZFB(objGame.ROMlocation)
                     arcadeZIPPath = os.path.join(drive, console, 'bin', arcadeZIPROM)
@@ -1223,7 +1216,6 @@ Note: You can change in settings to either pick your own or try to downlad autom
         try:
             files = frogtool.getROMList(roms_path)
             self.ROMList = []
-
             msgBox.progress.reset()
             msgBox.progress.setMaximum(len(files))
             msgBox.show()
@@ -1251,6 +1243,9 @@ Note: You can change in settings to either pick your own or try to downlad autom
                 # View Thumbnail 
                 #Show picture if thumbnails in View is selected
                 if tpConf.getViewThumbnailsInTable():
+                    # We will use the cell icons to display the thumbnails.
+                    # TODO imgrate this to using images instead so we can use icons for other things in future
+                    self.tbl_gamelist.setIconSize(QSize(144, 208))
                     cell_viewthumbnail = QTableWidgetItem()
                     cell_viewthumbnail.setTextAlignment(Qt.AlignCenter)
                     #pathToROM = os.path.join(roms_path, game)
@@ -1267,8 +1262,6 @@ Note: You can change in settings to either pick your own or try to downlad autom
                         QPixmap.convertFromImage(pimg, img)
                         QIcon.addPixmap(icon, pimg)
                         cell_viewthumbnail.setIcon(icon)
-                        size = QSize(144, 208)
-                        self.tbl_gamelist.setIconSize(size)
                         cell_viewthumbnail.setFlags(Qt.ItemIsSelectable|Qt.ItemIsEnabled)
                         self.tbl_gamelist.setItem(i, 2, cell_viewthumbnail)
                     else:
@@ -1291,10 +1284,9 @@ Note: You can change in settings to either pick your own or try to downlad autom
                 # set previously saved shortcuts
                 position = tadpole_functions.getGameShortcutPosition(drive, system, game)
                 shortcut_comboBox.setCurrentIndex(position)
-                # get a callback to make sure the user isn't setting the same shortcut twice
                 self.tbl_gamelist.setCellWidget(i, 3, shortcut_comboBox)
+                # get a callback to make sure the user isn't setting the same shortcut twice
                 shortcut_comboBox.activated.connect(self.validateGameShortcutComboBox)
-
                 # View Delete Button 
                 cell_delete = QTableWidgetItem(f"Delete")
                 cell_delete.setTextAlignment(Qt.AlignCenter)
@@ -1317,9 +1309,6 @@ Note: You can change in settings to either pick your own or try to downlad autom
     def RebuildClicked(self):
         RunFrogTool(self.combobox_console.currentText())
         return
-
-
-
             
 if __name__ == "__main__":
     try:
@@ -1333,10 +1322,6 @@ if __name__ == "__main__":
                         level=logging.DEBUG)
         logging.info("Tadpole Started")
         #Setup config
-        # ERIC: We should probably move this to launching the configParser when opening a drive rather than having it open here as it can delay startup
-        # Jason: Yes...but if we need to pull settings to configure the window we'll need it pretty soon
-        # Since polling comes right after the window is shown, I think that is the only place to put it...
-        # It would need some rework and I don't know if it buys us anything we are pulling settings at launch
         config = configparser.ConfigParser()
         # Initialise the Application
         app = QApplication(sys.argv)
